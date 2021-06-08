@@ -1,0 +1,24 @@
+{
+  "compilerOptions": {
+      "lib": [
+          "es2017",
+          "dom"
+      ],
+      "target": "es2017",
+      "module": "commonjs",
+      "declaration": true,
+      "outDir": "./dist",
+      "typeRoots": [
+          "node_modules/@types"
+      ]
+  },
+  "include": [
+      "./*.ts",
+      "lib/*.ts",
+      "abi/*.ts"
+  ],
+  "exclude": [
+      "node_modules",
+      "dist"
+  ]
+}

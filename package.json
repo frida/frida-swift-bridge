@@ -1,0 +1,17 @@
+{
+  "name": "frida-swift-bridge",
+  "version": "0.0.0",
+  "description": "Swift runtime interop from Frida",
+  "main": "dist/index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "tsc && frida-compile -o dist/_agent.js loader.js",
+    "watch": "./watch.sh" 
+  },
+  "author": "Abdelrahman Eid (@hot3eed)",
+  "license": "wxWindows",
+  "dependencies": {
+    "@types/frida-gum": "^16.5.0",
+    "frida-compile": "^10.2.1"
+  }
+}
