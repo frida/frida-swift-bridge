@@ -6,22 +6,27 @@ import { resolveSymbolicReferences } from "../lib/symbols";
 export class TargetContextDescriptor {
     static readonly OFFSETOF_FLAGS = 0x0;
 
-    #flags: number | undefined;
+    #flags: ContextDescriptorFlags;
 
     constructor(protected handle: NativePointer) {
     }
 
-    get flags(): number {
+    get flags(): ContextDescriptorFlags {
         if (this.#flags != undefined) {
             return this.#flags;
         }
 
-        return this.handle.add(TargetContextDescriptor.OFFSETOF_FLAGS)
-        .readU32();
+        const value = this.handle.add(TargetContextDescriptor.OFFSETOF_FLAGS)
+            .readU32();
+        return new ContextDescriptorFlags(value);
     }
 
-    getTypeKind(): ContextDescriptorKind {
-        return this.flags & 0x1F;
+    isGeneric(): boolean {
+        return this.flags.isGeneric();
+    }
+
+    getKind(): ContextDescriptorKind {
+        return this.flags.getKind();
     }
 }
 
@@ -33,7 +38,7 @@ export class TargetTypeContextDescriptor extends TargetContextDescriptor {
     #fields: NativePointer | undefined;
 
     getTypeContextDescriptorFlags(): number {
-        return (this.flags >>> 16) & 0xFFFF;
+        return this.flags.getKindSpecificFlags();
     }
 
     get name(): string {
@@ -216,4 +221,25 @@ export interface FieldDetails {
     name: string;
     type?: string;
     isVar?: boolean;
+}
+
+class ContextDescriptorFlags {
+    constructor (private value: number) {
+    }
+
+    getKind(): ContextDescriptorKind {
+        return this.value & 0x1F;
+    }
+
+    isGeneric(): boolean {
+        return (this.value & 0x80) !== 0;
+    }
+
+    getIntValue(): number {
+        return this.value;
+    }
+
+    getKindSpecificFlags(): number {
+        return (this.value >>> 16) & 0xFFFF;
+    }
 }

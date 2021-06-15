@@ -39,7 +39,7 @@ export function getSwift5Types(module: Module) {
         const contextDescriptor = new TargetContextDescriptor(contextDescriptorPtr);
         let type: SwiftType;
 
-        switch (contextDescriptor.getTypeKind()) {
+        switch (contextDescriptor.getKind()) {
             case ContextDescriptorKind.Class:
                 const klass = new TargetClassDescriptor(contextDescriptorPtr);
                 type = {
