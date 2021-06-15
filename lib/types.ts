@@ -1,6 +1,8 @@
 import { TargetClassDescriptor,
          TargetContextDescriptor,
-         TargetStructDescriptor } from "../abi/metadata";
+         TargetEnumDescriptor,
+         TargetStructDescriptor,
+         FieldDetails } from "../abi/metadata";
 import { ContextDescriptorKind } from "../abi/metadatavalues";
 import { RelativePointer } from "./helpers";
 import { resolveSymbols, SimpleSymbolDetails } from "./symbols";
@@ -10,7 +12,7 @@ type SwiftTypeKind = "Class" | "Enum" | "Struct";
 export interface SwiftType {
     kind: SwiftTypeKind,
     name: string,
-    fields?: string[],
+    fields?: FieldDetails[],
     methods?: SimpleSymbolDetails[],
 };
 
@@ -44,15 +46,23 @@ export function getSwift5Types(module: Module) {
                     kind: "Class",
                     name: klass.name,
                     methods: resolveSymbols(module, klass.methods),
+                    fields: klass.getFieldsDetails(),
                 };
                 break;
             case ContextDescriptorKind.Enum:
+                const enun = new TargetEnumDescriptor(contextDescriptorPtr);
+                type = {
+                    kind: "Enum",
+                    name: enun.name,
+                    fields: enun.getFieldsDetails(),
+                };
                 break;
             case ContextDescriptorKind.Struct:
                 const struct = new TargetStructDescriptor(contextDescriptorPtr);
                 type = {
                     kind: "Struct",
                     name: struct.name,
+                    fields: struct.getFieldsDetails(),
                 };
                 break;
         }

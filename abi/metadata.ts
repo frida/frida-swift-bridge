@@ -1,5 +1,7 @@
 import { ContextDescriptorKind, TypeContextDescriptorFlags  } from "./metadatavalues";
 import { RelativePointer } from "../lib/helpers";
+import { FieldDescriptor } from "../reflection/records";
+import { resolveSymbolicReferences } from "../lib/symbols";
 
 export class TargetContextDescriptor {
     static readonly OFFSETOF_FLAGS = 0x0;
@@ -25,8 +27,10 @@ export class TargetContextDescriptor {
 
 export class TargetTypeContextDescriptor extends TargetContextDescriptor {
     static readonly OFFSETOF_NAME = 0x8;
+    static readonly OFFSETOF_FIELDS = 0x10;
 
     #name: string | undefined;
+    #fields: NativePointer | undefined;
 
     getTypeContextDescriptorFlags(): number {
         return (this.flags >>> 16) & 0xFFFF;
@@ -40,6 +44,43 @@ export class TargetTypeContextDescriptor extends TargetContextDescriptor {
         const namePtr = RelativePointer.resolveFrom(this.handle.add(
             TargetTypeContextDescriptor.OFFSETOF_NAME));
         return namePtr.readUtf8String();
+    }
+
+    get fields(): NativePointer {
+        if (this.#fields !== undefined) {
+            return this.#fields;
+        }
+
+        return RelativePointer.resolveFrom(this.handle.add(
+            TargetTypeContextDescriptor.OFFSETOF_FIELDS));
+    }
+
+    isReflectable(): boolean {
+        return !this.fields.equals(ptr(0x0));
+    }
+
+    getFieldsDetails(): FieldDetails[] {
+       const result: FieldDetails[] = [];
+
+        if (!this.isReflectable()) {
+            return undefined;
+        }
+
+       const fieldsDescriptor = new FieldDescriptor(this.fields);
+       if (fieldsDescriptor.numFields === 0) {
+           return undefined;
+       }
+
+       const fields = fieldsDescriptor.getFields();
+       for (const f of fields) {
+           result.push({
+               name: f.fieldName,
+               type: resolveSymbolicReferences(f.mangledTypeName),
+               isVar: f.isVar,
+           });
+       }
+
+       return result;
     }
 }
 
@@ -95,7 +136,6 @@ class VTableDescriptorHeader {
     static readonly OFFSETOF_VTABLE_SIZE = 0x4;
 
     #vtableSize: number | undefined;
-    #vtableOffset: number | undefined;
 
     constructor(private handle: NativePointer) {
     }
@@ -167,4 +207,13 @@ export class TargetStructDescriptor extends TargetTypeContextDescriptor {
         return this.handle.add(
             TargetStructDescriptor.OFFSETOF_FIELD_OFFSET_VECTOR_OFFSET).readU32();
     }
+}
+
+export class TargetEnumDescriptor extends TargetTypeContextDescriptor {
+}
+
+export interface FieldDetails {
+    name: string;
+    type?: string;
+    isVar?: boolean;
 }

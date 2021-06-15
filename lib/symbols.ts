@@ -1,4 +1,6 @@
+import { TargetTypeContextDescriptor } from "../abi/metadata";
 import { getApi } from "../lib/api";
+import { RelativePointer } from "./helpers";
 
 type ModuleName = string;
 
@@ -25,6 +27,45 @@ export function resolveSymbols(module: Module, ptrs: NativePointer[]): SimpleSym
      }
 
     return result;
+}
+
+export function resolveSymbolicReferences(symbol: NativePointer): string {
+    const base = symbol;
+    let end = base;
+    let endValue = end.readU8();
+    let contextDescriptor: TargetTypeContextDescriptor = null;
+
+    while (endValue !== 0) {
+        if (endValue >= 0x01 && endValue <= 0x17) {
+            end = end.add(1);
+
+            if (endValue === 0x01) {
+                contextDescriptor = new TargetTypeContextDescriptor(
+                    RelativePointer.resolveFrom(end));
+            } else if (endValue === 0x02) {
+                let p = RelativePointer.resolveFrom(end).readPointer();
+                p = p.and(0x7FFFFFFFFFF); // strip PAC
+
+                contextDescriptor = new TargetTypeContextDescriptor(p);
+            }
+            break;
+        } else if (endValue >= 0x18 && endValue <= 0x1F) {
+            console.log("UNIMPLEMENTED 0x18 - 0x1F");
+        }
+
+        end = end.add(1);
+        endValue = end.readU8();
+    }
+
+    if (contextDescriptor !== null) {
+        return contextDescriptor.name;
+    }
+
+    if (symbol.readCString().length === 0) {
+        return undefined;
+    }
+
+    return tryDemangleSwiftSymbol("_$s" + symbol.readCString());
 }
 
 function getSymbolAtAddress(module: Module, address: NativePointer): string {
@@ -62,11 +103,15 @@ function tryDemangleSwiftSymbol(name: string): string {
     }
 
     const api = getApi();
-    const namePtr = Memory.allocUtf8String(name);
-    const demangledNamePtr = api.swift_demangle(namePtr, name.length,
-        ptr(0), ptr(0), 0) as NativePointer;
+    try {
+        const namePtr = Memory.allocUtf8String(name);
+        const demangledNamePtr = api.swift_demangle(namePtr, name.length,
+            ptr(0), ptr(0), 0) as NativePointer;
 
-    return demangledNamePtr.readUtf8String();
+        return demangledNamePtr.readUtf8String();
+    } catch (e) {
+        return name;
+    }
 }
 
 function isSwiftSmybol(name: string): boolean {
