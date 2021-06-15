@@ -61,7 +61,7 @@ export class TargetTypeContextDescriptor extends TargetContextDescriptor {
     }
 
     isReflectable(): boolean {
-        return !this.fields.equals(ptr(0x0));
+        return this.fields !== null;
     }
 
     getFieldsDetails(): FieldDetails[] {
@@ -73,14 +73,16 @@ export class TargetTypeContextDescriptor extends TargetContextDescriptor {
 
        const fieldsDescriptor = new FieldDescriptor(this.fields);
        if (fieldsDescriptor.numFields === 0) {
-           return undefined;
+           return undefined; /* TODO: return undefined bad? */
        }
 
        const fields = fieldsDescriptor.getFields();
        for (const f of fields) {
            result.push({
                name: f.fieldName,
-               type: resolveSymbolicReferences(f.mangledTypeName),
+               type: f.mangledTypeName === null ?
+                                       undefined :
+                                       resolveSymbolicReferences(f.mangledTypeName),
                isVar: f.isVar,
            });
        }
@@ -113,7 +115,8 @@ export class TargetClassDescriptor extends TargetTypeContextDescriptor {
             return this.#methods;
         }
 
-        if (!this.hasVTable()) {
+        /* TODO: handle generic contexts */
+        if (!this.hasVTable() || this.isGeneric()) {
             return [];
         }
 

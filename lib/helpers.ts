@@ -1,5 +1,9 @@
 export class RelativePointer {
     static resolveFrom(pointer: NativePointer): NativePointer {
-        return pointer.add(pointer.readS32());
+        const value = pointer.readS32();
+        if (value === 0) {
+            return null;
+        }
+        return pointer.add(value);
     }
 }

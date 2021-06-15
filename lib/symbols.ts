@@ -61,10 +61,6 @@ export function resolveSymbolicReferences(symbol: NativePointer): string {
         return contextDescriptor.name;
     }
 
-    if (symbol.readCString().length === 0) {
-        return undefined;
-    }
-
     return tryDemangleSwiftSymbol("_$s" + symbol.readCString());
 }
 
