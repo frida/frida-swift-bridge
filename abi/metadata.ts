@@ -32,9 +32,11 @@ export class TargetContextDescriptor {
 
 export class TargetTypeContextDescriptor extends TargetContextDescriptor {
     static readonly OFFSETOF_NAME = 0x8;
+    static readonly OFFSETOF_ACCESS_FUNCTION_PTR = 0xC;
     static readonly OFFSETOF_FIELDS = 0x10;
 
     #name: string | undefined;
+    #accessFunctionPtr: NativePointer;
     #fields: NativePointer | undefined;
 
     getTypeContextDescriptorFlags(): number {
@@ -49,6 +51,15 @@ export class TargetTypeContextDescriptor extends TargetContextDescriptor {
         const namePtr = RelativePointer.resolveFrom(this.handle.add(
             TargetTypeContextDescriptor.OFFSETOF_NAME));
         return namePtr.readUtf8String();
+    }
+
+    get accessFunctionPointer(): NativePointer {
+        if (this.#accessFunctionPtr !== undefined) {
+            return this.#accessFunctionPtr;
+        }
+
+        return RelativePointer.resolveFrom(this.handle.add(
+            TargetTypeContextDescriptor.OFFSETOF_ACCESS_FUNCTION_PTR));
     }
 
     get fields(): NativePointer {

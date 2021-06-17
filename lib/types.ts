@@ -12,6 +12,7 @@ type SwiftTypeKind = "Class" | "Enum" | "Struct";
 export interface SwiftType {
     kind: SwiftTypeKind,
     name: string,
+    accessFunction: NativeFunction,
     fields?: FieldDetails[],
     methods?: SimpleSymbolDetails[],
 };
@@ -45,6 +46,7 @@ export function getSwift5Types(module: Module) {
                 type = {
                     kind: "Class",
                     name: klass.name,
+                    accessFunction: makeAccessFunction(klass.accessFunctionPointer),
                     methods: resolveSymbols(module, klass.methods),
                     fields: klass.getFieldsDetails(),
                 };
@@ -54,6 +56,7 @@ export function getSwift5Types(module: Module) {
                 type = {
                     kind: "Enum",
                     name: enun.name,
+                    accessFunction: makeAccessFunction(enun.accessFunctionPointer),
                     fields: enun.getFieldsDetails(),
                 };
                 break;
@@ -62,6 +65,7 @@ export function getSwift5Types(module: Module) {
                 type = {
                     kind: "Struct",
                     name: struct.name,
+                    accessFunction: makeAccessFunction(struct.accessFunctionPointer),
                     fields: struct.getFieldsDetails(),
                 };
                 break;
@@ -124,4 +128,8 @@ function getSwif5TypesSection(module: Module): MachOSection {
     }
 
     return null;
+}
+
+function makeAccessFunction(pointer: NativePointer): NativeFunction {
+    return new NativeFunction(pointer, "pointer", []);
 }
