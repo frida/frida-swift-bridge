@@ -143,6 +143,12 @@ export class TargetClassDescriptor extends TargetTypeContextDescriptor {
 
         for (; !i.equals(end); i = i.add(TargetMethodDescriptor.sizeof)) {
             const methodDescriptor = new TargetMethodDescriptor(i);
+
+            /* TODO: figure out what the flags signify in this case */
+            if (methodDescriptor.impl === null) {
+                continue;
+            }
+
             result.push(methodDescriptor.impl);
         }
 
