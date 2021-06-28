@@ -4,7 +4,9 @@
  */
 
 import { TargetClassDescriptor,
-         TargetTypeContextDescriptor } from "../abi/metadata";
+         TargetMetadata,
+         TargetTypeContextDescriptor,
+         TypeLayout, } from "../abi/metadata";
 import { ContextDescriptorKind } from "../abi/metadatavalues";
 import { resolveSymbolicReferences } from "../lib/symbols";
 import { FieldDescriptor } from "../reflection/records";
@@ -23,12 +25,14 @@ interface FieldDetails {
 export class Type {
     readonly kind: SwiftTypeKind;
     readonly name: string;
+    readonly flags: number;
     readonly metadataPointer: NativePointer;
     readonly fields?: FieldDetails[];
     readonly methods?: SimpleSymbolDetails[];
+    readonly typeLayout?: TypeLayout;
 
     constructor (module: Module, descriptorPtr: NativePointer) {
-        // TODO: only type context descriptors exist in __swift5_types?
+        /* TODO: only type context descriptors exist in __swift5_types? */
         const descriptor = new TargetTypeContextDescriptor(descriptorPtr);
         const kind = descriptor.getKind();
 
@@ -40,11 +44,17 @@ export class Type {
                 break;
 
             case ContextDescriptorKind.Struct:
-                this.kind = "Struct";
-                break;
-
             case ContextDescriptorKind.Enum:
-                this.kind = "Enum";
+                this.kind = kind === ContextDescriptorKind.Enum ?
+                                     "Enum" :
+                                     "Struct";
+                /* TODO: handle generics? */
+                if (!descriptor.flags.isGeneric()) {
+                    this.metadataPointer = descriptor.getAccessFunction()
+                        .call() as NativePointer;
+                    this.typeLayout = new TargetMetadata(this.metadataPointer)
+                        .getTypeLayout();
+                }
                 break;
 
             default:
@@ -54,10 +64,7 @@ export class Type {
 
         this.fields = Type.getFieldsDetails(descriptor);
         this.name = descriptor.name;
-        const accessFunction = new NativeFunction(
-            descriptor.accessFunctionPointer, "pointer", []);
-        /* TODO: handle generics */
-        this.metadataPointer = accessFunction() as NativePointer;
+        this.flags = descriptor.flags.value;
     }
 
     static getFieldsDetails(descriptor: TargetTypeContextDescriptor):

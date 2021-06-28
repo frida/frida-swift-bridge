@@ -4,8 +4,91 @@
  */
 
 import { ContextDescriptorKind,
+         MetadataKind,
+         TargetValueWitnessFlags,
          TypeContextDescriptorFlags } from "./metadatavalues";
 import { RelativePointer } from "../lib/helpers";
+
+export interface TypeLayout {
+    size: number,
+    stride: number,
+    flags: number,
+    extraInhabitantCount: number,
+}
+
+export class TargetMetadata {
+    static readonly OFFSETOF_KIND = 0x0;
+
+    readonly kind: MetadataKind;
+
+    constructor(public readonly handle: NativePointer) {
+        this.kind = this.getKind();
+    }
+
+    getKind(): MetadataKind {
+        return this.handle.add(TargetMetadata.OFFSETOF_KIND).readU32();
+    }
+
+    getValueWitnesses(): TargetValueWitnessTable {
+        if (this.kind !== MetadataKind.Enum &&
+            this.kind !== MetadataKind.Struct) {
+            throw new Error(`Kind does not have a VWT: ${this.kind}`);
+        }
+
+        const handle = this.handle.sub(Process.pointerSize).readPointer();
+        return new TargetValueWitnessTable(handle);
+    }
+
+    getTypeLayout(): TypeLayout {
+        const valueWitnesses = this.getValueWitnesses();
+        return {
+            size: valueWitnesses.size,
+            stride: valueWitnesses.stride,
+            flags: valueWitnesses.flags.data,
+            extraInhabitantCount: valueWitnesses.extraInhabitantCount,
+        }
+    }
+}
+
+class TargetValueWitnessTable {
+    static readonly OFFSETOF_SIZE = 0x40;
+    static readonly OFFSETOF_STRIDE = 0x48;
+    static readonly OFFSETOF_FLAGS = 0x50;
+    static readonly OFFSETOF_EXTRA_INHABITANT_COUNT = 0x54;
+
+    readonly size: number;
+    readonly stride: number;
+    readonly flags: TargetValueWitnessFlags;
+    readonly extraInhabitantCount: number;
+
+    constructor (private handle: NativePointer) {
+        this.size = this.getSize();
+        this.stride = this.getStride();
+        this.flags = this.getFlags();
+        this.extraInhabitantCount = this.getExtraInhabitantCount();
+    }
+
+    getSize(): number {
+        return this.handle.add(
+            TargetValueWitnessTable.OFFSETOF_SIZE).readU64().toNumber();
+    }
+
+    getStride(): number {
+		return this.handle.add(
+			TargetValueWitnessTable.OFFSETOF_STRIDE).readU64().toNumber();
+    }
+
+    getFlags(): TargetValueWitnessFlags {
+        const value = this.handle.add(
+            TargetValueWitnessTable.OFFSETOF_FLAGS).readU32();
+        return new TargetValueWitnessFlags(value);
+    }
+
+    getExtraInhabitantCount(): number {
+		return this.handle.add(
+			TargetValueWitnessTable.OFFSETOF_EXTRA_INHABITANT_COUNT).readU32();
+    }
+}
 
 export class TargetContextDescriptor {
     static readonly OFFSETOF_FLAGS = 0x0;
@@ -77,6 +160,10 @@ export class TargetTypeContextDescriptor extends TargetContextDescriptor {
 
     isReflectable(): boolean {
         return this.fields !== null;
+    }
+
+    getAccessFunction(): NativeFunction {
+        return new NativeFunction(this.accessFunctionPointer, "pointer", []);
     }
 }
 
@@ -222,7 +309,7 @@ export interface FieldDetails {
 }
 
 class ContextDescriptorFlags {
-    constructor (private value: number) {
+    constructor (public readonly value: number) {
     }
 
     getKind(): ContextDescriptorKind {
