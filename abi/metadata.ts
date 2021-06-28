@@ -1,7 +1,11 @@
-import { ContextDescriptorKind, TypeContextDescriptorFlags  } from "./metadatavalues";
+/**
+ * TODO:
+ *  - use a cleaner property-caching approach
+ */
+
+import { ContextDescriptorKind,
+         TypeContextDescriptorFlags } from "./metadatavalues";
 import { RelativePointer } from "../lib/helpers";
-import { FieldDescriptor } from "../reflection/records";
-import { resolveSymbolicReferences } from "../lib/symbols";
 
 export class TargetContextDescriptor {
     static readonly OFFSETOF_FLAGS = 0x0;
@@ -73,32 +77,6 @@ export class TargetTypeContextDescriptor extends TargetContextDescriptor {
 
     isReflectable(): boolean {
         return this.fields !== null;
-    }
-
-    getFieldsDetails(): FieldDetails[] {
-       const result: FieldDetails[] = [];
-
-        if (!this.isReflectable()) {
-            return undefined;
-        }
-
-       const fieldsDescriptor = new FieldDescriptor(this.fields);
-       if (fieldsDescriptor.numFields === 0) {
-           return undefined; /* TODO: return undefined bad? */
-       }
-
-       const fields = fieldsDescriptor.getFields();
-       for (const f of fields) {
-           result.push({
-               name: f.fieldName,
-               type: f.mangledTypeName === null ?
-                                       undefined :
-                                       resolveSymbolicReferences(f.mangledTypeName),
-               isVar: f.isVar,
-           });
-       }
-
-       return result;
     }
 }
 

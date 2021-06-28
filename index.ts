@@ -1,5 +1,11 @@
+/**
+ * TODO:
+ *  - Use proper platform checks (CPU and OS)
+ *  - Use strict null checks?
+ */
+
 import { getApi, API } from "./lib/api";
-import { getSwift5Types, SwiftType } from "./lib/types";
+import { getSwift5Types, Type } from "./lib/types";
 import { enumerateDemangledSymbols } from "./lib/symbols";
 
 class Runtime {
@@ -18,8 +24,8 @@ class Runtime {
         return getApi();
     }
 
-    enumerateTypes(module: Module): SwiftType[] {
-        const types: SwiftType[] = [];
+    enumerateTypes(module: Module): Type[] {
+        const types: Type[] = [];
 
         if (module === undefined) {
             const allModules = new ModuleMap();
