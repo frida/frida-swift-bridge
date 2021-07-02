@@ -16,6 +16,11 @@ export function getApi(): API {
             functions: {
                 "swift_demangle": ["pointer", ["pointer", "size_t",
                     "pointer", "pointer", "int32"]],
+                /* This one uses swiftcall actually but we we're lucky the
+                 * registers are the same as SystemV for this particular case.
+                 */
+                "swift_stdlib_getTypeByMangledNameUntrusted": ["pointer",
+                    ["pointer", "size_t"]],
             }
         }
     ];
@@ -53,7 +58,13 @@ function makeAPI(exports: any): API {
         Object.keys(functions).forEach(name => {
             Module.ensureInitialized(module.name);
 
-            const exp = module.findExportByName(name);
+            const exp = module.findExportByName(name) ||
+                      DebugSymbol.fromName(name).address;
+
+            if (exp.isNull()) {
+                throw new Error(`Unable to find API: ${name}`);
+            }
+
             const returnType = functions[name][0];
             const argumentTypes = functions[name][1];
             const native = new NativeFunction(exp, returnType, argumentTypes);
