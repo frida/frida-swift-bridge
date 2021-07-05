@@ -11,7 +11,7 @@ import { ContextDescriptorKind,
          MethodDescriptorKind } from "../abi/metadatavalues";
 import { resolveSymbolicReferences } from "../lib/symbols";
 import { FieldDescriptor } from "../reflection/records";
-import { RelativePointer, makeUnenumerable } from "./helpers";
+import { RelativePointer } from "./helpers";
 import { getSymbolAtAddress } from "./symbols";
 import { getPrivateAPI } from "./api";
 
@@ -43,11 +43,6 @@ export class Type {
     protected metadata: TargetMetadata;
 
     constructor (protected module: Module, descriptorPtr: NativePointer) {
-        makeUnenumerable(this, 'module');
-        makeUnenumerable(this, 'descriptor');
-        makeUnenumerable(this, 'metadata');
-        makeUnenumerable(this, 'metadataPointer');
-
         /* TODO: only type context descriptors exist in __swift5_types? */
         const descriptor = new TargetTypeContextDescriptor(descriptorPtr);
         const kind = descriptor.getKind();
@@ -157,6 +152,17 @@ export class Type {
     isAddressOnly(): boolean {
         return this.descriptor.isGeneric() ||
                this.metadata.getValueWitnesses().flags.isNonPOD;
+    }
+
+    toJSON(): any {
+        return {
+            kind: this.kind,
+            name: this.name,
+            flags: this.flags,
+            fields: this.fields,
+            methods: this.methods,
+            typeLayout: this.typeLayout,
+        }
     }
 }
 
