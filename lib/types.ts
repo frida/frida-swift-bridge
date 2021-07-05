@@ -7,19 +7,28 @@ import { TargetClassDescriptor,
          TargetMetadata,
          TargetTypeContextDescriptor,
          TypeLayout, } from "../abi/metadata";
-import { ContextDescriptorKind } from "../abi/metadatavalues";
+import { ContextDescriptorKind,
+         MethodDescriptorKind } from "../abi/metadatavalues";
 import { resolveSymbolicReferences } from "../lib/symbols";
 import { FieldDescriptor } from "../reflection/records";
-import { RelativePointer } from "./helpers";
-import { resolveSymbols, SimpleSymbolDetails } from "./symbols";
+import { RelativePointer, makeUnenumerable } from "./helpers";
+import { getSymbolAtAddress } from "./symbols";
 import { getPrivateAPI } from "./api";
 
 type SwiftTypeKind = "Class" | "Enum" | "Struct";
+type MethodType = "Init" | "Getter" | "Setter" | "ModifyCoroutine" |
+    "ReadCoroutine" | "Method";
 
 interface FieldDetails {
     name: string;
     type?: string;
     isVar?: boolean;
+}
+
+interface MethodDetails {
+    address: NativePointer;
+    name: string;
+    type: MethodType;
 }
 
 export class Type {
@@ -28,10 +37,17 @@ export class Type {
     readonly flags: number;
     readonly metadataPointer: NativePointer;
     readonly fields?: FieldDetails[];
-    readonly methods?: SimpleSymbolDetails[];
+    readonly methods?: MethodDetails[];
     readonly typeLayout?: TypeLayout;
+    protected descriptor: TargetTypeContextDescriptor;
+    protected metadata: TargetMetadata;
 
-    constructor (module: Module, descriptorPtr: NativePointer) {
+    constructor (protected module: Module, descriptorPtr: NativePointer) {
+        makeUnenumerable(this, 'module');
+        makeUnenumerable(this, 'descriptor');
+        makeUnenumerable(this, 'metadata');
+        makeUnenumerable(this, 'metadataPointer');
+
         /* TODO: only type context descriptors exist in __swift5_types? */
         const descriptor = new TargetTypeContextDescriptor(descriptorPtr);
         const kind = descriptor.getKind();
@@ -39,8 +55,9 @@ export class Type {
         switch (kind) {
             case ContextDescriptorKind.Class:
                 const klass = new TargetClassDescriptor(descriptorPtr);
+                this.descriptor = klass;
                 this.kind = "Class";
-                this.methods = resolveSymbols(module, klass.methods);
+                this.methods = this.getMethodsDetails();
                 break;
 
             case ContextDescriptorKind.Struct:
@@ -52,8 +69,8 @@ export class Type {
                 if (!descriptor.flags.isGeneric()) {
                     this.metadataPointer = descriptor.getAccessFunction()
                         .call() as NativePointer;
-                    this.typeLayout = new TargetMetadata(this.metadataPointer)
-                        .getTypeLayout();
+                    this.metadata = new TargetMetadata(this.metadataPointer);
+                    this.typeLayout = this.metadata.getTypeLayout();
                 }
                 break;
 
@@ -92,6 +109,54 @@ export class Type {
        }
 
        return result;
+    }
+
+    getMethodsDetails(): MethodDetails[] {
+        const descriptor = this.descriptor as TargetClassDescriptor;
+        const result: MethodDetails[] = [];
+
+        for (const methDesc of descriptor.getMethodDescriptors()) {
+            const address = methDesc.impl;
+            const name = getSymbolAtAddress(this.module, address);
+            const kind = methDesc.flags.getKind();
+            let type: MethodType;
+
+            switch (kind) {
+                case MethodDescriptorKind.Init:
+                    type = "Init";
+                    break;
+                case MethodDescriptorKind.Getter:
+                    type = "Getter";
+                    break;
+                case MethodDescriptorKind.Setter:
+                    type = "Setter";
+                    break;
+                case MethodDescriptorKind.ReadCoroutine:
+                    type = "ReadCoroutine";
+                    break;
+                case MethodDescriptorKind.ModifyCoroutine:
+                    type = "ModifyCoroutine";
+                    break;
+                case MethodDescriptorKind.Method:
+                    type = "Method";
+                    break;
+                default:
+                    throw new Error(`Invalid method descriptor kind: ${kind}`);
+            }
+
+            result.push({
+                address,
+                name,
+                type,
+            });
+        }
+
+        return result;
+    }
+
+    isAddressOnly(): boolean {
+        return this.descriptor.isGeneric() ||
+               this.metadata.getValueWitnesses().flags.isNonPOD;
     }
 }
 
