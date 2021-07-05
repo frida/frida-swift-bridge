@@ -37,12 +37,12 @@ export class Type {
     readonly name: string;
     readonly flags: number;
     readonly fields?: FieldDetails[];
-    protected metadataPointer: NativePointer;
-    protected metadata: TargetMetadata;
+    readonly metadataPointer: NativePointer;
+    readonly metadata: TargetMetadata;
 
-    constructor (protected module: Module,
-                 protected kind: SwiftTypeKind,
-                 protected descriptor: TargetTypeContextDescriptor) {
+    constructor (readonly module: Module,
+                 readonly kind: SwiftTypeKind,
+                 readonly descriptor: TargetTypeContextDescriptor) {
         this.name = descriptor.name;
         this.flags = descriptor.flags.value;
         this.fields = Type.getFieldsDetails(descriptor);
@@ -149,7 +149,7 @@ export class Class extends Type {
     toJSON() {
         const parent = super.toJSON();
         return Object.assign(parent, {
-            method: this.methods,
+            methods: this.methods,
         });
     }
 }
@@ -208,6 +208,7 @@ export function getSwift5Types(module: Module) {
                 break;
             case ContextDescriptorKind.Enum:
                 type = new Enum(module, ctxDescPtr);
+                break;
             case ContextDescriptorKind.Struct:
                 type = new Struct(module, ctxDescPtr);
                 break;
