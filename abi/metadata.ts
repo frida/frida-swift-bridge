@@ -193,7 +193,9 @@ export class TargetClassDescriptor extends TargetTypeContextDescriptor {
     getMethodDescriptors(): TargetMethodDescriptor[] {
         const result: TargetMethodDescriptor[] = [];
 
-        if (!this.hasVTable()) {
+        /** TODO: handle generic classes properly, we're skipping them for now.
+         */
+        if (!this.hasVTable() || this.isGeneric()) {
             return result;
         }
 
