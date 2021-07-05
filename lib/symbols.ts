@@ -64,7 +64,7 @@ export function resolveSymbolicReferences(symbol: NativePointer): string {
     return tryDemangleSwiftSymbol("_$s" + symbol.readCString());
 }
 
-function getSymbolAtAddress(module: Module, address: NativePointer): string {
+export function getSymbolAtAddress(module: Module, address: NativePointer): string {
    const strAddr = address.toString();
 
     if (module.name in cachedSymbols) {
