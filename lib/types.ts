@@ -4,7 +4,9 @@
  */
 
 import { TargetClassDescriptor,
+         TargetEnumDescriptor,
          TargetMetadata,
+         TargetStructDescriptor,
          TargetTypeContextDescriptor,
          TypeLayout, } from "../abi/metadata";
 import { ContextDescriptorKind,
@@ -32,51 +34,25 @@ interface MethodDetails {
 }
 
 export class Type {
-    readonly kind: SwiftTypeKind;
     readonly name: string;
     readonly flags: number;
-    readonly metadataPointer: NativePointer;
     readonly fields?: FieldDetails[];
-    readonly methods?: MethodDetails[];
-    readonly typeLayout?: TypeLayout;
-    protected descriptor: TargetTypeContextDescriptor;
+    protected metadataPointer: NativePointer;
     protected metadata: TargetMetadata;
 
-    constructor (protected module: Module, descriptorPtr: NativePointer) {
-        /* TODO: only type context descriptors exist in __swift5_types? */
-        const descriptor = new TargetTypeContextDescriptor(descriptorPtr);
-        const kind = descriptor.getKind();
-
-        switch (kind) {
-            case ContextDescriptorKind.Class:
-                const klass = new TargetClassDescriptor(descriptorPtr);
-                this.descriptor = klass;
-                this.kind = "Class";
-                this.methods = this.getMethodsDetails();
-                break;
-
-            case ContextDescriptorKind.Struct:
-            case ContextDescriptorKind.Enum:
-                this.kind = kind === ContextDescriptorKind.Enum ?
-                                     "Enum" :
-                                     "Struct";
-                /* TODO: handle generics? */
-                if (!descriptor.flags.isGeneric()) {
-                    this.metadataPointer = descriptor.getAccessFunction()
-                        .call() as NativePointer;
-                    this.metadata = new TargetMetadata(this.metadataPointer);
-                    this.typeLayout = this.metadata.getTypeLayout();
-                }
-                break;
-
-            default:
-                console.log(`Unhandled context descriptor kind: ${kind}`);
-                return;
-        }
-
-        this.fields = Type.getFieldsDetails(descriptor);
+    constructor (protected module: Module,
+                 protected kind: SwiftTypeKind,
+                 protected descriptor: TargetTypeContextDescriptor) {
         this.name = descriptor.name;
         this.flags = descriptor.flags.value;
+        this.fields = Type.getFieldsDetails(descriptor);
+
+        /* TODO: handle generics? */
+        if (!descriptor.flags.isGeneric()) {
+            this.metadataPointer = descriptor.getAccessFunction()
+                .call() as NativePointer;
+            this.metadata = new TargetMetadata(this.metadataPointer);
+        }
     }
 
     static getFieldsDetails(descriptor: TargetTypeContextDescriptor):
@@ -104,6 +80,27 @@ export class Type {
        }
 
        return result;
+    }
+
+    toJSON() {
+        return {
+            kind: this.kind,
+            name: this.name,
+            flags: this.flags,
+            fields: this.fields,
+        }
+    }
+}
+
+export class Class extends Type {
+    readonly methods: MethodDetails[];
+
+    constructor(module: Module, descriptorPtr: NativePointer) {
+        const descriptor = new TargetClassDescriptor(descriptorPtr);
+        super(module, "Class", descriptor);
+
+        this.methods = this.getMethodsDetails();
+        //this.makeMethodInvocationWrappers();
     }
 
     getMethodsDetails(): MethodDetails[] {
@@ -149,20 +146,38 @@ export class Type {
         return result;
     }
 
-    isAddressOnly(): boolean {
-        return this.descriptor.isGeneric() ||
-               this.metadata.getValueWitnesses().flags.isNonPOD;
+    toJSON() {
+        const parent = super.toJSON();
+        return Object.assign(parent, {
+            method: this.methods,
+        });
+    }
+}
+
+export class Struct extends Type {
+    readonly typeLayout: TypeLayout;
+
+    constructor(module: Module, descriptorPtr: NativePointer) {
+        const descriptor = new TargetStructDescriptor(descriptorPtr);
+        super(module, "Struct", descriptor);
+
+        if (!this.descriptor.flags.isGeneric()) {
+            this.typeLayout = this.metadata.getTypeLayout();
+        }
     }
 
-    toJSON(): any {
-        return {
-            kind: this.kind,
-            name: this.name,
-            flags: this.flags,
-            fields: this.fields,
-            methods: this.methods,
+    toJSON() {
+        const parent = super.toJSON();
+        return Object.assign(super.toJSON(), {
             typeLayout: this.typeLayout,
-        }
+        });
+    }
+}
+
+export class Enum extends Type {
+    constructor(module: Module, descriptroPtr: NativePointer) {
+        const descriptor = new TargetEnumDescriptor(descriptroPtr);
+        super(module, "Enum", descriptor);
     }
 }
 
@@ -179,10 +194,26 @@ export function getSwift5Types(module: Module) {
     const sizeofRelativePointer = 0x4;
     const nTypes = section.size / sizeofRelativePointer;
 
+	/* TODO: only type context descriptors exist in __swift5_types? */
     for (let i = 0; i < nTypes; i++) {
         const record = section.vmAddress.add(i * sizeofRelativePointer);
-        const contextDescriptorPtr = RelativePointer.resolveFrom(record);
-        const type = new Type(module, contextDescriptorPtr);
+        const ctxDescPtr = RelativePointer.resolveFrom(record);
+        const ctxDesc = new TargetTypeContextDescriptor(ctxDescPtr);
+        const kind = ctxDesc.getKind();
+        let type: Type;
+
+        switch (kind) {
+            case ContextDescriptorKind.Class:
+                type = new Class(module, ctxDescPtr);
+                break;
+            case ContextDescriptorKind.Enum:
+                type = new Enum(module, ctxDescPtr);
+            case ContextDescriptorKind.Struct:
+                type = new Struct(module, ctxDescPtr);
+                break;
+            default:
+                throw new Error(`Unhandled context descriptor kind: ${kind}`);
+        }
 
         result.push(type);
     }
