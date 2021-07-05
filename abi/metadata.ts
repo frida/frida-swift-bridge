@@ -6,7 +6,8 @@
 import { ContextDescriptorKind,
          MetadataKind,
          TargetValueWitnessFlags,
-         TypeContextDescriptorFlags } from "./metadatavalues";
+         TypeContextDescriptorFlags,
+         MethodDescriptorFlags } from "./metadatavalues";
 import { RelativePointer } from "../lib/helpers";
 
 export interface TypeLayout {
@@ -178,32 +179,27 @@ export class TargetClassDescriptor extends TargetTypeContextDescriptor {
             (1 << TypeContextDescriptorFlags.Class_HasVTable));
     }
 
-    getMethodDescriptors(): NativePointer {
+    getVTableDescriptor(): VTableDescriptorHeader {
         if (!this.hasVTable()) {
             return null;
         }
 
-        return this.handle.add(TargetClassDescriptor.OFFSETOF_METHOD_DESCRIPTORS);
+        const pointer = this.handle.add(
+            TargetClassDescriptor.OFFSETOF_TARGET_VTABLE_DESCRIPTOR_HEADER);
+        const vtableHeader = new VTableDescriptorHeader(pointer);
+        return vtableHeader;
     }
 
-    get methods(): NativePointer[] {
-        if (this.#methods !== undefined) {
-            return this.#methods;
+    getMethodDescriptors(): TargetMethodDescriptor[] {
+        const result: TargetMethodDescriptor[] = [];
+
+        if (!this.hasVTable()) {
+            return result;
         }
 
-        /* TODO: handle generic contexts */
-        if (!this.hasVTable() || this.isGeneric()) {
-            return [];
-        }
-
-        const result: NativePointer[] = [];
-        const vtableHeaderPtr = this.handle.add(
-            TargetClassDescriptor.OFFSETOF_TARGET_VTABLE_DESCRIPTOR_HEADER);
-        const vtableHeader = new VTableDescriptorHeader(vtableHeaderPtr);
-        const vtableSize = vtableHeader.vtableSize;
-
-        /* 4 is word size, so we assume 64-bit systems only for now */
-        let i = this.getMethodDescriptors();
+        const vtableSize = this.getVTableDescriptor().vtableSize;
+        let i = this.handle.add(
+            TargetClassDescriptor.OFFSETOF_METHOD_DESCRIPTORS);
         const end = i.add(vtableSize * TargetMethodDescriptor.sizeof);
 
         for (; !i.equals(end); i = i.add(TargetMethodDescriptor.sizeof)) {
@@ -214,7 +210,7 @@ export class TargetClassDescriptor extends TargetTypeContextDescriptor {
                 continue;
             }
 
-            result.push(methodDescriptor.impl);
+            result.push(methodDescriptor);
         }
 
         return result;
@@ -245,18 +241,20 @@ class TargetMethodDescriptor {
     static readonly OFFSETOF_IMPL = 0x4;
     static sizeof = 8;
 
-    #flags: number | undefined;
+    #flags: MethodDescriptorFlags;
     #impl: NativePointer | undefined;
 
     constructor(private handle: NativePointer) {
     }
 
-    get flags(): number {
+    get flags(): MethodDescriptorFlags {
         if (this.#flags !== undefined) {
             return this.#flags;
         }
 
-        return this.handle.add(TargetMethodDescriptor.OFFSETOF_FLAGS).readU32();
+        const value = this.handle.add(TargetMethodDescriptor.OFFSETOF_FLAGS)
+            .readU32();
+        return new MethodDescriptorFlags(value);
     }
 
     get impl(): NativePointer {
