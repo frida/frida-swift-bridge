@@ -1,6 +1,6 @@
 import { TargetTypeContextDescriptor } from "../abi/metadata";
+import { RelativeDirectPointer } from "../basic/relativepointer";
 import { getApi } from "../lib/api";
-import { RelativePointer } from "./helpers";
 
 type ModuleName = string;
 
@@ -41,10 +41,10 @@ export function resolveSymbolicReferences(symbol: NativePointer): string {
 
             if (endValue === 0x01) {
                 contextDescriptor = new TargetTypeContextDescriptor(
-                    RelativePointer.resolveFrom(end));
+                    RelativeDirectPointer.From(end).get());
             } else if (endValue === 0x02) {
-                let p = RelativePointer.resolveFrom(end).readPointer();
-                p = p.and(0x7FFFFFFFFFF); // strip PAC
+                let p = RelativeDirectPointer.From(end).get().readPointer();
+                p = p.and(0x7FFFFFFFFFF); // TODO: strip PAC
 
                 contextDescriptor = new TargetTypeContextDescriptor(p);
             }

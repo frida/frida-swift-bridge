@@ -13,7 +13,7 @@ import { ContextDescriptorKind,
          MethodDescriptorKind } from "../abi/metadatavalues";
 import { resolveSymbolicReferences } from "../lib/symbols";
 import { FieldDescriptor } from "../reflection/records";
-import { RelativePointer } from "./helpers";
+import { RelativeDirectPointer } from "../basic/relativepointer";
 import { getSymbolAtAddress } from "./symbols";
 import { getPrivateAPI } from "./api";
 
@@ -63,7 +63,7 @@ export class Type {
             return undefined;
         }
 
-       const fieldsDescriptor = new FieldDescriptor(descriptor.fields);
+       const fieldsDescriptor = new FieldDescriptor(descriptor.fields.get());
        if (fieldsDescriptor.numFields === 0) {
            return undefined; /* TODO: return undefined bad? */
        }
@@ -74,7 +74,7 @@ export class Type {
                name: f.fieldName,
                type: f.mangledTypeName === null ?
                                        undefined :
-                                       resolveSymbolicReferences(f.mangledTypeName),
+                                       resolveSymbolicReferences(f.mangledTypeName.get()),
                isVar: f.isVar,
            });
        }
@@ -100,7 +100,6 @@ export class Class extends Type {
         super(module, "Class", descriptor);
 
         this.methods = this.getMethodsDetails();
-        //this.makeMethodInvocationWrappers();
     }
 
     getMethodsDetails(): MethodDetails[] {
@@ -108,7 +107,7 @@ export class Class extends Type {
         const result: MethodDetails[] = [];
 
         for (const methDesc of descriptor.getMethodDescriptors()) {
-            const address = methDesc.impl;
+            const address = methDesc.impl.get();
             const name = getSymbolAtAddress(this.module, address);
             const kind = methDesc.flags.getKind();
             let type: MethodType;
@@ -197,7 +196,7 @@ export function getSwift5Types(module: Module) {
 	/* TODO: only type context descriptors exist in __swift5_types? */
     for (let i = 0; i < nTypes; i++) {
         const record = section.vmAddress.add(i * sizeofRelativePointer);
-        const ctxDescPtr = RelativePointer.resolveFrom(record);
+        const ctxDescPtr = RelativeDirectPointer.From(record).get();
         const ctxDesc = new TargetTypeContextDescriptor(ctxDescPtr);
         const kind = ctxDesc.getKind();
         let type: Type;

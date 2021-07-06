@@ -1,4 +1,4 @@
-import { RelativePointer } from "../lib/helpers";
+import { RelativeDirectPointer } from "../basic/relativepointer";
 
 export class FieldDescriptor {
     static readonly SIZE = 16;
@@ -45,7 +45,7 @@ class FieldRecord {
     static readonly OFFSETOF_FIELD_NAME = 0x8;
 
     #flags: number;
-    #mangledTypeName: NativePointer;
+    #mangledTypeName: RelativeDirectPointer;
     #fieldName: string;
 
     constructor(private handle: NativePointer) {
@@ -60,12 +60,12 @@ class FieldRecord {
         return this.#flags;
     }
 
-    get mangledTypeName(): NativePointer {
+    get mangledTypeName(): RelativeDirectPointer {
         if (this.#mangledTypeName !== undefined) {
             return this.#mangledTypeName;
         }
 
-        this.#mangledTypeName = RelativePointer.resolveFrom(
+        this.#mangledTypeName = RelativeDirectPointer.From(
             this.handle.add(FieldRecord.OFFSETOF_MANGLED_TYPE_NAME));
         return this.#mangledTypeName;
     }
@@ -75,8 +75,8 @@ class FieldRecord {
             return this.#fieldName;
         }
 
-        this.#fieldName = RelativePointer.resolveFrom(
-            this.handle.add(FieldRecord.OFFSETOF_FIELD_NAME)).readUtf8String();
+        this.#fieldName = RelativeDirectPointer.From(
+            this.handle.add(FieldRecord.OFFSETOF_FIELD_NAME)).get().readUtf8String();
         return this.#fieldName;
     }
 
