@@ -1,6 +1,6 @@
 /**
  * TODO:
- *  - use a cleaner property-caching approach
+ *  - Use a cleaner property-caching approach
  */
 
 import { ContextDescriptorKind,
@@ -8,7 +8,8 @@ import { ContextDescriptorKind,
          TargetValueWitnessFlags,
          TypeContextDescriptorFlags,
          MethodDescriptorFlags } from "./metadatavalues";
-import { RelativePointer } from "../lib/helpers";
+import { RelativeDirectPointer,
+         RelativeIndirectablePointer } from "../basic/relativepointer";
 
 export interface TypeLayout {
     size: number,
@@ -93,11 +94,12 @@ class TargetValueWitnessTable {
 
 export class TargetContextDescriptor {
     static readonly OFFSETOF_FLAGS = 0x0;
+    static readonly OFFSETOF_PARENT = 0x4;
 
     #flags: ContextDescriptorFlags;
+    #parent: RelativeIndirectablePointer;
 
-    constructor(protected handle: NativePointer) {
-    }
+    constructor(protected handle: NativePointer) { }
 
     get flags(): ContextDescriptorFlags {
         if (this.#flags != undefined) {
@@ -109,12 +111,51 @@ export class TargetContextDescriptor {
         return new ContextDescriptorFlags(value);
     }
 
+    get parent(): RelativeIndirectablePointer {
+        if (this.#parent !== undefined) {
+            return this.#parent;
+        }
+
+        this.#parent = RelativeIndirectablePointer.From(
+            this.handle.add(TargetContextDescriptor.OFFSETOF_PARENT));
+        return this.#parent;
+    }
+
     isGeneric(): boolean {
         return this.flags.isGeneric();
     }
 
     getKind(): ContextDescriptorKind {
         return this.flags.getKind();
+    }
+
+    getModuleContext(): TargetModuleContextDescriptor {
+        let m = new TargetModuleContextDescriptor(this.parent.get());
+
+        while (m.flags.getKind() !== ContextDescriptorKind.Module) {
+            m = new TargetModuleContextDescriptor(m.parent.get());
+        }
+
+        return m;
+    }
+}
+
+export class TargetModuleContextDescriptor extends TargetContextDescriptor {
+    private static OFFSETOF_NAME = 0x8;
+
+    #name: string;
+
+    get name(): string {
+        if (this.#name !== undefined) {
+            return this.#name;
+        }
+
+        const relPtr = this.handle.add(
+            TargetModuleContextDescriptor.OFFSETOF_NAME);
+        const absPtr = RelativeDirectPointer.From(relPtr).get();
+
+        this.#name = absPtr.readCString();
+        return this.#name;
     }
 }
 
@@ -125,7 +166,7 @@ export class TargetTypeContextDescriptor extends TargetContextDescriptor {
 
     #name: string | undefined;
     #accessFunctionPtr: NativePointer;
-    #fields: NativePointer | undefined;
+    #fields: RelativeDirectPointer;
 
     getTypeContextDescriptorFlags(): number {
         return this.flags.getKindSpecificFlags();
@@ -136,8 +177,8 @@ export class TargetTypeContextDescriptor extends TargetContextDescriptor {
             return this.#name;
         }
 
-        const namePtr = RelativePointer.resolveFrom(this.handle.add(
-            TargetTypeContextDescriptor.OFFSETOF_NAME));
+        const namePtr = RelativeDirectPointer.From(this.handle.add(
+            TargetTypeContextDescriptor.OFFSETOF_NAME)).get();
         return namePtr.readUtf8String();
     }
 
@@ -146,16 +187,16 @@ export class TargetTypeContextDescriptor extends TargetContextDescriptor {
             return this.#accessFunctionPtr;
         }
 
-        return RelativePointer.resolveFrom(this.handle.add(
-            TargetTypeContextDescriptor.OFFSETOF_ACCESS_FUNCTION_PTR));
+        return RelativeDirectPointer.From(this.handle.add(
+            TargetTypeContextDescriptor.OFFSETOF_ACCESS_FUNCTION_PTR)).get();
     }
 
-    get fields(): NativePointer {
+    get fields(): RelativeDirectPointer {
         if (this.#fields !== undefined) {
             return this.#fields;
         }
 
-        return RelativePointer.resolveFrom(this.handle.add(
+        return RelativeDirectPointer.From(this.handle.add(
             TargetTypeContextDescriptor.OFFSETOF_FIELDS));
     }
 
@@ -171,8 +212,6 @@ export class TargetTypeContextDescriptor extends TargetContextDescriptor {
 export class TargetClassDescriptor extends TargetTypeContextDescriptor {
     static readonly OFFSETOF_TARGET_VTABLE_DESCRIPTOR_HEADER = 0x2C;
     static readonly OFFSETOF_METHOD_DESCRIPTORS = 0x34;
-
-    #methods: NativePointer[] | undefined;
 
     hasVTable(): boolean {
         return !!(this.getTypeContextDescriptorFlags() &
@@ -244,7 +283,7 @@ class TargetMethodDescriptor {
     static sizeof = 8;
 
     #flags: MethodDescriptorFlags;
-    #impl: NativePointer | undefined;
+    #impl: RelativeDirectPointer;
 
     constructor(private handle: NativePointer) {
     }
@@ -259,13 +298,13 @@ class TargetMethodDescriptor {
         return new MethodDescriptorFlags(value);
     }
 
-    get impl(): NativePointer {
+    get impl(): RelativeDirectPointer {
         if (this.#impl !== undefined) {
             return this.#impl;
         }
 
         const pointer = this.handle.add(TargetMethodDescriptor.OFFSETOF_IMPL);
-        return RelativePointer.resolveFrom(pointer);
+        return RelativeDirectPointer.From(pointer);
     }
 }
 

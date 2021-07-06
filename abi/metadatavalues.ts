@@ -26,7 +26,11 @@ export enum MetadataKind {
 }
 
 export enum ContextDescriptorKind {
+    Module = 0,
+    Extension = 1,
+    Anonymous = 2,
     Protocol = 3,
+    OpaqueType = 4,
     TypeFirst = 16,
     Class = TypeFirst,
     Struct = TypeFirst + 1,
