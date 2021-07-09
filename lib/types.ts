@@ -33,10 +33,91 @@ interface MethodDetails {
     type: MethodType;
 }
 
+export class SwiftModule {
+    readonly $name: string;
+    readonly $allTypes: Type[] = [];
+    readonly $classes: Class[] = [];
+    readonly $structs: Struct[] = [];
+    readonly $enums: Enum[] = [];
+
+    constructor(readonly $native: Module) {
+        this.cacheSwfit5Types();
+
+        if (this.$allTypes.length > 0) {
+            this.$name = this.$allTypes[0].moduleName;
+        }
+    }
+
+    cacheSwfit5Types() {
+        const section = this.getSwif5TypesSection();
+        /* TODO: centralize this value */
+        const sizeofRelativePointer = 0x4;
+        const nTypes = section.size / sizeofRelativePointer;
+
+        /* TODO: only type context descriptors exist in __swift5_types? */
+        for (let i = 0; i < nTypes; i++) {
+            const record = section.vmAddress.add(i * sizeofRelativePointer);
+            const ctxDescPtr = RelativeDirectPointer.From(record).get();
+            const ctxDesc = new TargetTypeContextDescriptor(ctxDescPtr);
+            const kind = ctxDesc.getKind();
+            let type: Type;
+
+            switch (kind) {
+                case ContextDescriptorKind.Class:
+                    type = new Class(this.$native, ctxDescPtr);
+                    this.$classes.push(type as Class);
+                    break;
+                case ContextDescriptorKind.Enum:
+                    type = new Enum(this.$native, ctxDescPtr);
+                    this.$enums.push(type as Enum)
+                    break;
+                case ContextDescriptorKind.Struct:
+                    type = new Struct(this.$native, ctxDescPtr);
+                    this.$structs.push(type as Struct);
+                    break;
+                default:
+                    throw new Error(`Unhandled context descriptor kind: ${kind}`);
+            }
+
+            this.$allTypes.push(type);
+
+            Object.defineProperty(this, type.name, {
+                configurable: true,
+                enumerable: true,
+                writable: false,
+                value: type,
+            })
+        }
+    }
+
+    getSwif5TypesSection(): MachOSection {
+        const machHeader = this.$native.base;
+        const segName = Memory.allocUtf8String("__TEXT");
+        const sectName = Memory.allocUtf8String("__swift5_types");
+        const sizeOut = Memory.alloc(Process.pointerSize);
+        const privAPI = getPrivateAPI();
+
+        const vmAddress = privAPI.getsectiondata(machHeader, segName, sectName,
+            sizeOut) as NativePointer;
+        const size = sizeOut.readU32() as number;
+
+        return { vmAddress, size };
+    }
+
+    toJSON() {
+        return {
+            classes: this.$classes.length,
+            structs: this.$structs.length,
+            enums: this.$enums.length,
+        };
+    }
+}
+
 export class Type {
     readonly name: string;
     readonly flags: number;
     readonly fields?: FieldDetails[];
+    readonly moduleName: string;
     readonly metadataPointer: NativePointer;
     readonly metadata: TargetMetadata;
 
@@ -46,6 +127,7 @@ export class Type {
         this.name = descriptor.name;
         this.flags = descriptor.flags.value;
         this.fields = Type.getFieldsDetails(descriptor);
+        this.moduleName = descriptor.getModuleContext().name;
 
         /* TODO: handle generics? */
         if (!descriptor.flags.isGeneric()) {
@@ -144,13 +226,6 @@ export class Class extends Type {
 
         return result;
     }
-
-    toJSON() {
-        const parent = super.toJSON();
-        return Object.assign(parent, {
-            methods: this.methods,
-        });
-    }
 }
 
 export class Struct extends Type {
@@ -163,13 +238,6 @@ export class Struct extends Type {
         if (!this.descriptor.flags.isGeneric()) {
             this.typeLayout = this.metadata.getTypeLayout();
         }
-    }
-
-    toJSON() {
-        const parent = super.toJSON();
-        return Object.assign(super.toJSON(), {
-            typeLayout: this.typeLayout,
-        });
     }
 }
 
@@ -184,53 +252,3 @@ interface MachOSection {
     vmAddress: NativePointer,
     size: number,
 };
-
-export function getSwift5Types(module: Module) {
-    const section = getSwif5TypesSection(module);
-
-    const result: Type[] = [];
-    /* TODO: centralize this value */
-    const sizeofRelativePointer = 0x4;
-    const nTypes = section.size / sizeofRelativePointer;
-
-	/* TODO: only type context descriptors exist in __swift5_types? */
-    for (let i = 0; i < nTypes; i++) {
-        const record = section.vmAddress.add(i * sizeofRelativePointer);
-        const ctxDescPtr = RelativeDirectPointer.From(record).get();
-        const ctxDesc = new TargetTypeContextDescriptor(ctxDescPtr);
-        const kind = ctxDesc.getKind();
-        let type: Type;
-
-        switch (kind) {
-            case ContextDescriptorKind.Class:
-                type = new Class(module, ctxDescPtr);
-                break;
-            case ContextDescriptorKind.Enum:
-                type = new Enum(module, ctxDescPtr);
-                break;
-            case ContextDescriptorKind.Struct:
-                type = new Struct(module, ctxDescPtr);
-                break;
-            default:
-                throw new Error(`Unhandled context descriptor kind: ${kind}`);
-        }
-
-        result.push(type);
-    }
-
-    return result;
-}
-
-function getSwif5TypesSection(module: Module): MachOSection {
-    const machHeader = module.base;
-    const segName = Memory.allocUtf8String("__TEXT");
-    const sectName = Memory.allocUtf8String("__swift5_types");
-    const sizeOut = Memory.alloc(Process.pointerSize);
-    const privAPI = getPrivateAPI();
-
-    const vmAddr = privAPI.getsectiondata(machHeader, segName, sectName,
-        sizeOut) as NativePointer;
-    const size = sizeOut.readU32() as number;
-
-    return { vmAddress: vmAddr, size: size };
-}

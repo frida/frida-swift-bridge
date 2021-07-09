@@ -3,23 +3,29 @@
  *  - Use proper platform checks (CPU and OS)
  *  - Use strict null checks?
  *  - Use platform-agnostic data structure sizes (size_t et al.)
+ *  - Register for notification when a new module is added
  */
 
 import { getApi, API } from "./lib/api";
-import { getSwift5Types, Type, Class, Struct, Enum } from "./lib/types";
+import { SwiftModule, Type, Class, Struct, Enum } from "./lib/types";
 import { enumerateDemangledSymbols } from "./lib/symbols";
+
+interface TypeEnumerationOptions {
+    ownedBy: Module;
+}
 
 class Runtime {
     #api: API = null;
     #apiError: Error = null;
-    #allModules: ModuleMap;
+    #allModules = new ModuleMap();
+    #swiftyNameMapping: Record<string, string> = {};
+    #moduleRegistry: Record<string, SwiftModule> = {};
     #classRegistry: Record<string, Class> = {};
     #structRegistry: Record<string, Struct> = {};
     #enumRegistry: Record<string, Enum> = {};
 
     constructor() {
         this.tryInitialize();
-        this.#allModules = new ModuleMap();
     }
 
     get available(): boolean {
@@ -30,38 +36,29 @@ class Runtime {
         return getApi();
     }
 
-    enumerateTypes(module: Module): Type[] {
-        const types: Type[] = [];
+    enumerateTypes(options?: TypeEnumerationOptions): Type[] {
+        let result: Type[] = [];
+        let module = options && options.ownedBy;
 
-        if (module === undefined) {
-            for (const m of this.#allModules.values()) {
-                types.push(...getSwift5Types(m));
-            }
+        if (module !== undefined) {
+            return this.tryGetCachedModuleTypes(module);
         } else {
-            types.push(...getSwift5Types(module));
+            for (module of this.#allModules.values()) {
+                result.push(...this.tryGetCachedModuleTypes(module));
+            }
         }
 
-        return types;
+        return result;
     }
 
-    loadTypeRegistries() {
-        for (const m of this.#allModules.values()) {
-            const types = getSwift5Types(m);
-
-            types.forEach(t => {
-                switch (t.kind) {
-                    case "Class":
-                        this.#classRegistry[t.name] = t as Class;
-                        break;
-                    case "Struct":
-                        this.#structRegistry[t.name] = t as Struct;
-                        break;
-                    case "Enum":
-                        this.#enumRegistry[t.name] = t as Enum;
-                        break;
-                }
-            });
+    get modules(): Record<string, SwiftModule> {
+        if (Object.keys(this.#moduleRegistry).length !== 0) {
+            return this.#moduleRegistry;
         }
+
+        this.enumerateTypes();
+
+        return this.#moduleRegistry;
     }
 
     get classes(): Record<string, Class> {
@@ -69,7 +66,7 @@ class Runtime {
             return this.#classRegistry;
         }
 
-        this.loadTypeRegistries();
+        this.enumerateTypes();
 
         return this.#classRegistry;
     }
@@ -79,7 +76,7 @@ class Runtime {
             return this.#structRegistry;
         }
 
-        this.loadTypeRegistries();
+        this.enumerateTypes();
 
         return this.#structRegistry;
     }
@@ -89,7 +86,7 @@ class Runtime {
             return this.#enumRegistry;
         }
 
-        this.loadTypeRegistries();
+        this.enumerateTypes();
 
         return this.#enumRegistry;
     }
@@ -106,6 +103,35 @@ class Runtime {
         if (this.#apiError !== null) {
             throw this.#apiError;
         }
+    }
+
+    tryGetCachedModuleTypes(module: Module): Type[] {
+        const swiftyName = this.#swiftyNameMapping[module.name];
+        if (swiftyName !== undefined) {
+            return this.#moduleRegistry[swiftyName].$allTypes;
+        }
+
+        const swiftModule = new SwiftModule(module);
+        if (swiftModule.$allTypes.length ===  0) {
+            return [];
+        }
+
+        this.#swiftyNameMapping[swiftModule.$name] = module.name;
+        this.#moduleRegistry[swiftModule.$name] = swiftModule;
+
+        for (const klass of swiftModule.$classes) {
+            this.#classRegistry[klass.name] = klass;
+        }
+
+        for (const struct of swiftModule.$structs) {
+            this.#structRegistry[struct.name] = struct;
+        }
+
+        for (const anEnum of swiftModule.$enums) {
+            this.#enumRegistry[anEnum.name] = anEnum;
+        }
+
+        return swiftModule.$allTypes;
     }
 }
 
