@@ -1,3 +1,9 @@
 node_modules/
-dist/
 test/build/
+index.js
+_agent.js
+abi/**.js
+lib/**.js
+basic/**.js
+reflection/**.js
+**/**.d.ts

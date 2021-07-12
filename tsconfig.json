@@ -7,7 +7,7 @@
       "target": "es2017",
       "module": "commonjs",
       "declaration": true,
-      "outDir": "./dist",
+      "outDir": "./",
       "typeRoots": [
           "node_modules/@types"
       ]

@@ -5,8 +5,8 @@
   "main": "dist/index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "tsc && frida-compile -o dist/_agent.js loader.js",
-    "watch": "./watch.sh" 
+    "build": "tsc && frida-compile -o _agent.js loader.js",
+    "watch": "./watch.sh"
   },
   "author": "Abdelrahman Eid (@hot3eed)",
   "license": "wxWindows",
