@@ -116,7 +116,7 @@ class Runtime {
             return [];
         }
 
-        this.#swiftyNameMapping[swiftModule.$name] = module.name;
+        this.#swiftyNameMapping[module.name] = swiftyName;
         this.#moduleRegistry[swiftModule.$name] = swiftModule;
 
         for (const klass of swiftModule.$classes) {
