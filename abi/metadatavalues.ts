@@ -14,8 +14,12 @@ export class TargetValueWitnessFlags {
     constructor(public data: number) {
     }
 
-    get isNonPOD(): boolean {
-        return !!(this.data & TargetValueWitnessFlags_Values.IsNonPOD);
+    get isPOD(): boolean {
+        return !(this.data & TargetValueWitnessFlags_Values.IsNonPOD);
+    }
+
+    get isBitwiseTakable(): boolean {
+        return !(this.data & TargetValueWitnessFlags_Values.IsNonBitwiseTakable);
     }
 }
 
