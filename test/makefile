@@ -10,7 +10,7 @@ macos_swift := $(shell xcrun --sdk macosx -f swift)
 macos_sdk := $(shell xcrun --sdk macosx --show-sdk-path)
 macos_cflags := -isysroot "$(macos_sdk)" -arch arm64 $(cflags) -DHAVE_MACOS -DHAVE_V8
 macos_swift_runtimedir := /usr/lib/swift
-macos_ldflags := "-Wl,-rpath,$(macos_swift_runtimedir),-rpath,$(macos_runtimedir)" $(ldflags)
+macos_ldflags := "-Wl,-rpath,$(macos_swift_runtimedir)" $(ldflags)
 macos_swiftc := xcrun --sdk macosx swiftc
 
 c_sources := basics.c runner.c
