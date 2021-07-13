@@ -1,62 +1,41 @@
-class SomeClass {
-    var someFirstMember: String
-    var someSecondMember: Int
-    var someThirdMember: (Int, String) 
-    var someFourthMember: EmptyClass
+import Foundation
 
-    func someFunc() {
-        print("hello")
-    }
+class SimpleClass {
+    var x: Int
+    var y: Int
 
-    init(first: String, second: Int, third: (Int, String), fourth: EmptyClass) {
-        self.someFirstMember = first
-        self.someSecondMember = second
-        self.someThirdMember = third
-        self.someFourthMember = fourth
+    init(first: Int, second: Int) {
+        self.x = first
+        self.y = second
     }
 }
 
-class EmptyClass {
+struct BigStruct {
+    let a: Int
+    let b: Int
+    let c: Int
+    let d: Int
+    let e: Int
 }
 
-enum SomeEnumeration {
-    case emptyCase1
-    case emptyCase2
-    case payloadCase(some: String)
+struct LoadableStruct {
+    let a: Int
+    let b: Int
+    let c: Int
+    let d: Int
 }
 
-
-struct SomeStructure {
-    var width = 0
-    var height = 0
-    let someConstField = 1337
-
-    func area() -> Int {
-        return width * height
-    }
+func returnBigStruct() -> BigStruct {
+    let s = BigStruct(a: 1, b: 2, c: 3, d: 4, e: 5)
+    return s
 }
 
-protocol SomeProtocol {
-    var mustBeSettable: Int { get set }
-    var doesNotNeedToBeSettable: Int { get }
-
-    static func random() -> Double
+func getLoadableStruct() -> LoadableStruct {
+    let s = LoadableStruct(a: 1, b: 2, c: 3, d: 4)
+    return s
 }
 
-struct Stack<Element> {
-    var items: [Element] = []
-
-    mutating func push(_ item: Element) {
-        items.append(item)
-    }
-
-    mutating func pop() -> Element {
-        return items.removeLast()
-    }
+func makeLoadableStruct(a: Int, b: Int, c: Int, d: Int) -> LoadableStruct {
+    let s = LoadableStruct(a: a, b: b, c: c, d: d)
+    return s
 }
-
-func mymain() {
-    let s = SomeStructure()
-    print(s.area())
-}
-
