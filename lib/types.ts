@@ -16,6 +16,7 @@ import { FieldDescriptor } from "../reflection/records";
 import { RelativeDirectPointer } from "../basic/relativepointer";
 import { getSymbolAtAddress } from "./symbols";
 import { getPrivateAPI } from "./api";
+import { Value } from "./runtime";
 
 type SwiftTypeKind = "Class" | "Enum" | "Struct";
 type MethodType = "Init" | "Getter" | "Setter" | "ModifyCoroutine" |
@@ -175,13 +176,13 @@ export class Type {
 }
 
 export class Class extends Type {
-    readonly methods: MethodDetails[];
+    readonly $methods: MethodDetails[];
 
     constructor(module: Module, descriptorPtr: NativePointer) {
         const descriptor = new TargetClassDescriptor(descriptorPtr);
         super(module, "Class", descriptor);
 
-        this.methods = this.getMethodsDetails();
+        this.$methods = this.getMethodsDetails();
     }
 
     getMethodsDetails(): MethodDetails[] {
@@ -238,6 +239,52 @@ export class Struct extends Type {
         if (!this.descriptor.flags.isGeneric()) {
             this.typeLayout = this.metadata.getTypeLayout();
         }
+    }
+
+    makeFromRaw(buffer: ArrayBuffer): Value {
+        if (this.descriptor.flags.isGeneric()) {
+            throw new Error("Unimplemneted");
+        }
+
+        if (buffer.byteLength > this.typeLayout.size) {
+            throw new Error(`Buffer must of be of size <= ${this.typeLayout.size} for this type`);
+        }
+
+        return new Value(this, buffer);
+    }
+
+    makeFromRegion(handle: NativePointer): Value {
+        if (this.descriptor.flags.isGeneric()) {
+            throw new Error("Unimplemented");
+        }
+
+        const buffer = ArrayBuffer.wrap(handle, this.typeLayout.size);
+
+        return new Value(this, buffer);
+    }
+
+    makeFromContext(context: CpuContext): Value {
+        if (this.descriptor.flags.isGeneric()) {
+            throw new Error("Unimplemented");
+        }
+
+        const stride = this.typeLayout.stride;
+        const buffer = new ArrayBuffer(stride);
+        const view = new DataView(buffer);
+        let offset = 0, i = 0;
+
+        /* TODO: Make it arch-agnostic */
+        for (; offset < stride; offset += 8, i++) {
+            const reg = context[`x${i}`];
+            const p = Number(reg);
+            const left = p & 0xFFFFFFFF00000000;
+            const right = p & 0x00000000FFFFFFFF;
+
+            view.setUint32(offset, left);
+            view.setUint32(offset + 4, right);
+        }
+
+        return new Value(this, buffer);
     }
 }
 

@@ -4,11 +4,14 @@
  *  - Use strict null checks?
  *  - Use platform-agnostic data structure sizes (size_t et al.)
  *  - Register for notification when a new module is added
+ *  - Add demangled symbol look-up
+ *  - Add parsing of function names
  */
 
 import { getApi, API } from "./lib/api";
 import { SwiftModule, Type, Class, Struct, Enum } from "./lib/types";
 import { enumerateDemangledSymbols } from "./lib/symbols";
+import { SwiftNativeFunction } from "./lib/callingconvention";
 
 interface TypeEnumerationOptions {
     ownedBy: Module;
@@ -132,6 +135,11 @@ class Runtime {
         }
 
         return swiftModule.$allTypes;
+    }
+
+    NativeFunction(address: NativePointer, retType: Type, argTypes: Type[],
+                   context?: NativePointer, throws?: boolean) {
+        return SwiftNativeFunction(address, retType, argTypes, context, throws);
     }
 }
 
