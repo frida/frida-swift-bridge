@@ -30,6 +30,21 @@ func returnBigStruct() -> BigStruct {
     return s
 }
 
+func makeBigStructWithManyArguments(with loadable1: LoadableStruct,
+                                    and loadable2: LoadableStruct,
+                                    a: Int,
+                                    b: Int,
+                                    c: Int,
+                                    d: Int,
+                                    e: Int) -> BigStruct {
+    let big = BigStruct(a: loadable1.a + loadable2.a + a,
+                        b: loadable1.b + loadable2.b + b,
+                        c: loadable1.c + loadable2.c + c,
+                        d: loadable1.d + loadable2.d + d,
+                        e: e)
+    return big
+}
+
 func getLoadableStruct() -> LoadableStruct {
     let s = LoadableStruct(a: 1, b: 2, c: 3, d: 4)
     return s
