@@ -1,5 +1,6 @@
 /**
  * TODO:
+ *  - Add check for correct number / type of arguments.
  * 	- Can we tell whether a function throws via its metadata?
  */
 
@@ -45,7 +46,7 @@ export function SwiftNativeFunction(address: NativePointer, retType: SwiftType,
                                     argTypes: SwiftType[], context?: NativePointer,
                                     throws?: boolean) {
     let nativeRetType = makeCType(retType);
-    const nativeArgTypes = argTypes.map(ty => makeCType(ty));
+    const nativeArgTypes = argTypes.map(ty => makeCType(ty)).flat();
     const isLoadableResult = Array.isArray(nativeRetType) &&
                              nativeRetType.length > 1;
     let retSize: number;
@@ -54,18 +55,19 @@ export function SwiftNativeFunction(address: NativePointer, retType: SwiftType,
     if (retType.kind !== "Class" && nativeRetType === "pointer") {
         retSize = retType.metadata.getTypeLayout().stride;
         indirectResult = Memory.alloc(retSize);
+        this.indirectResult = indirectResult;
     }
 
     if (isLoadableResult) {
         nativeRetType = "pointer";
     }
 
-    const argsFormatted = `[${nativeArgTypes.map(a => `"${a}"`).join(", ")}]`;
+    const formattedArgs = `[${nativeArgTypes.map(a => `"${a}"`)}]`;
     const trampoline = jitSwiftcallTrampoline(address, nativeRetType,
                                               nativeArgTypes, context,
                                               indirectResult, throws)
     const nativeFunction = eval(`var f = new NativeFunction(ptr(${trampoline}),` +
-                                `"${nativeRetType}",${argsFormatted}); f;`);
+                                `"${nativeRetType}",${formattedArgs}); f;`);
     const fnThis = this;
 
     if (isLoadableResult) {
@@ -86,7 +88,12 @@ export function SwiftNativeFunction(address: NativePointer, retType: SwiftType,
         const acutalArgs: any[] = [];
 
         for (const arg of args) {
-            acutalArgs.push(makeCObject(arg));
+            const cObj = makeCObject(arg);
+            if (Array.isArray(cObj)) {
+                acutalArgs.push(...cObj);
+            } else {
+                acutalArgs.push(cObj);
+            }
         }
 
         const retval = nativeFunction(...acutalArgs);
@@ -117,23 +124,31 @@ function makeCType(type: Type): NativeType {
          * - Unsigned ints?
          */
         const sizeInQWords = asStruct.typeLayout.stride / 8;
-        const destructuredType = Array(sizeInQWords).fill("uint64");
 
-        return destructuredType;
+        return sizeInQWords === 1 ? "uint64" : Array(sizeInQWords).fill("uint64");
     }
 }
 
-function makeCObject(object: Value): number | NativePointer {
+function makeCObject(object: Value): number | number[] | NativePointer {
     const type = object.type;
 
     if (shouldPassIndirectly(type)) {
-        return object.buffer.unwrap();
+        return object.handle;
     } else {
+        const asStruct = type as Struct;
+        const stride = asStruct.typeLayout.stride;
         const view = new DataView(object.buffer);
-        const left = view.getUint32(0);
-        const right = view.getUint32(4);
-        const combined = (2**32 * left) + right;
-        return combined;
+        const data: number[] = [];
+
+        for (let i = 0; i < stride; i += 8) {
+            const left = view.getUint32(i + 0);
+            const right = view.getUint32(i + 4);
+            const combined = (2**32 * left) + right;
+
+            data.push(combined);
+        }
+
+        return data.length === 1 ? data[0] : data;
     }
 }
 
