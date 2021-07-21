@@ -5,9 +5,20 @@
  */
 
 import { Struct, Type } from "./types";
-import { Value, Instance } from "./runtime";
+import { Value } from "./runtime";
 
 type SwiftType = Type;
+type SwiftcallReturnKind = "direct" | "indirect" | "expand";
+
+interface SwiftcallResultOptions {
+    kind: SwiftcallReturnKind;
+    buffer?: ArrayBuffer;
+};
+interface SwiftNativeFunctionObject {
+    readonly extraStorage: ArrayBuffer;
+};
+
+export type SwiftNativeFunctionType = Function & SwiftNativeFunctionObject;
 
 class TrampolinePool {
     private static pages: NativePointer[];
@@ -42,49 +53,36 @@ class TrampolinePool {
     }
 }
 
-export function SwiftNativeFunction(address: NativePointer, retType: SwiftType,
-                                    argTypes: SwiftType[], context?: NativePointer,
-                                    throws?: boolean) {
+export function makeSwiftNativeFunction(address: NativePointer,
+                                        retType: SwiftType,
+                                        argTypes: SwiftType[],
+                                        context?: NativePointer,
+                                        throws?: boolean): SwiftNativeFunctionType {
     let nativeRetType = makeCType(retType);
     const nativeArgTypes = argTypes.map(ty => makeCType(ty)).flat();
-    const isLoadableResult = Array.isArray(nativeRetType) &&
-                             nativeRetType.length > 1;
-    let retSize: number;
-    let indirectResult: NativePointer;
+    const retOpts: SwiftcallResultOptions = { kind: "direct" };
 
-    if (retType.kind !== "Class" && nativeRetType === "pointer") {
-        retSize = retType.metadata.getTypeLayout().stride;
-        indirectResult = Memory.alloc(retSize);
-        this.indirectResult = indirectResult;
-    }
+    if (Array.isArray(nativeRetType)) {
+        const stride = retType.metadata.getTypeLayout().stride;
+        const buffer = new ArrayBuffer(stride);
 
-    if (isLoadableResult) {
+        if (nativeRetType.length > 4) {
+            retOpts.kind = "indirect";
+        } else {
+            retOpts.kind = "expand";
+        }
+
+        retOpts.buffer = buffer;
         nativeRetType = "pointer";
     }
 
+    const extraStorage = new ArrayBuffer(16);
     const formattedArgs = `[${nativeArgTypes.map(a => `"${a}"`)}]`;
-    const trampoline = jitSwiftcallTrampoline(address, nativeRetType,
-                                              nativeArgTypes, context,
-                                              indirectResult, throws)
+    const trampoline = jitSwiftcallTrampoline(address, extraStorage.unwrap(),
+                                              retOpts, context, throws);
     const nativeFunction = eval(`var f = new NativeFunction(ptr(${trampoline}),` +
                                 `"${nativeRetType}",${formattedArgs}); f;`);
-    const fnThis = this;
-
-    if (isLoadableResult) {
-        const tail = Interceptor.attach(trampoline, {
-            onLeave(retval) {
-                const struct = retType as Struct;
-                const value = struct.makeFromContext(this.context);
-
-                fnThis.value = value;
-
-                retval.replace(value);
-                tail.detach();
-            }
-        });
-    }
-
-    return function(...args: Value[]) {
+    const wrapper = function(...args: Value[]) {
         const acutalArgs: any[] = [];
 
         for (const arg of args) {
@@ -98,24 +96,18 @@ export function SwiftNativeFunction(address: NativePointer, retType: SwiftType,
 
         const retval = nativeFunction(...acutalArgs);
 
-        if (indirectResult !== undefined) {
-            return new Value(retType, ArrayBuffer.wrap(indirectResult, retSize));
-        }
-
-        if (isLoadableResult) {
-            const valueType = retType as Struct;
-            const value = valueType.makeFromRegion(retval);
-
-            return value;
+        if (retOpts.kind === "indirect" || retOpts.kind === "expand") {
+            return new Value(retType, retOpts.buffer);
         }
 
         return retval;
     }
+
+    return Object.assign(wrapper, { extraStorage });
 }
 
 function makeCType(type: Type): NativeType {
-    if (type.kind === "Class" ||
-        shouldPassIndirectly(type)) {
+    if (type.kind === "Class") {
         return "pointer";
     } else {
         const asStruct = type as Struct;
@@ -124,8 +116,9 @@ function makeCType(type: Type): NativeType {
          * - Unsigned ints?
          */
         const sizeInQWords = asStruct.typeLayout.stride / 8;
-
-        return sizeInQWords === 1 ? "uint64" : Array(sizeInQWords).fill("uint64");
+        return sizeInQWords === 1 ?
+               "uint64" :
+               Array(sizeInQWords).fill("uint64");
     }
 }
 
@@ -141,9 +134,10 @@ function makeCObject(object: Value): number | number[] | NativePointer {
         const data: number[] = [];
 
         for (let i = 0; i < stride; i += 8) {
-            const left = view.getUint32(i + 0);
-            const right = view.getUint32(i + 4);
-            const combined = (2**32 * left) + right;
+            /* XXX: Assume little-endian for now */
+            const right = view.getUint32(i + 0, true);
+            const left = view.getUint32(i + 4, true);
+            const combined = right + (left << 32);
 
             data.push(combined);
         }
@@ -157,20 +151,19 @@ function shouldPassIndirectly(type: Type) {
     return !vwt.flags.isBitwiseTakable || vwt.stride > 32;
 }
 
-function jitSwiftcallTrampoline(target: NativePointer, retType: NativeType,
-                                argTypes: NativeType[], context?: NativePointer,
-                                indirectResult?: NativePointer,
+function jitSwiftcallTrampoline(target: NativePointer,
+                                extraStorage: NativePointer,
+                                resultOpts: SwiftcallResultOptions,
+                                context?: NativePointer,
                                 throws?: boolean): NativePointer {
-    if (indirectResult !== undefined && retType !== "pointer") {
-        throw new Error("Indirect results require a pointer");
-    }
-
-    /* This value is a heuristic */
-    const maxPatchSize = 40 + argTypes.length * 32;
+    const maxPatchSize = 0x44;
     const trampoline = TrampolinePool.allocateTrampoline(maxPatchSize);
 
     Memory.patchCode(trampoline, maxPatchSize, (code) => {
-        const writer = new Arm64Writer(code, { pc: trampoline } );
+        const writer = new Arm64Writer(code, { pc: trampoline });
+
+        writer.putLdrRegAddress("x15", extraStorage);
+        writer.putStpRegRegRegOffset("x29", "x30", "x15", 0, "post-adjust");
 
         if (context !== undefined) {
             writer.putLdrRegAddress("x20", context);
@@ -180,11 +173,28 @@ function jitSwiftcallTrampoline(target: NativePointer, retType: NativeType,
             writer.putAndRegRegImm("x21", "x21", 0);
         }
 
-        if (indirectResult) {
-            writer.putLdrRegAddress("x8", indirectResult);
+        if (resultOpts.kind === "indirect") {
+            writer.putLdrRegAddress("x8", resultOpts.buffer.unwrap());
         }
 
-        writer.putBranchAddress(target);
+        writer.putLdrRegAddress("x14", target)
+        writer.putBlrRegNoAuth("x14");
+
+        if (resultOpts.kind === "expand") {
+            const buffer = resultOpts.buffer;
+            let i = 0, offset = 0;
+
+            writer.putLdrRegAddress("x15", buffer.unwrap());
+
+            for (; offset < buffer.byteLength; i++, offset += 8) {
+                const reg = `x${i}` as Arm64Register;
+                writer.putStrRegRegOffset(reg, "x15", offset);
+            }
+        }
+
+        writer.putLdrRegAddress("x15", extraStorage);
+        writer.putLdpRegRegRegOffset("x29", "x30", "x15", 0, "post-adjust");
+        writer.putRet();
 
         writer.flush();
     });;

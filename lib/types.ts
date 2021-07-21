@@ -263,9 +263,14 @@ export class Struct extends Type {
         return new Value(this, buffer);
     }
 
+    /* TODO: remove this? */
     makeFromContext(context: CpuContext): Value {
         if (this.descriptor.flags.isGeneric()) {
             throw new Error("Unimplemented");
+        }
+
+        if (this.typeLayout.stride > 32) {
+            throw new Error("Maximum loadable struct size is 32");
         }
 
         const stride = this.typeLayout.stride;
