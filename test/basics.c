@@ -72,15 +72,12 @@ TESTCASE (swiftcall_with_direct_result)
     "var loadable = getLoadableStruct();"
     "send(loadable.buffer.byteLength == 32);"
     "var dv = new DataView(loadable.buffer);"
-    "send(dv.getUint32(12) === 2);"
+    "send(dv.getUint32(16, true) === 3);"
   );
   EXPECT_SEND_MESSAGE_WITH ("true");
   EXPECT_SEND_MESSAGE_WITH ("true");
 }
-/**
- * TODO:
- *  - Investigate why this breaks V8.
- */
+
 TESTCASE(swiftcall_with_indirect_result_and_stack_arguments)
 {
   COMPILE_AND_LOAD_SCRIPT(
@@ -97,10 +94,15 @@ TESTCASE(swiftcall_with_indirect_result_and_stack_arguments)
       "var makeLoadableStruct = Swift.NativeFunction(target, LoadableStruct, [Int, Int, Int, Int]);"
       "var buf1 = new ArrayBuffer(8);"
       "var dv1 = new DataView(buf1);"
-      "dv1.setUint32(4, 0x01);"
+      "dv1.setUint32(0, 0x01, true);"
       "var i1 = Int.makeFromRaw(buf1);"
       "var loadable = makeLoadableStruct(i1, i1, i1, i1);"
       "var big = makeBigStructWithManyArguments(loadable, loadable, i1, i1, i1, i1, i1);"
-      "send(!big.handle.equals(ptr(0x0)));");
+      "send(!big.handle.equals(ptr(0x0)));"
+      "var dv = new DataView(big.buffer);"
+      "send(dv.getUint32(0x20, true) === 1);"
+      "send(dv.getUint32(0x10, true) === 3);");
+  EXPECT_SEND_MESSAGE_WITH ("true");
+  EXPECT_SEND_MESSAGE_WITH ("true");
   EXPECT_SEND_MESSAGE_WITH ("true");
 }
