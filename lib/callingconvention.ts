@@ -162,6 +162,7 @@ function jitSwiftcallTrampoline(target: NativePointer,
     Memory.patchCode(trampoline, maxPatchSize, (code) => {
         const writer = new Arm64Writer(code, { pc: trampoline });
 
+        /* TODO: not thread safe? */
         writer.putLdrRegAddress("x15", extraStorage);
         writer.putStpRegRegRegOffset("x29", "x30", "x15", 0, "post-adjust");
 
