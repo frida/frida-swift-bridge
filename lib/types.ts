@@ -42,14 +42,14 @@ export class SwiftModule {
     readonly $enums: Enum[] = [];
 
     constructor(readonly $native: Module) {
-        this.cacheSwfit5Types();
+        this.cacheSwift5Types();
 
         if (this.$allTypes.length > 0) {
             this.$name = this.$allTypes[0].moduleName;
         }
     }
 
-    cacheSwfit5Types() {
+    cacheSwift5Types() {
         const section = this.getSwif5TypesSection();
         /* TODO: centralize this value */
         const sizeofRelativePointer = 0x4;
