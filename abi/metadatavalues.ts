@@ -56,16 +56,11 @@ export enum MethodDescriptorKind {
 };
 
 export class MethodDescriptorFlags {
-    readonly KindMask = 0x0F;
-    readonly IsInstanceMask = 0x10;
-    readonly IsDynamicMask = 0x20;
-    readonly IsAsyncMask = 0x40;
-    readonly ExtraDiscriminatorShift = 16;
-    readonly ExtraDiscriminatorMask = 0xFFFF0000;
+    private static readonly KindMask = 0x0F;
 
     constructor(readonly value: number) { }
 
     getKind(): MethodDescriptorKind {
-        return this.value & this.KindMask;
+        return this.value & MethodDescriptorFlags.KindMask;
     }
 }
