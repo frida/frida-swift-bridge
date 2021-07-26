@@ -50,6 +50,15 @@ export class TargetMetadata {
             extraInhabitantCount: valueWitnesses.extraInhabitantCount,
         }
     }
+
+    vw_getEnumTag(object: NativePointer): number {
+        return this.getValueWitnesses().asEVWT().getEnumTag(object);
+    }
+
+    vw_destructiveInjectEnumTag(object: NativePointer, tag: number) {
+        return this.getValueWitnesses().asEVWT().destructiveInjectEnumTag(object,
+                tag);
+    }
 }
 
 class TargetValueWitnessTable {
@@ -63,7 +72,7 @@ class TargetValueWitnessTable {
     readonly flags: TargetValueWitnessFlags;
     readonly extraInhabitantCount: number;
 
-    constructor (private handle: NativePointer) {
+    constructor (protected handle: NativePointer) {
         this.size = this.getSize();
         this.stride = this.getStride();
         this.flags = this.getFlags();
@@ -89,6 +98,41 @@ class TargetValueWitnessTable {
     getExtraInhabitantCount(): number {
 		return this.handle.add(
 			TargetValueWitnessTable.OFFSETOF_EXTRA_INHABITANT_COUNT).readU32();
+    }
+
+    asEVWT(): EnumValueWitnessTable {
+        return new EnumValueWitnessTable(this.handle);
+    }
+}
+
+/** Implemented in include/Swift/Runtime/Metadata.h */
+export class EnumValueWitnessTable extends TargetValueWitnessTable {
+    static readonly OFFSETOF_GET_ENUM_TAG = 0x58;
+    static readonly OFFSETOF_DESTRUCTIVE_INJECT_ENUM_TAG = 0x68;
+
+    readonly getEnumTag: (object: NativePointer) => number;
+    readonly destructiveInjectEnumTag: (object: NativePointer, tag: number) => void;
+
+    constructor(handle: NativePointer) {
+        super(handle);
+
+        let pointer = this.handle.add(
+            EnumValueWitnessTable.OFFSETOF_GET_ENUM_TAG)
+            .readPointer();
+        const getEnumTag = new NativeFunction(pointer, "uint32",
+                ["pointer", "pointer"]);
+        this.getEnumTag = (object) => {
+            return getEnumTag(object, this.handle) as number;
+        };
+
+        pointer = this.handle.add(
+            EnumValueWitnessTable.OFFSETOF_DESTRUCTIVE_INJECT_ENUM_TAG)
+            .readPointer();
+        const destructiveInjectEnumTag = new NativeFunction(pointer, "void",
+                ["pointer", "uint32", "pointer"]);
+        this.destructiveInjectEnumTag = (object, tag) => {
+            return destructiveInjectEnumTag(object, tag, this.handle);
+        };
     }
 }
 

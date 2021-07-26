@@ -230,13 +230,15 @@ export class Class extends Type {
     }
 }
 
+/* TODO: agree on interface for structs and enums
 interface ValueType {
     readonly typeLayout: TypeLayout;
     makeFromRaw(buffer: ArrayBuffer): Value;
     makeFromRegion(handle: NativePointer): Value;
 }
+*/
 
-export class Struct extends Type implements ValueType {
+export class Struct extends Type {
     readonly typeLayout: TypeLayout;
 
     constructor(module: Module, descriptorPtr: NativePointer) {
@@ -302,9 +304,8 @@ export class Struct extends Type implements ValueType {
 }
 
 type EnumKind = "cstyle" | "singlepayload" | "multipayload";
-export type EnumTagGetterFunction = () => number;
 
-export class Enum extends Type implements ValueType {
+export class Enum extends Type {
     readonly typeLayout: TypeLayout;
     private readonly enumKind: EnumKind;
     private readonly noPayloadCases: FieldDetails[];
@@ -344,55 +345,15 @@ export class Enum extends Type implements ValueType {
             Object.defineProperty(this, kase.name, {
                 configurable: false,
                 enumerable: true,
-                value: this.makeWithTagIndex(i),
+                value: new EnumValue(this, i),
                 writable: false
             });
         }
     }
 
-    makeFromRaw(buffer: ArrayBuffer): EnumValue {
-        const dataView = new DataView(buffer);
-        const tagGetter = this.makeTagGetter(dataView);
-        return new EnumValue(this, buffer, tagGetter);
-    }
-
-    makeFromRegion(handle: NativePointer): Value {
-        throw new Error("Unimplemented");
-    }
-
-    private makeWithTagIndex(tagIndex: number): EnumValue {
-        const bytes = this.getByteLength();
-
-        if (bytes > 4) {
-            throw new Error("Freakishly huge no-payload enums are not allowed");
-        }
-
-        const buffer = new ArrayBuffer(bytes);
-        const view = new DataView(buffer);
-        const tagGetter = this.makeTagGetter(view);
-
-        if (bytes < 2) {
-            view.setUint8(0, tagIndex);
-        } else if (bytes < 4) {
-            view.setUint16(0, tagIndex, true);
-        } else {
-            view.setUint32(0, tagIndex, true);
-        }
-
-        return new EnumValue(this, buffer, tagGetter);
-    }
-
-    /* TODO: handle other enum kinds */
-    private makeTagGetter(view: DataView): EnumTagGetterFunction {
-        const bytes = view.byteLength;
-
-        if (bytes < 2) {
-            return () => { return view.getUint8(0); };
-        } else if (bytes < 4) {
-            return () => { return view.getUint16(0, true); };
-        } else {
-            return () => { return view.getUint32(0, true); };
-        }
+    makeFromRaw(handle: NativePointer): EnumValue {
+        const tag = this.metadata.vw_getEnumTag(handle);
+        return new EnumValue(this, tag);
     }
 
     private getByteLength(): number {

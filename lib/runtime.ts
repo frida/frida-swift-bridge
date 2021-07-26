@@ -4,13 +4,12 @@
  *  - Pretty print enum values
  */
 
-import { Enum, EnumTagGetterFunction, Type } from "./types";
+import { Enum, Type } from "./types";
 
 export class Value implements ObjectWrapper {
     readonly handle: NativePointer;
 
     constructor(readonly type: Type, readonly buffer: ArrayBuffer) {
-        /** TODO: investigate V8 crash happening here */
         this.handle = buffer.unwrap();
     }
 
@@ -21,18 +20,11 @@ export class Value implements ObjectWrapper {
     }
 }
 
-export class EnumValue extends Value {
-    constructor(type: Enum, buffer: ArrayBuffer,
-                private readonly tagGetter: EnumTagGetterFunction) {
-        super(type, buffer);
-    }
-
-    private getTag(): number {
-        return this.tagGetter();
-    }
+export class EnumValue {
+    constructor(private type: Enum, readonly tag: number) { }
 
     equals(e: EnumValue) {
-        return this.getTag() === e.getTag();
+        return this.tag === e.tag;
     }
 }
 
