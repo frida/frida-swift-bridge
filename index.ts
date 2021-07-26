@@ -12,6 +12,7 @@ import { getApi, API } from "./lib/api";
 import { SwiftModule, Type, Class, Struct, Enum } from "./lib/types";
 import { enumerateDemangledSymbols } from "./lib/symbols";
 import { makeSwiftNativeFunction } from "./lib/callingconvention";
+import { Registry } from "./lib/registry";
 
 interface TypeEnumerationOptions {
     ownedBy: Module;
@@ -20,12 +21,6 @@ interface TypeEnumerationOptions {
 class Runtime {
     #api: API = null;
     #apiError: Error = null;
-    #allModules = new ModuleMap();
-    #swiftyNameMapping: Record<string, string> = {};
-    #moduleRegistry: Record<string, SwiftModule> = {};
-    #classRegistry: Record<string, Class> = {};
-    #structRegistry: Record<string, Struct> = {};
-    #enumRegistry: Record<string, Enum> = {};
 
     constructor() {
         this.tryInitialize();
@@ -44,54 +39,26 @@ class Runtime {
         let module = options && options.ownedBy;
 
         if (module !== undefined) {
-            return this.tryGetCachedModuleTypes(module);
+            return Registry.shared().typesForModule(module.name);
         } else {
-            for (module of this.#allModules.values()) {
-                result.push(...this.tryGetCachedModuleTypes(module));
-            }
+            return Object.values(Registry.shared().types).flat();
         }
-
-        return result;
     }
 
     get modules(): Record<string, SwiftModule> {
-        if (Object.keys(this.#moduleRegistry).length !== 0) {
-            return this.#moduleRegistry;
-        }
-
-        this.enumerateTypes();
-
-        return this.#moduleRegistry;
+        return Registry.shared().modules;
     }
 
     get classes(): Record<string, Class> {
-        if (Object.keys(this.#classRegistry).length !== 0) {
-            return this.#classRegistry;
-        }
-
-        this.enumerateTypes();
-
-        return this.#classRegistry;
+        return Registry.shared().classes;
     }
 
     get structs(): Record<string, Struct> {
-        if (Object.keys(this.#structRegistry).length !== 0) {
-            return this.#structRegistry;
-        }
-
-        this.enumerateTypes();
-
-        return this.#structRegistry;
+        return Registry.shared().structs;
     }
 
     get enums(): Record<string, Enum> {
-        if (Object.keys(this.#enumRegistry).length !== 0) {
-            return this.#enumRegistry;
-        }
-
-        this.enumerateTypes();
-
-        return this.#enumRegistry;
+        return Registry.shared().enums;
     }
 
     enumerateDemangledSymbols(module: Module): ModuleSymbolDetails[] {
@@ -106,35 +73,6 @@ class Runtime {
         if (this.#apiError !== null) {
             throw this.#apiError;
         }
-    }
-
-    tryGetCachedModuleTypes(module: Module): Type[] {
-        const swiftyName = this.#swiftyNameMapping[module.name];
-        if (swiftyName !== undefined) {
-            return this.#moduleRegistry[swiftyName].$allTypes;
-        }
-
-        const swiftModule = new SwiftModule(module);
-        if (swiftModule.$allTypes.length ===  0) {
-            return [];
-        }
-
-        this.#swiftyNameMapping[module.name] = swiftyName;
-        this.#moduleRegistry[swiftModule.$name] = swiftModule;
-
-        for (const klass of swiftModule.$classes) {
-            this.#classRegistry[klass.name] = klass;
-        }
-
-        for (const struct of swiftModule.$structs) {
-            this.#structRegistry[struct.name] = struct;
-        }
-
-        for (const anEnum of swiftModule.$enums) {
-            this.#enumRegistry[anEnum.name] = anEnum;
-        }
-
-        return swiftModule.$allTypes;
     }
 
     NativeFunction(address: NativePointer, retType: Type, argTypes: Type[],
