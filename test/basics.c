@@ -26,7 +26,7 @@ TESTCASE (classes_can_be_enumerated)
 {
   COMPILE_AND_LOAD_SCRIPT(
     "var numClasses = Object.keys(Swift.classes).length;"
-    "send(numClasses > 100);"
+    "send(numClasses > 50);"
   );
   EXPECT_SEND_MESSAGE_WITH ("true");
 }
@@ -38,8 +38,8 @@ TESTCASE (c_style_enum_can_be_made_from_raw)
     "var buf = new ArrayBuffer(1);"
     "var dv = new DataView(buf);"
     "dv.setUint8(0, 1);"
-    "var e = CStyle.makeFromRaw(buf);"
-    "send(e.getTag() === 1);"
+    "var e = CStyle.makeFromRaw(buf.unwrap());"
+    "send(e.tag === 1);"
   );
   EXPECT_SEND_MESSAGE_WITH ("true");
 }
@@ -49,7 +49,7 @@ TESTCASE (c_style_enum_cases_can_be_gotten)
   COMPILE_AND_LOAD_SCRIPT(
     "var CStyle = Swift.enums.CStyle;"
     "var b = CStyle.b;"
-    "send(b.getTag() === 1);"
+    "send(b.tag === 1);"
   );
   EXPECT_SEND_MESSAGE_WITH ("true");
 }
