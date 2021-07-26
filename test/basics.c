@@ -12,7 +12,10 @@ TESTLIST_BEGIN (basics)
     TESTENTRY (types_can_be_enumerated)
     TESTENTRY (c_style_enum_can_be_made_from_raw)
     TESTENTRY (c_style_enum_cases_can_be_gotten)
-    TESTENTRY (c_style_enum_equals)
+    TESTENTRY (c_style_enum_equals_works)
+    TESTENTRY (singlepayload_enum_empty_case_can_be_made_from_raw)
+    TESTENTRY (singlepayload_enum_data_case_can_be_made_from_raw)
+    TESTENTRY (singlepayload_enum_equals_works)
     /*
     TESTENTRY (c_style_enum_as_a_function_argument)
     TESTENTRY (c_style_enums_with_raw_values)
@@ -73,7 +76,7 @@ TESTCASE (c_style_enum_cases_can_be_gotten)
   EXPECT_SEND_MESSAGE_WITH ("true");
 }
 
-TESTCASE (c_style_enum_equals)
+TESTCASE (c_style_enum_equals_works)
 {
   COMPILE_AND_LOAD_SCRIPT(
     "var CStyle = Swift.enums.CStyle;"
@@ -82,6 +85,56 @@ TESTCASE (c_style_enum_equals)
     "send(b1.equals(b2));"
     "var e = CStyle.e;"
     "send(b2.equals(e));"
+  );
+  EXPECT_SEND_MESSAGE_WITH ("true");
+  EXPECT_SEND_MESSAGE_WITH ("false");
+}
+
+
+TESTCASE (singlepayload_enum_empty_case_can_be_made_from_raw)
+{
+  COMPILE_AND_LOAD_SCRIPT(
+    "var SinglePayloadEnumWithNoExtraInhabitants = Swift.enums.SinglePayloadEnumWithNoExtraInhabitants;"
+    "var d = SinglePayloadEnumWithNoExtraInhabitants.d;"
+    "send(d.tag === 3);"
+    "var SinglePayloadEnumWithExtraInhabitants = Swift.enums.SinglePayloadEnumWithExtraInhabitants;"
+    "var c = SinglePayloadEnumWithExtraInhabitants.c;"
+    "send(c.tag === 2);"
+  );
+  EXPECT_SEND_MESSAGE_WITH ("true");
+  EXPECT_SEND_MESSAGE_WITH ("true");
+}
+
+TESTCASE (singlepayload_enum_data_case_can_be_made_from_raw)
+{
+  COMPILE_AND_LOAD_SCRIPT(
+    "var Int = Swift.structs.Int;"
+    "var buffer = new ArrayBuffer(8);"
+    "var zero = Int.makeFromRaw(buffer);"
+    "var SinglePayloadEnumWithNoExtraInhabitants = Swift.enums.SinglePayloadEnumWithNoExtraInhabitants;"
+    "var i = SinglePayloadEnumWithNoExtraInhabitants.Some(zero);"
+    "send(i.payload.handle.equals(zero.handle));"
+  );
+  EXPECT_SEND_MESSAGE_WITH ("true");
+}
+
+TESTCASE (singlepayload_enum_equals_works)
+{
+  COMPILE_AND_LOAD_SCRIPT(
+    "var dummy = Process.getModuleByName('dummy.o');"
+    "var symbols = dummy.enumerateSymbols();"
+    "symbols = symbols.filter(s => s.name == '$s5dummy10makeStringSSyF');"
+    "var target = symbols[0].address;"
+    "var String = Swift.structs.String;"
+    "var makeString = Swift.NativeFunction(target, String, []);"
+    "var SinglePayloadEnumWithExtraInhabitants = Swift.enums.SinglePayloadEnumWithExtraInhabitants;"
+    "var newCairo = makeString();"
+    "var s1 = SinglePayloadEnumWithExtraInhabitants.Some(newCairo);"
+    "var s2 = SinglePayloadEnumWithExtraInhabitants.Some(newCairo);"
+    "send(s1.equals(s2));"
+    "var a = SinglePayloadEnumWithExtraInhabitants.a;"
+    "var b = SinglePayloadEnumWithExtraInhabitants.b;"
+    "send(a.equals(b))"
   );
   EXPECT_SEND_MESSAGE_WITH ("true");
   EXPECT_SEND_MESSAGE_WITH ("false");
