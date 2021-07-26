@@ -60,6 +60,11 @@ export class SwiftModule {
             const record = section.vmAddress.add(i * sizeofRelativePointer);
             const ctxDescPtr = RelativeDirectPointer.From(record).get();
             const ctxDesc = new TargetTypeContextDescriptor(ctxDescPtr);
+
+            if (ctxDesc.isGeneric()) {
+                continue;
+            }
+
             const kind = ctxDesc.getKind();
             let type: Type;
 
@@ -125,11 +130,6 @@ export class Type {
     constructor (readonly module: Module,
                  readonly kind: SwiftTypeKind,
                  readonly descriptor: TargetTypeContextDescriptor) {
-        /* TODO: handle generics */
-        if (descriptor.flags.isGeneric()) {
-            return undefined;
-        }
-
         this.name = descriptor.name;
         this.flags = descriptor.flags.value;
         this.fields = Type.getFieldsDetails(descriptor);
