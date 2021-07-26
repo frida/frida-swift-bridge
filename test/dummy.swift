@@ -1,5 +1,12 @@
 import Foundation
 
+/**
+ * TODO:
+ *  - Test and add empty types
+ */
+
+class EmptyClass { }
+
 class SimpleClass {
     var x: Int
     var y: Int
@@ -23,6 +30,53 @@ struct LoadableStruct {
     let b: Int
     let c: Int
     let d: Int
+}
+
+enum EmptyEnum { }
+
+enum CStyle {
+    case a
+    case b
+    case c
+    case d
+    case e
+}
+
+enum SinglePayloadEnumWithNoExtraInhabitants {
+    case a
+    case b
+    case Some(Int)
+    case c
+    case d
+}
+
+enum SinglePayloadEnumithExtraInhabitants {
+    case a
+    case b
+    case Some(String)
+    case c
+    case d
+}
+
+enum MultiPayloadEnum {
+    case a(Int)
+    case b(String)
+    case c(Double)
+    case d(Bool)
+}
+
+enum SingledPayloadReferenceEnum {
+    case a
+    case Some(SimpleClass)
+    case b
+    case c
+}
+
+enum MultiPayloadReferenceEnum {
+    case a
+    case One(EmptyClass)
+    case Two(SimpleClass)
+    case b
 }
 
 func returnBigStruct() -> BigStruct {

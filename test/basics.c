@@ -9,6 +9,13 @@
 
 TESTLIST_BEGIN (basics)
     TESTENTRY (classes_can_be_enumerated)
+    TESTENTRY (c_style_enum_can_be_made_from_raw)
+    TESTENTRY (c_style_enum_cases_can_be_gotten)
+    TESTENTRY (c_style_enum_equals)
+    /*
+    TESTENTRY (c_style_enum_as_a_function_argument)
+    TESTENTRY (c_style_enums_with_raw_values)
+    */
     TESTENTRY (swiftcall_with_context)
     TESTENTRY (swiftcall_with_indirect_result)
     TESTENTRY (swiftcall_with_direct_result)
@@ -23,6 +30,59 @@ TESTCASE (classes_can_be_enumerated)
   );
   EXPECT_SEND_MESSAGE_WITH ("true");
 }
+
+TESTCASE (c_style_enum_can_be_made_from_raw)
+{
+  COMPILE_AND_LOAD_SCRIPT(
+    "var CStyle = Swift.enums.CStyle;"
+    "var buf = new ArrayBuffer(1);"
+    "var dv = new DataView(buf);"
+    "dv.setUint8(0, 1);"
+    "var e = CStyle.makeFromRaw(buf);"
+    "send(e.getTag() === 1);"
+  );
+  EXPECT_SEND_MESSAGE_WITH ("true");
+}
+
+TESTCASE (c_style_enum_cases_can_be_gotten)
+{
+  COMPILE_AND_LOAD_SCRIPT(
+    "var CStyle = Swift.enums.CStyle;"
+    "var b = CStyle.b;"
+    "send(b.getTag() === 1);"
+  );
+  EXPECT_SEND_MESSAGE_WITH ("true");
+}
+
+TESTCASE (c_style_enum_equals)
+{
+  COMPILE_AND_LOAD_SCRIPT(
+    "var CStyle = Swift.enums.CStyle;"
+    "var b1 = CStyle.b;"
+    "var b2 = CStyle.b;"
+    "send(b1.equals(b2));"
+    "var e = CStyle.e;"
+    "send(b2.equals(e));"
+  );
+  EXPECT_SEND_MESSAGE_WITH ("true");
+  EXPECT_SEND_MESSAGE_WITH ("false");
+}
+
+/*
+TESTCASE (c_style_enum_as_a_function_argument)
+{
+  COMPILE_AND_LOAD_SCRIPT(
+    "var CStyle = Swift.enums.CStyle;"
+  );
+}
+
+TESTCASE (c_style_enums_with_raw_values)
+{
+  COMPILE_AND_LOAD_SCRIPT(
+    "var CStyle = Swift.enums.CStyle;"
+  );
+}
+*/
 
 TESTCASE (swiftcall_with_context)
 {
