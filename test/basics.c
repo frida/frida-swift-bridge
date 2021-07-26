@@ -8,7 +8,8 @@
 #include "fixture.c"
 
 TESTLIST_BEGIN (basics)
-    TESTENTRY (classes_can_be_enumerated)
+    TESTENTRY (modules_can_be_enumerated)
+    TESTENTRY (types_can_be_enumerated)
     TESTENTRY (c_style_enum_can_be_made_from_raw)
     TESTENTRY (c_style_enum_cases_can_be_gotten)
     TESTENTRY (c_style_enum_equals)
@@ -22,12 +23,30 @@ TESTLIST_BEGIN (basics)
     TESTENTRY (swiftcall_with_indirect_result_and_stack_arguments)
 TESTLIST_END ()
 
-TESTCASE (classes_can_be_enumerated)
+TESTCASE (modules_can_be_enumerated)
+{
+  COMPILE_AND_LOAD_SCRIPT(
+    "send(Object.keys(Swift.modules).length > 3);"
+    "send(Swift.modules.Swift.$allTypes.length > 100);"
+    "send(Swift.modules.dummy.$allTypes.length > 10);"
+  );
+  EXPECT_SEND_MESSAGE_WITH ("true");
+  EXPECT_SEND_MESSAGE_WITH ("true");
+  EXPECT_SEND_MESSAGE_WITH ("true");
+}
+
+TESTCASE (types_can_be_enumerated)
 {
   COMPILE_AND_LOAD_SCRIPT(
     "var numClasses = Object.keys(Swift.classes).length;"
     "send(numClasses > 50);"
+    "var numStructs = Object.keys(Swift.structs).length;"
+    "send(numStructs > 100);"
+    "var numEnums = Object.keys(Swift.enums).length;"
+    "send(numEnums > 70);"
   );
+  EXPECT_SEND_MESSAGE_WITH ("true");
+  EXPECT_SEND_MESSAGE_WITH ("true");
   EXPECT_SEND_MESSAGE_WITH ("true");
 }
 
