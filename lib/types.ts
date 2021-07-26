@@ -316,14 +316,12 @@ export class Enum extends Type {
 
         super(module, "Enum", descriptor);
 
-        if (!this.descriptor.flags.isGeneric()) {
-            this.typeLayout = this.metadata.getTypeLayout();
-        }
 
         if (this.fields === undefined) {
             return;
         }
 
+        this.typeLayout = this.metadata.getTypeLayout();
         this.noPayloadCases = [];
         this.payloadCases = [];
         this.enumKind = "cstyle";
@@ -345,7 +343,30 @@ export class Enum extends Type {
             Object.defineProperty(this, kase.name, {
                 configurable: false,
                 enumerable: true,
-                value: new EnumValue(this, i),
+                value: EnumValue.withTag(i),
+                writable: false
+            });
+        }
+
+        for (const kase of this.payloadCases) {
+            const associatedValueWrapper = (value: Value) => {
+                if (value === undefined) {
+                    throw new Error("Case requires an associated value");
+                }
+
+                /*
+                if (value.type !== caseType) {
+                    throw new Error(`Case ${kase.name} requires an associated value of type: ${caseType.name}`);
+                }
+                */
+
+                return EnumValue.withPayload(value);
+            }
+
+            Object.defineProperty(this, kase.name, {
+                configurable: false,
+                enumerable: true,
+                value: associatedValueWrapper,
                 writable: false
             });
         }
@@ -353,7 +374,7 @@ export class Enum extends Type {
 
     makeFromRaw(handle: NativePointer): EnumValue {
         const tag = this.metadata.vw_getEnumTag(handle);
-        return new EnumValue(this, tag);
+        return EnumValue.withTag(tag);
     }
 
     private getByteLength(): number {

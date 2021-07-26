@@ -21,10 +21,28 @@ export class Value implements ObjectWrapper {
 }
 
 export class EnumValue {
-    constructor(private type: Enum, readonly tag: number) { }
+    private constructor(readonly tag?: number,
+                        readonly payload?: Value) { }
+
+    static withTag(tag: number) {
+        return new EnumValue(tag);
+    }
+
+    static withPayload(payload: Value) {
+        return new EnumValue(undefined, payload);
+    }
 
     equals(e: EnumValue) {
-        return this.tag === e.tag;
+        if (this.tag !== undefined && e.tag !== undefined) {
+            return this.tag === e.tag;
+        }
+
+        if (this.payload !== undefined && e.payload !== undefined) {
+            /* TODO: handle value type equality properly */
+            return this.payload.handle.equals(this.payload.handle);
+        }
+
+        return false;
     }
 }
 
