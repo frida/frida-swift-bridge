@@ -125,17 +125,18 @@ export class Type {
     constructor (readonly module: Module,
                  readonly kind: SwiftTypeKind,
                  readonly descriptor: TargetTypeContextDescriptor) {
+        /* TODO: handle generics */
+        if (descriptor.flags.isGeneric()) {
+            return undefined;
+        }
+
         this.name = descriptor.name;
         this.flags = descriptor.flags.value;
         this.fields = Type.getFieldsDetails(descriptor);
         this.moduleName = descriptor.getModuleContext().name;
-
-        /* TODO: handle generics? */
-        if (!descriptor.flags.isGeneric()) {
-            this.metadataPointer = descriptor.getAccessFunction()
+        this.metadataPointer = descriptor.getAccessFunction()
                 .call() as NativePointer;
-            this.metadata = new TargetMetadata(this.metadataPointer);
-        }
+        this.metadata = new TargetMetadata(this.metadataPointer);
     }
 
     static getFieldsDetails(descriptor: TargetTypeContextDescriptor):
