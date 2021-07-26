@@ -16,7 +16,7 @@ import { FieldDescriptor } from "../reflection/records";
 import { RelativeDirectPointer } from "../basic/relativepointer";
 import { getSymbolAtAddress } from "./symbols";
 import { getPrivateAPI } from "./api";
-import { Value } from "./runtime";
+import { EnumValue, Value } from "./runtime";
 
 type SwiftTypeKind = "Class" | "Enum" | "Struct";
 type MethodType = "Init" | "Getter" | "Setter" | "ModifyCoroutine" |
@@ -26,7 +26,7 @@ interface FieldDetails {
     name: string;
     type?: string;
     isVar?: boolean;
-}
+};
 
 interface MethodDetails {
     address: NativePointer;
@@ -229,7 +229,13 @@ export class Class extends Type {
     }
 }
 
-export class Struct extends Type {
+interface ValueType {
+    readonly typeLayout: TypeLayout;
+    makeFromRaw(buffer: ArrayBuffer): Value;
+    makeFromRegion(handle: NativePointer): Value;
+}
+
+export class Struct extends Type implements ValueType {
     readonly typeLayout: TypeLayout;
 
     constructor(module: Module, descriptorPtr: NativePointer) {
@@ -253,6 +259,7 @@ export class Struct extends Type {
         return new Value(this, buffer);
     }
 
+    /* TODO: remove? */
     makeFromRegion(handle: NativePointer): Value {
         if (this.descriptor.flags.isGeneric()) {
             throw new Error("Unimplemented");
@@ -293,10 +300,102 @@ export class Struct extends Type {
     }
 }
 
-export class Enum extends Type {
+type EnumKind = "cstyle" | "singlepayload" | "multipayload";
+export type EnumTagGetterFunction = () => number;
+
+export class Enum extends Type implements ValueType {
+    readonly typeLayout: TypeLayout;
+    private readonly enumKind: EnumKind;
+    private readonly noPayloadCases: FieldDetails[];
+    private readonly payloadCases: FieldDetails[];
+
     constructor(module: Module, descriptroPtr: NativePointer) {
         const descriptor = new TargetEnumDescriptor(descriptroPtr);
+
         super(module, "Enum", descriptor);
+
+        if (!this.descriptor.flags.isGeneric()) {
+            this.typeLayout = this.metadata.getTypeLayout();
+        }
+
+        if (this.fields === undefined) {
+            return;
+        }
+
+        this.noPayloadCases = [];
+        this.payloadCases = [];
+        this.enumKind = "cstyle";
+
+        for (const field of this.fields) {
+            if (field.type === undefined) {
+                this.noPayloadCases.push(field);
+            } else {
+                this.payloadCases.push(field);
+
+                this.enumKind = this.enumKind === "cstyle" ?
+                                "singlepayload" :
+                                this.enumKind === "singlepayload" ?
+                                "multipayload" : this.enumKind;
+            }
+        }
+
+        for (const [i, kase] of this.noPayloadCases.entries()) {
+            Object.defineProperty(this, kase.name, {
+                configurable: false,
+                enumerable: true,
+                value: this.makeWithTagIndex(i),
+                writable: false
+            });
+        }
+    }
+
+    makeFromRaw(buffer: ArrayBuffer): EnumValue {
+        const dataView = new DataView(buffer);
+        const tagGetter = this.makeTagGetter(dataView);
+        return new EnumValue(this, buffer, tagGetter);
+    }
+
+    makeFromRegion(handle: NativePointer): Value {
+        throw new Error("Unimplemented");
+    }
+
+    private makeWithTagIndex(tagIndex: number): EnumValue {
+        const bytes = this.getByteLength();
+
+        if (bytes > 4) {
+            throw new Error("Freakishly huge no-payload enums are not allowed");
+        }
+
+        const buffer = new ArrayBuffer(bytes);
+        const view = new DataView(buffer);
+        const tagGetter = this.makeTagGetter(view);
+
+        if (bytes < 2) {
+            view.setUint8(0, tagIndex);
+        } else if (bytes < 4) {
+            view.setUint16(0, tagIndex, true);
+        } else {
+            view.setUint32(0, tagIndex, true);
+        }
+
+        return new EnumValue(this, buffer, tagGetter);
+    }
+
+    /* TODO: handle other enum kinds */
+    private makeTagGetter(view: DataView): EnumTagGetterFunction {
+        const bytes = view.byteLength;
+
+        if (bytes < 2) {
+            return () => { return view.getUint8(0); };
+        } else if (bytes < 4) {
+            return () => { return view.getUint16(0, true); };
+        } else {
+            return () => { return view.getUint32(0, true); };
+        }
+    }
+
+    private getByteLength(): number {
+        return Math.ceil(this.noPayloadCases.length / 0xFF);
     }
 }
 

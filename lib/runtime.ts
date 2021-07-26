@@ -1,9 +1,10 @@
 /**
  * TODO:
  *  - Replace Struct with a ValueType in the constructor / factory
+ *  - Pretty print enum values
  */
 
-import { Type } from "./types";
+import { Enum, EnumTagGetterFunction, Type } from "./types";
 
 export class Value implements ObjectWrapper {
     readonly handle: NativePointer;
@@ -17,6 +18,21 @@ export class Value implements ObjectWrapper {
         return {
             handle: this.handle,
         };
+    }
+}
+
+export class EnumValue extends Value {
+    constructor(type: Enum, buffer: ArrayBuffer,
+                private readonly tagGetter: EnumTagGetterFunction) {
+        super(type, buffer);
+    }
+
+    private getTag(): number {
+        return this.tagGetter();
+    }
+
+    equals(e: EnumValue) {
+        return this.getTag() === e.getTag();
     }
 }
 
