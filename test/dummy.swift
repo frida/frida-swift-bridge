@@ -50,7 +50,7 @@ enum SinglePayloadEnumWithNoExtraInhabitants {
     case d
 }
 
-enum SinglePayloadEnumithExtraInhabitants {
+enum SinglePayloadEnumWithExtraInhabitants {
     case a
     case b
     case Some(String)
@@ -107,4 +107,8 @@ func getLoadableStruct() -> LoadableStruct {
 func makeLoadableStruct(a: Int, b: Int, c: Int, d: Int) -> LoadableStruct {
     let s = LoadableStruct(a: a, b: b, c: c, d: d)
     return s
+}
+
+func makeString() -> String {
+    return "New Cairo"
 }
