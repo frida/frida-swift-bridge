@@ -250,56 +250,12 @@ export class Struct extends Type {
         }
     }
 
-    makeFromRaw(buffer: ArrayBuffer): Value {
+    makeFromRaw(handle: NativePointer): Value {
         if (this.descriptor.flags.isGeneric()) {
             throw new Error("Unimplemneted");
         }
 
-        if (buffer.byteLength !== this.typeLayout.size) {
-            throw new Error(`Buffer must of be of size ${this.typeLayout.size} for this type`);
-        }
-
-        return new Value(this, buffer);
-    }
-
-    /* TODO: remove? */
-    makeFromRegion(handle: NativePointer): Value {
-        if (this.descriptor.flags.isGeneric()) {
-            throw new Error("Unimplemented");
-        }
-
-        const buffer = ArrayBuffer.wrap(handle, this.typeLayout.size);
-
-        return new Value(this, buffer);
-    }
-
-    /* TODO: remove this? */
-    makeFromContext(context: CpuContext): Value {
-        if (this.descriptor.flags.isGeneric()) {
-            throw new Error("Unimplemented");
-        }
-
-        if (this.typeLayout.stride > 32) {
-            throw new Error("Maximum loadable struct size is 32");
-        }
-
-        const stride = this.typeLayout.stride;
-        const buffer = new ArrayBuffer(stride);
-        const view = new DataView(buffer);
-        let offset = 0, i = 0;
-
-        /* TODO: Make it arch-agnostic */
-        for (; offset < stride; offset += 8, i++) {
-            const reg = context[`x${i}`];
-            const p = Number(reg);
-            const left = p & 0xFFFFFFFF00000000;
-            const right = p & 0x00000000FFFFFFFF;
-
-            view.setUint32(offset, left);
-            view.setUint32(offset + 4, right);
-        }
-
-        return new Value(this, buffer);
+        return new Value(this, handle);
     }
 }
 

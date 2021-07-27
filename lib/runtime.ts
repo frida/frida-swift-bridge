@@ -2,16 +2,14 @@
  * TODO:
  *  - Replace Struct with a ValueType in the constructor / factory
  *  - Pretty print enum values
+ *  - Parse struct fields and map Builtin Swift types to JS ones
  */
 
 import { Enum, Type } from "./types";
 
 export class Value implements ObjectWrapper {
-    readonly handle: NativePointer;
 
-    constructor(readonly type: Type, readonly buffer: ArrayBuffer) {
-        this.handle = buffer.unwrap();
-    }
+    constructor(readonly type: Type, readonly handle: NativePointer) { }
 
     toJSON() {
         return {

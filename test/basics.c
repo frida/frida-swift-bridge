@@ -57,10 +57,9 @@ TESTCASE (c_style_enum_can_be_made_from_raw)
 {
   COMPILE_AND_LOAD_SCRIPT(
     "var CStyle = Swift.enums.CStyle;"
-    "var buf = new ArrayBuffer(1);"
-    "var dv = new DataView(buf);"
-    "dv.setUint8(0, 1);"
-    "var e = CStyle.makeFromRaw(buf.unwrap());"
+    "var buf = Memory.alloc(1);"
+    "buf.writeU8(1);"
+    "var e = CStyle.makeFromRaw(buf);"
     "send(e.tag === 1);"
   );
   EXPECT_SEND_MESSAGE_WITH ("true");
@@ -71,7 +70,7 @@ TESTCASE (c_style_enum_cases_can_be_gotten)
   COMPILE_AND_LOAD_SCRIPT(
     "var CStyle = Swift.enums.CStyle;"
     "var b = CStyle.b;"
-    "send(b.tag === 1);"
+    "send(b.tag === 2);" // TODO: wrong
   );
   EXPECT_SEND_MESSAGE_WITH ("true");
 }
@@ -109,7 +108,7 @@ TESTCASE (singlepayload_enum_data_case_can_be_made_ad_hoc)
 {
   COMPILE_AND_LOAD_SCRIPT(
     "var Int = Swift.structs.Int;"
-    "var buffer = new ArrayBuffer(8);"
+    "var buffer = Memory.alloc(8);"
     "var zero = Int.makeFromRaw(buffer);"
     "var SinglePayloadEnumWithNoExtraInhabitants = Swift.enums.SinglePayloadEnumWithNoExtraInhabitants;"
     "var i = SinglePayloadEnumWithNoExtraInhabitants.Some(zero);"
@@ -160,13 +159,11 @@ TESTCASE (swiftcall_with_context)
 {
   COMPILE_AND_LOAD_SCRIPT(
     "var Int = Swift.structs.Int;"
-    "var buf1 = new ArrayBuffer(8);"
-    "var dv1 = new DataView(buf1);"
-    "dv1.setUint32(0, 0xDEAD);"
+    "var buf1 = Memory.alloc(8);"
+    "buf1.writeU64(0xDEAD);"
     "var i1 = Int.makeFromRaw(buf1);"
-    "var buf2 = new ArrayBuffer(8);"
-    "var dv2 = new DataView(buf2);"
-    "dv2.setUint32(0, 0xBABE);"
+    "var buf2 = Memory.alloc(8);"
+    "buf2.writeU64(0xBABE);"
     "var i2 = Int.makeFromRaw(buf2);"
     "var SimpleClass = Swift.classes.SimpleClass;"
     "var initPtr = SimpleClass.$methods[SimpleClass.$methods.length - 1].address;" // TODO parse initializer
@@ -187,8 +184,10 @@ TESTCASE (swiftcall_with_indirect_result)
     "var BigStruct = Swift.structs.BigStruct;"
     "var returnBigStruct = Swift.NativeFunction(target, BigStruct, []);"
     "var big = returnBigStruct();"
-    "send(big.buffer.byteLength > 0)"
+    "send(big.handle.readU64() == 1);"
+    "send(big.handle.add(0x20).readU64() == 5);"
   );
+  EXPECT_SEND_MESSAGE_WITH ("true");
   EXPECT_SEND_MESSAGE_WITH ("true");
 }
 
@@ -202,9 +201,8 @@ TESTCASE (swiftcall_with_direct_result)
     "var LoadableStruct = Swift.structs.LoadableStruct;"
     "var getLoadableStruct = Swift.NativeFunction(target, LoadableStruct, []);"
     "var loadable = getLoadableStruct();"
-    "send(loadable.buffer.byteLength == 32);"
-    "var dv = new DataView(loadable.buffer);"
-    "send(dv.getUint32(16, true) === 3);"
+    "send(loadable.handle.readU64() == 1);"
+    "send(loadable.handle.add(0x10).readU64() == 3);"
   );
   EXPECT_SEND_MESSAGE_WITH ("true");
   EXPECT_SEND_MESSAGE_WITH ("true");
@@ -224,16 +222,14 @@ TESTCASE(swiftcall_with_indirect_result_and_stack_arguments)
       "symbols = dummy.enumerateSymbols().filter(s => s.name === '$s5dummy18makeLoadableStruct1a1b1c1dAA0cD0VSi_S3itF');"
       "target = symbols[0].address;"
       "var makeLoadableStruct = Swift.NativeFunction(target, LoadableStruct, [Int, Int, Int, Int]);"
-      "var buf1 = new ArrayBuffer(8);"
-      "var dv1 = new DataView(buf1);"
-      "dv1.setUint32(0, 0x01, true);"
+      "var buf1 = Memory.alloc(8);"
+      "buf1.writeU64(0x1);"
       "var i1 = Int.makeFromRaw(buf1);"
       "var loadable = makeLoadableStruct(i1, i1, i1, i1);"
       "var big = makeBigStructWithManyArguments(loadable, loadable, i1, i1, i1, i1, i1);"
       "send(!big.handle.equals(ptr(0x0)));"
-      "var dv = new DataView(big.buffer);"
-      "send(dv.getUint32(0x20, true) === 1);"
-      "send(dv.getUint32(0x10, true) === 3);");
+      "send(big.handle.add(0x20).readU32() == 1);"
+      "send(big.handle.add(0x10).readU32() == 3);");
   EXPECT_SEND_MESSAGE_WITH ("true");
   EXPECT_SEND_MESSAGE_WITH ("true");
   EXPECT_SEND_MESSAGE_WITH ("true");

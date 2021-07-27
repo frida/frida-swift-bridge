@@ -12,7 +12,8 @@ type SwiftcallReturnKind = "direct" | "indirect" | "expand";
 
 interface SwiftcallResultOptions {
     kind: SwiftcallReturnKind;
-    buffer?: ArrayBuffer;
+    buffer?: NativePointer;
+    bufferSize?: number;
 };
 interface SwiftNativeFunctionObject {
     readonly extraStorage: ArrayBuffer;
@@ -64,7 +65,7 @@ export function makeSwiftNativeFunction(address: NativePointer,
 
     if (Array.isArray(nativeRetType)) {
         const stride = retType.metadata.getTypeLayout().stride;
-        const buffer = new ArrayBuffer(stride);
+        const buffer = Memory.alloc(stride);
 
         if (nativeRetType.length > 4) {
             retOpts.kind = "indirect";
@@ -73,6 +74,7 @@ export function makeSwiftNativeFunction(address: NativePointer,
         }
 
         retOpts.buffer = buffer;
+        retOpts.bufferSize = stride;
         nativeRetType = "pointer";
     }
 
@@ -122,7 +124,7 @@ function makeCType(type: Type): NativeType {
     }
 }
 
-function makeCObject(object: Value): number | number[] | NativePointer {
+function makeCObject(object: Value): UInt64 | UInt64[] | NativePointer {
     const type = object.type;
 
     if (shouldPassIndirectly(type)) {
@@ -130,16 +132,10 @@ function makeCObject(object: Value): number | number[] | NativePointer {
     } else {
         const asStruct = type as Struct;
         const stride = asStruct.typeLayout.stride;
-        const view = new DataView(object.buffer);
-        const data: number[] = [];
+        const data: UInt64[] = [];
 
         for (let i = 0; i < stride; i += 8) {
-            /* XXX: Assume little-endian for now */
-            const right = view.getUint32(i + 0, true);
-            const left = view.getUint32(i + 4, true);
-            const combined = right + (left << 32);
-
-            data.push(combined);
+            data.push(object.handle.add(i).readU64());
         }
 
         return data.length === 1 ? data[0] : data;
@@ -175,7 +171,7 @@ function jitSwiftcallTrampoline(target: NativePointer,
         }
 
         if (resultOpts.kind === "indirect") {
-            writer.putLdrRegAddress("x8", resultOpts.buffer.unwrap());
+            writer.putLdrRegAddress("x8", resultOpts.buffer);
         }
 
         writer.putLdrRegAddress("x14", target)
@@ -185,9 +181,9 @@ function jitSwiftcallTrampoline(target: NativePointer,
             const buffer = resultOpts.buffer;
             let i = 0, offset = 0;
 
-            writer.putLdrRegAddress("x15", buffer.unwrap());
+            writer.putLdrRegAddress("x15", buffer);
 
-            for (; offset < buffer.byteLength; i++, offset += 8) {
+            for (; offset < resultOpts.bufferSize; i++, offset += 8) {
                 const reg = `x${i}` as Arm64Register;
                 writer.putStrRegRegOffset(reg, "x15", offset);
             }
