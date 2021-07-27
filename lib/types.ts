@@ -316,7 +316,6 @@ export class Enum extends Type {
 
         super(module, "Enum", descriptor);
 
-
         if (this.fields === undefined) {
             return;
         }
@@ -343,7 +342,7 @@ export class Enum extends Type {
             Object.defineProperty(this, kase.name, {
                 configurable: false,
                 enumerable: true,
-                value: EnumValue.withTag(i),
+                value: EnumValue.withTag(i + 1),
                 writable: false
             });
         }
@@ -354,7 +353,7 @@ export class Enum extends Type {
                     throw new Error("Case requires an associated value");
                 }
 
-                /*
+                /* TODO: check type here
                 if (value.type !== caseType) {
                     throw new Error(`Case ${kase.name} requires an associated value of type: ${caseType.name}`);
                 }
