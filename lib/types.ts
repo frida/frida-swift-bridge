@@ -255,8 +255,8 @@ export class Struct extends Type {
             throw new Error("Unimplemneted");
         }
 
-        if (buffer.byteLength > this.typeLayout.size) {
-            throw new Error(`Buffer must of be of size <= ${this.typeLayout.size} for this type`);
+        if (buffer.byteLength !== this.typeLayout.size) {
+            throw new Error(`Buffer must of be of size ${this.typeLayout.size} for this type`);
         }
 
         return new Value(this, buffer);
