@@ -303,7 +303,11 @@ export class Struct extends Type {
     }
 }
 
-type EnumKind = "cstyle" | "singlepayload" | "multipayload";
+enum EnumKind {
+    NoPayload,
+    SinglePayload,
+    MutliPayload
+}
 
 export class Enum extends Type {
     readonly typeLayout: TypeLayout;
@@ -323,7 +327,7 @@ export class Enum extends Type {
         this.typeLayout = this.metadata.getTypeLayout();
         this.noPayloadCases = [];
         this.payloadCases = [];
-        this.enumKind = "cstyle";
+        this.enumKind = EnumKind.NoPayload;
 
         for (const field of this.fields) {
             if (field.type === undefined) {
@@ -331,10 +335,11 @@ export class Enum extends Type {
             } else {
                 this.payloadCases.push(field);
 
-                this.enumKind = this.enumKind === "cstyle" ?
-                                "singlepayload" :
-                                this.enumKind === "singlepayload" ?
-                                "multipayload" : this.enumKind;
+                if (this.enumKind === EnumKind.NoPayload) {
+                    this.enumKind = EnumKind.SinglePayload;
+                } else if (this.enumKind === EnumKind.SinglePayload) {
+                    this.enumKind = EnumKind.MutliPayload;
+                }
             }
         }
 
