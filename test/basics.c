@@ -13,8 +13,8 @@ TESTLIST_BEGIN (basics)
     TESTENTRY (c_style_enum_can_be_made_from_raw)
     TESTENTRY (c_style_enum_cases_can_be_gotten)
     TESTENTRY (c_style_enum_equals_works)
-    TESTENTRY (singlepayload_enum_empty_case_can_be_made_from_raw)
-    TESTENTRY (singlepayload_enum_data_case_can_be_made_from_raw)
+    TESTENTRY (singlepayload_enum_empty_case_can_be_gotten)
+    TESTENTRY (singlepayload_enum_data_case_can_be_made_ad_hoc)
     TESTENTRY (singlepayload_enum_equals_works)
     /*
     TESTENTRY (c_style_enum_as_a_function_argument)
@@ -91,7 +91,7 @@ TESTCASE (c_style_enum_equals_works)
 }
 
 
-TESTCASE (singlepayload_enum_empty_case_can_be_made_from_raw)
+TESTCASE (singlepayload_enum_empty_case_can_be_gotten)
 {
   COMPILE_AND_LOAD_SCRIPT(
     "var SinglePayloadEnumWithNoExtraInhabitants = Swift.enums.SinglePayloadEnumWithNoExtraInhabitants;"
@@ -105,7 +105,7 @@ TESTCASE (singlepayload_enum_empty_case_can_be_made_from_raw)
   EXPECT_SEND_MESSAGE_WITH ("true");
 }
 
-TESTCASE (singlepayload_enum_data_case_can_be_made_from_raw)
+TESTCASE (singlepayload_enum_data_case_can_be_made_ad_hoc)
 {
   COMPILE_AND_LOAD_SCRIPT(
     "var Int = Swift.structs.Int;"
