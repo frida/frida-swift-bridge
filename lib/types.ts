@@ -24,7 +24,7 @@ type MethodType = "Init" | "Getter" | "Setter" | "ModifyCoroutine" |
 
 interface FieldDetails {
     name: string;
-    type?: string;
+    typeName?: string;
     isVar?: boolean;
 };
 
@@ -156,9 +156,9 @@ export class Type {
        for (const f of fields) {
            result.push({
                name: f.fieldName,
-               type: f.mangledTypeName === null ?
-                                       undefined :
-                                       resolveSymbolicReferences(f.mangledTypeName.get()),
+               typeName: f.mangledTypeName === null ?
+                         undefined :
+                         resolveSymbolicReferences(f.mangledTypeName.get()),
                isVar: f.isVar,
            });
        }
@@ -330,7 +330,7 @@ export class Enum extends Type {
         this.enumKind = EnumKind.NoPayload;
 
         for (const field of this.fields) {
-            if (field.type === undefined) {
+            if (field.typeName === undefined) {
                 this.noPayloadCases.push(field);
             } else {
                 this.payloadCases.push(field);
