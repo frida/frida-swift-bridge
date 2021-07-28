@@ -62,4 +62,11 @@ export class Registry {
         }
         return module.$allTypes;
     }
+
+    typeByName(name: string) {
+        if (name.startsWith("Swift.")) {
+            name = name.substring(6);
+        }
+        return this.types[name];
+    }
 }

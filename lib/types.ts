@@ -17,6 +17,7 @@ import { RelativeDirectPointer } from "../basic/relativepointer";
 import { getSymbolAtAddress } from "./symbols";
 import { getPrivateAPI } from "./api";
 import { EnumValue, Value } from "./runtime";
+import { Registry } from "./registry";
 
 type SwiftTypeKind = "Class" | "Enum" | "Struct";
 type MethodType = "Init" | "Getter" | "Setter" | "ModifyCoroutine" |
@@ -268,7 +269,7 @@ enum EnumKind {
 export class Enum extends Type {
     readonly typeLayout: TypeLayout;
     private readonly enumKind: EnumKind;
-    private readonly noPayloadCases: FieldDetails[];
+    private readonly emptyCases: FieldDetails[];
     private readonly payloadCases: FieldDetails[];
 
     constructor(module: Module, descriptroPtr: NativePointer) {
@@ -281,13 +282,13 @@ export class Enum extends Type {
         }
 
         this.typeLayout = this.metadata.getTypeLayout();
-        this.noPayloadCases = [];
+        this.emptyCases = [];
         this.payloadCases = [];
         this.enumKind = EnumKind.NoPayload;
 
         for (const field of this.fields) {
             if (field.typeName === undefined) {
-                this.noPayloadCases.push(field);
+                this.emptyCases.push(field);
             } else {
                 this.payloadCases.push(field);
 
@@ -299,16 +300,11 @@ export class Enum extends Type {
             }
         }
 
-        for (const [i, kase] of this.noPayloadCases.entries()) {
-            Object.defineProperty(this, kase.name, {
-                configurable: false,
-                enumerable: true,
-                value: EnumValue.withTag(i + 1),
-                writable: false
-            });
-        }
+        let tagIndex = 0;
 
-        for (const kase of this.payloadCases) {
+        for (const kase of this.payloadCases) { //test this
+            const caseTag = tagIndex++;
+
             const associatedValueWrapper = (value: Value) => {
                 if (value === undefined) {
                     throw new Error("Case requires an associated value");
@@ -320,7 +316,7 @@ export class Enum extends Type {
                 }
                 */
 
-                return EnumValue.withPayload(value);
+                return new EnumValue(caseTag, value);
             }
 
             Object.defineProperty(this, kase.name, {
@@ -330,15 +326,29 @@ export class Enum extends Type {
                 writable: false
             });
         }
+
+        for (const [i, kase] of this.emptyCases.entries()) {
+            Object.defineProperty(this, kase.name, {
+                configurable: false,
+                enumerable: true,
+                value: new EnumValue(tagIndex++),
+                writable: false
+            });
+        }
+
     }
 
     makeFromRaw(handle: NativePointer): EnumValue {
         const tag = this.metadata.vw_getEnumTag(handle);
-        return EnumValue.withTag(tag);
-    }
+        let payload: Value;
 
-    private getByteLength(): number {
-        return Math.ceil(this.noPayloadCases.length / 0xFF);
+        if (tag < this.payloadCases.length) {
+            const typeName = this.payloadCases[tag].typeName;
+            const type = Registry.shared().typeByName(typeName);
+            payload = new Value(type, handle);
+        }
+
+        return new EnumValue(tag, payload);
     }
 }
 

@@ -19,16 +19,7 @@ export class Value implements ObjectWrapper {
 }
 
 export class EnumValue {
-    private constructor(readonly tag?: number,
-                        readonly payload?: Value) { }
-
-    static withTag(tag: number) {
-        return new EnumValue(tag);
-    }
-
-    static withPayload(payload: Value) {
-        return new EnumValue(undefined, payload);
-    }
+    constructor(readonly tag: number, readonly payload?: Value) { }
 
     equals(e: EnumValue) {
         if (this.tag !== undefined && e.tag !== undefined) {
