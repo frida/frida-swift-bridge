@@ -93,6 +93,8 @@ enum MultiPayloadEnum {
     case b(String)
     case c(Double)
     case d(Bool)
+    case e;
+    case f;
 }
 
 func makeMultiPayloadEnumCaseWithTag(tag: Int) -> MultiPayloadEnum {
@@ -100,13 +102,13 @@ func makeMultiPayloadEnumCaseWithTag(tag: Int) -> MultiPayloadEnum {
         case 0:
             return MultiPayloadEnum.a(0x1337)
         case 1:
-            return MultiPayloadEnum.b("Pentagon")
+            return MultiPayloadEnum.b("Octagon")
         case 2:
             return MultiPayloadEnum.c(3.1415926535)
         case 3:
             return MultiPayloadEnum.d(false)
         default:
-            return MultiPayloadEnum.a(0xDEAD)
+            return MultiPayloadEnum.a(0x0)
     }
 }
 
