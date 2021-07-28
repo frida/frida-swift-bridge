@@ -18,6 +18,11 @@ TESTLIST_BEGIN (basics)
     TESTENTRY (singlepayload_enum_data_case_can_be_made_from_raw)
     TESTENTRY (singlepayload_enum_data_case_can_be_made_ad_hoc)
     TESTENTRY (singlepayload_enum_equals_works)
+    TESTENTRY (multipayload_enum_empty_case_can_be_made_from_raw)
+    TESTENTRY (multipayload_enum_empty_case_can_be_gotten)
+    TESTENTRY (multipayload_enum_data_case_can_be_made_from_raw)
+    TESTENTRY (multipayload_enum_data_case_can_be_made_ad_hoc)
+    TESTENTRY (multipayload_enum_equals_works)
     /*
     TESTENTRY (c_style_enum_as_a_function_argument)
     TESTENTRY (c_style_enums_with_raw_values)
@@ -172,6 +177,80 @@ TESTCASE (singlepayload_enum_equals_works)
     "send(a.equals(b))"
   );
   EXPECT_SEND_MESSAGE_WITH ("true");
+  EXPECT_SEND_MESSAGE_WITH ("false");
+}
+
+TESTCASE (multipayload_enum_empty_case_can_be_made_from_raw)
+{
+  COMPILE_AND_LOAD_SCRIPT(
+    "var rawF = Memory.alloc(24);"
+    "rawF.writeU8(1);"
+    "rawF.add(0x10).writeU8(4);"
+    "var MultiPayloadEnum = Swift.enums.MultiPayloadEnum;"
+    "var f = MultiPayloadEnum.makeFromRaw(rawF);"
+    "send(f.tag === 5);"
+  );
+  EXPECT_SEND_MESSAGE_WITH ("true");
+}
+
+TESTCASE (multipayload_enum_empty_case_can_be_gotten)
+{
+  COMPILE_AND_LOAD_SCRIPT (
+    "var MultiPayloadEnum = Swift.enums.MultiPayloadEnum;"
+    "send(MultiPayloadEnum.e.tag === 4);"
+    "send(MultiPayloadEnum.f.tag === 5);"
+  );
+  EXPECT_SEND_MESSAGE_WITH ("true");
+  EXPECT_SEND_MESSAGE_WITH ("true");
+}
+
+TESTCASE (multipayload_enum_data_case_can_be_made_from_raw)
+{
+  COMPILE_AND_LOAD_SCRIPT (
+    "var rawB = Memory.alloc(24);"
+    "rawB.writeByteArray([0x57, 0x6f, 0x72, 0x6c, 0x64, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xe5]);"
+    "rawB.add(0x10).writeU8(1);"
+    "var MultiPayloadEnum = Swift.enums.MultiPayloadEnum;"
+    "var b = MultiPayloadEnum.makeFromRaw(rawB);"
+    "send(b.tag === 1);"
+  );
+  EXPECT_SEND_MESSAGE_WITH ("true");
+}
+
+TESTCASE (multipayload_enum_data_case_can_be_made_ad_hoc)
+{
+  COMPILE_AND_LOAD_SCRIPT(
+    "var buf = Memory.alloc(8);"
+    "buf.writeU64(0xCAFE);"
+    "var Int = Swift.structs.Int;"
+    "var i = Int.makeFromRaw(buf);"
+    "var MultiPayloadEnum = Swift.enums.MultiPayloadEnum;"
+    "var a = MultiPayloadEnum.a(i);"
+    "send(a.tag === 0);"
+    "send(a.payload.handle.readU64() == 0xCAFE);"
+  );
+  EXPECT_SEND_MESSAGE_WITH ("true");
+  EXPECT_SEND_MESSAGE_WITH ("true");
+}
+
+TESTCASE (multipayload_enum_equals_works)
+{
+  COMPILE_AND_LOAD_SCRIPT(
+    "var MultiPayloadEnum = Swift.enums.MultiPayloadEnum;"
+    "send(MultiPayloadEnum.e.equals(MultiPayloadEnum.f));"
+    "var buf1 = Memory.alloc(8);"
+    "buf1.writeU64(0xCAFE);"
+    "var Int = Swift.structs.Int;"
+    "var i1 = Int.makeFromRaw(buf1);"
+    "var MultiPayloadEnum = Swift.enums.MultiPayloadEnum;"
+    "var a1 = MultiPayloadEnum.a(i1);"
+    "var buf2 = Memory.alloc(8);"
+    "buf2.writeU64(0xBABE);"
+    "var i2 = Int.makeFromRaw(buf2);"
+    "var a2 = MultiPayloadEnum.a(i2);"
+    "send(a1.equals(a2));"
+  );
+  EXPECT_SEND_MESSAGE_WITH ("false");
   EXPECT_SEND_MESSAGE_WITH ("false");
 }
 
