@@ -22,16 +22,18 @@ export class EnumValue {
     constructor(readonly tag: number, readonly payload?: Value) { }
 
     equals(e: EnumValue) {
+        let result = false;
+
         if (this.tag !== undefined && e.tag !== undefined) {
-            return this.tag === e.tag;
+            result = this.tag === e.tag;
         }
 
         if (this.payload !== undefined && e.payload !== undefined) {
             /* TODO: handle value type equality properly */
-            return this.payload.handle.equals(this.payload.handle);
+            result &&= this.payload.handle.equals(e.payload.handle);
         }
 
-        return false;
+        return result;
     }
 }
 
