@@ -342,6 +342,10 @@ export class Enum extends Type {
         const tag = this.metadata.vw_getEnumTag(handle);
         let payload: Value;
 
+        if (tag - this.payloadCases.length >= this.emptyCases.length) {
+            throw new Error("Invalid pointer for an enum of this type");
+        }
+
         if (tag < this.payloadCases.length) {
             const typeName = this.payloadCases[tag].typeName;
             const type = Registry.shared().typeByName(typeName);
