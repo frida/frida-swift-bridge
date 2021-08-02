@@ -1,11 +1,12 @@
 /**
  * TODO:
+ *  - Implement Double and other SIMD types
  *  - Add check for correct number / type of arguments.
  * 	- Can we tell whether a function throws via its metadata?
  */
 
-import { Struct, Type } from "./types";
-import { Value } from "./runtime";
+import { Enum, Struct, Type } from "./types";
+import { EnumValue, Value } from "./runtime";
 
 type SwiftType = Type;
 type SwiftcallReturnKind = "direct" | "indirect" | "expand";
@@ -88,20 +89,26 @@ export function makeSwiftNativeFunction(address: NativePointer,
         const acutalArgs: any[] = [];
 
         for (const arg of args) {
-            const cObj = makeCObject(arg);
-            if (Array.isArray(cObj)) {
-                acutalArgs.push(...cObj);
+            const cValue = makeCValue(arg);
+
+            if (Array.isArray(cValue)) {
+                acutalArgs.push(...cValue);
             } else {
-                acutalArgs.push(cObj);
+                acutalArgs.push(cValue);
             }
         }
 
         const retval = nativeFunction(...acutalArgs);
 
         if (retOpts.kind === "indirect" || retOpts.kind === "expand") {
+            if (retType instanceof Enum) {
+                const asEnum = retType as Enum;
+                return asEnum.makeFromRaw(retOpts.buffer);
+            }
             return new Value(retType, retOpts.buffer);
         }
 
+        /* TODO: don't lose type metadata for register-sized values */
         return retval;
     }
 
@@ -124,25 +131,51 @@ function makeCType(type: Type): NativeType {
     }
 }
 
-function makeCObject(object: Value): UInt64 | UInt64[] | NativePointer {
-    const type = object.type;
+function makeCValue(value: Value): UInt64 | UInt64[] | NativePointer {
+    const type = value.type;
+    const result: UInt64[] = [];
 
     if (shouldPassIndirectly(type)) {
-        return object.handle;
+        return value.handle;
+    } else if (value instanceof EnumValue) {
+        const asEnum = type as Enum;
+        const enumValue = value as EnumValue;
+
+        if (asEnum.payloadCases.length > 0) {
+            const stride = asEnum.typeLayout.stride;
+            const tmp = Memory.alloc(stride);
+            let payloadSize: number;
+
+            if (enumValue.payload.type instanceof Struct) {
+                const payloadType = enumValue.payload.type as Struct;
+                payloadSize = payloadType.typeLayout.stride;
+            } else {
+                payloadSize = Process.pointerSize; // TODO: bad?
+            }
+
+            Memory.copy(tmp, enumValue.payload.handle, payloadSize);
+            asEnum.metadata.vw_destructiveInjectEnumTag(tmp, enumValue.tag);
+
+            for (let i = 0; i < stride; i += 8) {
+                result.push(tmp.add(i).readU64());
+            }
+        } else {
+            result.push(uint64(enumValue.tag));
+        }
     } else {
         const asStruct = type as Struct;
         const stride = asStruct.typeLayout.stride;
-        const data: UInt64[] = [];
 
         for (let i = 0; i < stride; i += 8) {
-            data.push(object.handle.add(i).readU64());
+            result.push(value.handle.add(i).readU64());
         }
-
-        return data.length === 1 ? data[0] : data;
     }
+
+    return result.length === 1 ? result[0] : result;
 }
 
 function shouldPassIndirectly(type: Type) {
+    // TODO: enums with references?
     const vwt = type.metadata.getValueWitnesses();
     return !vwt.flags.isBitwiseTakable || vwt.stride > 32;
 }

@@ -269,8 +269,8 @@ enum EnumKind {
 export class Enum extends Type {
     readonly typeLayout: TypeLayout;
     private readonly enumKind: EnumKind;
-    private readonly emptyCases: FieldDetails[];
-    private readonly payloadCases: FieldDetails[];
+    readonly emptyCases: FieldDetails[];
+    readonly payloadCases: FieldDetails[];
 
     constructor(module: Module, descriptroPtr: NativePointer) {
         const descriptor = new TargetEnumDescriptor(descriptroPtr);
@@ -316,7 +316,7 @@ export class Enum extends Type {
                 }
                 */
 
-                return new EnumValue(caseTag, value);
+                return new EnumValue(this, caseTag, value);
             }
 
             Object.defineProperty(this, kase.name, {
@@ -331,7 +331,7 @@ export class Enum extends Type {
             Object.defineProperty(this, kase.name, {
                 configurable: false,
                 enumerable: true,
-                value: new EnumValue(tagIndex++),
+                value: new EnumValue(this, tagIndex++),
                 writable: false
             });
         }
@@ -352,7 +352,7 @@ export class Enum extends Type {
             payload = new Value(type, handle);
         }
 
-        return new EnumValue(tag, payload);
+        return new EnumValue(this, tag, payload);
     }
 }
 

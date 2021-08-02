@@ -1,5 +1,6 @@
 /**
  * TODO:
+ *  - Use a common generic base class for struct and enum values?
  *  - Replace Struct with a ValueType in the constructor / factory
  *  - Pretty print enum values
  *  - Parse struct fields and map Builtin Swift types to JS ones
@@ -19,7 +20,8 @@ export class Value implements ObjectWrapper {
 }
 
 export class EnumValue {
-    constructor(readonly tag: number, readonly payload?: Value) { }
+    constructor(readonly type: Enum, readonly tag: number,
+                readonly payload?: Value) { }
 
     equals(e: EnumValue) {
         let result = false;

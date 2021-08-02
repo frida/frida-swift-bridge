@@ -1,3 +1,8 @@
+/**
+ * TODO:
+ *  - Move to registry.ts
+ */
+
 import { TargetTypeContextDescriptor } from "../abi/metadata";
 import { RelativeDirectPointer } from "../basic/relativepointer";
 import { getApi } from "../lib/api";
