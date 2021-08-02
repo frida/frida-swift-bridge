@@ -10,6 +10,10 @@
 TESTLIST_BEGIN (basics)
     TESTENTRY (modules_can_be_enumerated)
     TESTENTRY (types_can_be_enumerated)
+    TESTENTRY (swiftcall_with_context)
+    TESTENTRY (swiftcall_with_indirect_result)
+    TESTENTRY (swiftcall_with_direct_result)
+    TESTENTRY (swiftcall_with_indirect_result_and_stack_arguments)
     TESTENTRY (c_style_enum_can_be_made_from_raw)
     TESTENTRY (c_style_enum_cases_can_be_gotten)
     TESTENTRY (c_style_enum_equals_works)
@@ -27,10 +31,6 @@ TESTLIST_BEGIN (basics)
     TESTENTRY (multipayload_enum_can_be_returned_from_function)
     TESTENTRY (protocol_num_requirements_can_be_gotten)
     TESTENTRY (protocol_conformance_can_be_gotten)
-    TESTENTRY (swiftcall_with_context)
-    TESTENTRY (swiftcall_with_indirect_result)
-    TESTENTRY (swiftcall_with_direct_result)
-    TESTENTRY (swiftcall_with_indirect_result_and_stack_arguments)
 TESTLIST_END ()
 
 TESTCASE (modules_can_be_enumerated)
@@ -58,6 +58,86 @@ TESTCASE (types_can_be_enumerated)
     "send(numProtos > 100);"
   );
   EXPECT_SEND_MESSAGE_WITH ("true");
+  EXPECT_SEND_MESSAGE_WITH ("true");
+  EXPECT_SEND_MESSAGE_WITH ("true");
+  EXPECT_SEND_MESSAGE_WITH ("true");
+}
+
+TESTCASE (swiftcall_with_context)
+{
+  COMPILE_AND_LOAD_SCRIPT(
+    "var Int = Swift.structs.Int;"
+    "var buf1 = Memory.alloc(8);"
+    "buf1.writeU64(0xDEAD);"
+    "var i1 = Int.makeFromRaw(buf1);"
+    "var buf2 = Memory.alloc(8);"
+    "buf2.writeU64(0xBABE);"
+    "var i2 = Int.makeFromRaw(buf2);"
+    "var SimpleClass = Swift.classes.SimpleClass;"
+    "var initPtr = SimpleClass.$methods[SimpleClass.$methods.length - 1].address;" // TODO parse initializer
+    "var init = Swift.NativeFunction(initPtr, SimpleClass, [Int, Int], SimpleClass.metadataPointer);"
+    "var instance = init(i1, i2);"
+    "send(instance.equals(ptr(0x0)));"
+  );
+  EXPECT_SEND_MESSAGE_WITH ("false");
+}
+
+TESTCASE (swiftcall_with_indirect_result)
+{
+  COMPILE_AND_LOAD_SCRIPT(
+    "var dummy = Process.getModuleByName('dummy.o');"
+    "var symbols = dummy.enumerateSymbols();"
+    "symbols = symbols.filter(s => s.name == '$s5dummy15returnBigStructAA0cD0VyF');"
+    "var target = symbols[0].address;"
+    "var BigStruct = Swift.structs.BigStruct;"
+    "var returnBigStruct = Swift.NativeFunction(target, BigStruct, []);"
+    "var big = returnBigStruct();"
+    "send(big.handle.readU64() == 1);"
+    "send(big.handle.add(0x20).readU64() == 5);"
+  );
+  EXPECT_SEND_MESSAGE_WITH ("true");
+  EXPECT_SEND_MESSAGE_WITH ("true");
+}
+
+TESTCASE (swiftcall_with_direct_result)
+{
+  COMPILE_AND_LOAD_SCRIPT(
+    "var dummy = Process.getModuleByName('dummy.o');"
+    "var symbols = dummy.enumerateSymbols();"
+    "symbols = symbols.filter(s => s.name == '$s5dummy17getLoadableStructAA0cD0VyF');"
+    "var target = symbols[0].address;"
+    "var LoadableStruct = Swift.structs.LoadableStruct;"
+    "var getLoadableStruct = Swift.NativeFunction(target, LoadableStruct, []);"
+    "var loadable = getLoadableStruct();"
+    "send(loadable.handle.readU64() == 1);"
+    "send(loadable.handle.add(0x10).readU64() == 3);"
+  );
+  EXPECT_SEND_MESSAGE_WITH ("true");
+  EXPECT_SEND_MESSAGE_WITH ("true");
+}
+
+TESTCASE(swiftcall_with_indirect_result_and_stack_arguments)
+{
+  COMPILE_AND_LOAD_SCRIPT(
+      "var dummy = Process.getModuleByName('dummy.o');"
+      "var symbols = dummy.enumerateSymbols();"
+      "symbols = symbols.filter(s => s.name == '$s5dummy30makeBigStructWithManyArguments4with3and1a1b1c1d1eAA0cD0VAA08LoadableD0V_AMS5itF');"
+      "var target = symbols[0].address;"
+      "var Int = Swift.structs.Int;"
+      "var BigStruct = Swift.structs.BigStruct;"
+      "var LoadableStruct = Swift.structs.LoadableStruct;"
+      "var makeBigStructWithManyArguments = Swift.NativeFunction(target, BigStruct, [LoadableStruct, LoadableStruct, Int, Int, Int, Int, Int]);"
+      "symbols = dummy.enumerateSymbols().filter(s => s.name === '$s5dummy18makeLoadableStruct1a1b1c1dAA0cD0VSi_S3itF');"
+      "target = symbols[0].address;"
+      "var makeLoadableStruct = Swift.NativeFunction(target, LoadableStruct, [Int, Int, Int, Int]);"
+      "var buf1 = Memory.alloc(8);"
+      "buf1.writeU64(0x1);"
+      "var i1 = Int.makeFromRaw(buf1);"
+      "var loadable = makeLoadableStruct(i1, i1, i1, i1);"
+      "var big = makeBigStructWithManyArguments(loadable, loadable, i1, i1, i1, i1, i1);"
+      "send(!big.handle.equals(ptr(0x0)));"
+      "send(big.handle.add(0x20).readU32() == 1);"
+      "send(big.handle.add(0x10).readU32() == 3);");
   EXPECT_SEND_MESSAGE_WITH ("true");
   EXPECT_SEND_MESSAGE_WITH ("true");
   EXPECT_SEND_MESSAGE_WITH ("true");
@@ -330,82 +410,3 @@ TESTCASE (protocol_conformance_can_be_gotten)
   EXPECT_SEND_MESSAGE_WITH ("true");
 }
 
-TESTCASE (swiftcall_with_context)
-{
-  COMPILE_AND_LOAD_SCRIPT(
-    "var Int = Swift.structs.Int;"
-    "var buf1 = Memory.alloc(8);"
-    "buf1.writeU64(0xDEAD);"
-    "var i1 = Int.makeFromRaw(buf1);"
-    "var buf2 = Memory.alloc(8);"
-    "buf2.writeU64(0xBABE);"
-    "var i2 = Int.makeFromRaw(buf2);"
-    "var SimpleClass = Swift.classes.SimpleClass;"
-    "var initPtr = SimpleClass.$methods[SimpleClass.$methods.length - 1].address;" // TODO parse initializer
-    "var init = Swift.NativeFunction(initPtr, SimpleClass, [Int, Int], SimpleClass.metadataPointer);"
-    "var instance = init(i1, i2);"
-    "send(instance.equals(ptr(0x0)));"
-  );
-  EXPECT_SEND_MESSAGE_WITH ("false");
-}
-
-TESTCASE (swiftcall_with_indirect_result)
-{
-  COMPILE_AND_LOAD_SCRIPT(
-    "var dummy = Process.getModuleByName('dummy.o');"
-    "var symbols = dummy.enumerateSymbols();"
-    "symbols = symbols.filter(s => s.name == '$s5dummy15returnBigStructAA0cD0VyF');"
-    "var target = symbols[0].address;"
-    "var BigStruct = Swift.structs.BigStruct;"
-    "var returnBigStruct = Swift.NativeFunction(target, BigStruct, []);"
-    "var big = returnBigStruct();"
-    "send(big.handle.readU64() == 1);"
-    "send(big.handle.add(0x20).readU64() == 5);"
-  );
-  EXPECT_SEND_MESSAGE_WITH ("true");
-  EXPECT_SEND_MESSAGE_WITH ("true");
-}
-
-TESTCASE (swiftcall_with_direct_result)
-{
-  COMPILE_AND_LOAD_SCRIPT(
-    "var dummy = Process.getModuleByName('dummy.o');"
-    "var symbols = dummy.enumerateSymbols();"
-    "symbols = symbols.filter(s => s.name == '$s5dummy17getLoadableStructAA0cD0VyF');"
-    "var target = symbols[0].address;"
-    "var LoadableStruct = Swift.structs.LoadableStruct;"
-    "var getLoadableStruct = Swift.NativeFunction(target, LoadableStruct, []);"
-    "var loadable = getLoadableStruct();"
-    "send(loadable.handle.readU64() == 1);"
-    "send(loadable.handle.add(0x10).readU64() == 3);"
-  );
-  EXPECT_SEND_MESSAGE_WITH ("true");
-  EXPECT_SEND_MESSAGE_WITH ("true");
-}
-
-TESTCASE(swiftcall_with_indirect_result_and_stack_arguments)
-{
-  COMPILE_AND_LOAD_SCRIPT(
-      "var dummy = Process.getModuleByName('dummy.o');"
-      "var symbols = dummy.enumerateSymbols();"
-      "symbols = symbols.filter(s => s.name == '$s5dummy30makeBigStructWithManyArguments4with3and1a1b1c1d1eAA0cD0VAA08LoadableD0V_AMS5itF');"
-      "var target = symbols[0].address;"
-      "var Int = Swift.structs.Int;"
-      "var BigStruct = Swift.structs.BigStruct;"
-      "var LoadableStruct = Swift.structs.LoadableStruct;"
-      "var makeBigStructWithManyArguments = Swift.NativeFunction(target, BigStruct, [LoadableStruct, LoadableStruct, Int, Int, Int, Int, Int]);"
-      "symbols = dummy.enumerateSymbols().filter(s => s.name === '$s5dummy18makeLoadableStruct1a1b1c1dAA0cD0VSi_S3itF');"
-      "target = symbols[0].address;"
-      "var makeLoadableStruct = Swift.NativeFunction(target, LoadableStruct, [Int, Int, Int, Int]);"
-      "var buf1 = Memory.alloc(8);"
-      "buf1.writeU64(0x1);"
-      "var i1 = Int.makeFromRaw(buf1);"
-      "var loadable = makeLoadableStruct(i1, i1, i1, i1);"
-      "var big = makeBigStructWithManyArguments(loadable, loadable, i1, i1, i1, i1, i1);"
-      "send(!big.handle.equals(ptr(0x0)));"
-      "send(big.handle.add(0x20).readU32() == 1);"
-      "send(big.handle.add(0x10).readU32() == 3);");
-  EXPECT_SEND_MESSAGE_WITH ("true");
-  EXPECT_SEND_MESSAGE_WITH ("true");
-  EXPECT_SEND_MESSAGE_WITH ("true");
-}
