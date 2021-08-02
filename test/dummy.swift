@@ -133,20 +133,6 @@ func makeMultiPayloadEnumCase(with tag: Int) -> MultiPayloadEnum {
     }
 }
 
-enum SingledPayloadReferenceEnum {
-    case a
-    case Some(SimpleClass)
-    case b
-    case c
-}
-
-enum MultiPayloadReferenceEnum {
-    case a
-    case One(EmptyClass)
-    case Two(SimpleClass)
-    case b
-}
-
 func makeString() -> String {
     return "New Cairo"
 }
