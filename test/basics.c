@@ -25,10 +25,8 @@ TESTLIST_BEGIN (basics)
     TESTENTRY (multipayload_enum_equals_works)
     TESTENTRY (multipayload_enum_can_be_passed_to_function)
     TESTENTRY (multipayload_enum_can_be_returned_from_function)
-    /*
-    TESTENTRY (c_style_enum_as_a_function_argument)
-    TESTENTRY (c_style_enums_with_raw_values)
-    */
+    TESTENTRY (protocol_num_requirements_can_be_gotten)
+    TESTENTRY (protocol_conformance_can_be_gotten)
     TESTENTRY (swiftcall_with_context)
     TESTENTRY (swiftcall_with_indirect_result)
     TESTENTRY (swiftcall_with_direct_result)
@@ -308,23 +306,29 @@ TESTCASE (multipayload_enum_can_be_returned_from_function)
   EXPECT_SEND_MESSAGE_WITH ("true");
 }
 
-//TODO: test enums with references
-
-/*
-TESTCASE (c_style_enum_as_a_function_argument)
+TESTCASE (protocol_num_requirements_can_be_gotten)
 {
   COMPILE_AND_LOAD_SCRIPT(
-    "var CStyle = Swift.enums.CStyle;"
+    "var SomeProtocol = Swift.protocols.SomeProtocol;"
+    "send(SomeProtocol.numRequirements === 4);"
+    "var Togglable = Swift.protocols.Togglable;"
+    "send(Togglable.numRequirements === 1);"
   );
+  EXPECT_SEND_MESSAGE_WITH ("true");
+  EXPECT_SEND_MESSAGE_WITH ("true");
 }
 
-TESTCASE (c_style_enums_with_raw_values)
+TESTCASE (protocol_conformance_can_be_gotten)
 {
   COMPILE_AND_LOAD_SCRIPT(
-    "var CStyle = Swift.enums.CStyle;"
+    "var URL = Swift.structs.URL;"
+    "send(URL.conformsToProtocols.includes('Hashable'));"
+    "var OnOffSwitch = Swift.enums.OnOffSwitch;"
+    "send(OnOffSwitch.conformsToProtocols.includes('Togglable'));"
   );
+  EXPECT_SEND_MESSAGE_WITH ("true");
+  EXPECT_SEND_MESSAGE_WITH ("true");
 }
-*/
 
 TESTCASE (swiftcall_with_context)
 {

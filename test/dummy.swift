@@ -133,6 +133,27 @@ func makeMultiPayloadEnumCase(with tag: Int) -> MultiPayloadEnum {
     }
 }
 
+protocol SomeProtocol {
+    var mustBeSettable: Int { get set }
+    var doesNotNeedToBeSettable: Int { get }
+}
+
+protocol Togglable {
+    mutating func toggle()
+}
+
+enum OnOffSwitch: Togglable {
+    case off, on
+    mutating func toggle() {
+        switch self {
+        case .off:
+            self = .on
+        case .on:
+            self = .off
+        }
+    }
+}
+
 func makeString() -> String {
     return "New Cairo"
 }
