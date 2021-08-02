@@ -97,18 +97,39 @@ enum MultiPayloadEnum {
     case f;
 }
 
-func makeMultiPayloadEnumCaseWithTag(tag: Int) -> MultiPayloadEnum {
+func takeMultiPayloadEnum(kase: MultiPayloadEnum) -> Int {
+    switch (kase) {
+        case .a(_):
+            return 0
+        case .b(_):
+            return 1
+        case .c(_):
+            return 2
+        case .d(_):
+            return 3
+        case .e:
+            return 4
+        case .f:
+            return 5
+    }
+}
+
+func makeMultiPayloadEnumCase(with tag: Int) -> MultiPayloadEnum {
     switch (tag) {
         case 0:
-            return MultiPayloadEnum.a(0x1337)
+            return .a(0x1337)
         case 1:
-            return MultiPayloadEnum.b("Octagon")
+            return .b("Octagon")
         case 2:
-            return MultiPayloadEnum.c(3.1415926535)
+            return .c(3.1415926535)
         case 3:
-            return MultiPayloadEnum.d(false)
+            return .d(false)
+        case 4:
+            return .e
+        case 5:
+            return .f
         default:
-            return MultiPayloadEnum.a(0x0)
+            return MultiPayloadEnum.a(-1)
     }
 }
 
