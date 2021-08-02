@@ -64,3 +64,24 @@ export class MethodDescriptorFlags {
         return this.value & MethodDescriptorFlags.KindMask;
     }
 }
+
+export enum TypeReferenceKind {
+    DirectTypeDescriptor = 0x00,
+    IndirectTypeDescriptor = 0x01,
+    DirectObjCClassName = 0x02,
+    IndirectObjCClass = 0x03,
+}
+
+enum ConformanceFlags_Value {
+    TypeMetadataKindMask = 0x7 << 3,
+    TypeMetadataKindShift = 3,
+}
+
+export class ConformanceFlags {
+    constructor(private value: number) { }
+
+    getTypeReferenceKind(): TypeReferenceKind {
+        return (this.value & ConformanceFlags_Value.TypeMetadataKindMask) >>
+                ConformanceFlags_Value.TypeMetadataKindShift;
+    }
+}

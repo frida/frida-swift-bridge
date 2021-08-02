@@ -1,11 +1,14 @@
 /**
  * TODO:
  *  - Use conventional ordering of declarations
+ *  - Implement Objective-C enumeration, e.g. __C.NSURL?
  */
 
 import { TargetClassDescriptor,
+         TargetContextDescriptor,
          TargetEnumDescriptor,
          TargetMetadata,
+         TargetProtocolConformanceDescriptor,
          TargetProtocolDescriptor,
          TargetStructDescriptor,
          TargetTypeContextDescriptor,
@@ -22,7 +25,7 @@ import { Registry } from "./registry";
 
 type SwiftTypeKind = "Class" | "Enum" | "Struct" | "Protocol";
 type MethodType = "Init" | "Getter" | "Setter" | "ModifyCoroutine" |
-    "ReadCoroutine" | "Method";
+                  "ReadCoroutine" | "Method";
 
 interface FieldDetails {
     name: string;
@@ -45,19 +48,18 @@ export class SwiftModule {
     readonly $protocols: Protocol[] = [];
 
     constructor(readonly $native: Module) {
-        this.cacheSwift5Types();
-        this.cacheSwift5Protocols();
+        this.cacheTypes();
+        this.cacheProtocols();
 
         if (this.$allTypes.length > 0) {
             this.$name = this.$allTypes[0].moduleName;
         }
     }
 
-    cacheSwift5Types() {
+    private cacheTypes() {
         const section = this.getSwif5TypesSection();
         const nTypes = section.size / RelativeDirectPointer.sizeOf;
 
-        /* TODO: only type context descriptors exist in __swift5_types? */
         for (let i = 0; i < nTypes; i++) {
             const record = section.vmAddress.add(i * RelativeDirectPointer.sizeOf);
             const ctxDescPtr = RelativeDirectPointer.From(record).get();
@@ -98,11 +100,11 @@ export class SwiftModule {
         }
     }
 
-    cacheSwift5Protocols() {
+    private cacheProtocols() {
         const section = this.getSwift5ProtocolsSection();
-        const numTypes = section.size / RelativeDirectPointer.sizeOf;
+        const numProtos = section.size / RelativeDirectPointer.sizeOf;
 
-        for (let i = 0; i < numTypes; i++) {
+        for (let i = 0; i < numProtos; i++) {
             const record = section.vmAddress.add(i * RelativeDirectPointer.sizeOf);
             const ctxDescPtr = RelativeDirectPointer.From(record).get();
             const ctxDesc = new TargetProtocolDescriptor(ctxDescPtr);
@@ -119,15 +121,48 @@ export class SwiftModule {
         }
     }
 
-    getSwif5TypesSection(): MachOSection {
+    bindProtocolConformances(cachedTypes: Record<string, Type>) {
+        const section = this.getSwift5ProtocolConformanceSection();
+        const numRecords = section.size / RelativeDirectPointer.sizeOf;
+
+        for (let i = 0; i < numRecords; i++) {
+            const recordPtr = section.vmAddress.add(i * RelativeDirectPointer.sizeOf);
+            const descPtr = RelativeDirectPointer.From(recordPtr).get();
+            const conformanceDesc = new TargetProtocolConformanceDescriptor(
+                    descPtr);
+            const typeDescPtr = conformanceDesc.getTypeDescriptor();
+            const typeDesc = new TargetTypeContextDescriptor(typeDescPtr);
+
+            /* TODO: handle generics */
+            /* typeDescPtr is null when it's an ObjC class */
+            if (typeDescPtr === null || typeDesc.isGeneric()) {
+                continue;
+            }
+
+            const protocolDesc = new TargetProtocolDescriptor(
+                        conformanceDesc.protocol);
+            let cachedType = this[typeDesc.name] ||
+                             cachedTypes[typeDesc.name];
+
+            if (cachedType instanceof Type) {
+                cachedType.conformsToProtocols.push(protocolDesc.name);
+            }
+        }
+    }
+
+    private getSwif5TypesSection(): MachOSection {
         return this.getMachoSection("__swift5_types");
     }
 
-    getSwift5ProtocolsSection(): MachOSection {
+    private getSwift5ProtocolsSection(): MachOSection {
         return this.getMachoSection("__swift5_protos");
     }
 
-    getMachoSection(sectionName: string, segmentName: string = "__TEXT"): MachOSection {
+    private getSwift5ProtocolConformanceSection(): MachOSection {
+        return this.getMachoSection("__swift5_proto");
+    }
+
+    private getMachoSection(sectionName: string, segmentName: string = "__TEXT"): MachOSection {
         const machHeader = this.$native.base;
         const segName = Memory.allocUtf8String(segmentName);
         const sectName = Memory.allocUtf8String(sectionName);
@@ -158,6 +193,7 @@ export class Type {
     readonly moduleName: string;
     readonly metadataPointer: NativePointer;
     readonly metadata: TargetMetadata;
+    readonly conformsToProtocols: string[];
 
     constructor (readonly module: Module,
                  readonly kind: SwiftTypeKind,
@@ -169,6 +205,7 @@ export class Type {
         this.metadataPointer = descriptor.getAccessFunction()
                 .call() as NativePointer;
         this.metadata = new TargetMetadata(this.metadataPointer);
+        this.conformsToProtocols = [];
     }
 
     static getFieldsDetails(descriptor: TargetTypeContextDescriptor):
@@ -200,10 +237,9 @@ export class Type {
 
     toJSON() {
         return {
-            kind: this.kind,
             name: this.name,
-            flags: this.flags,
             fields: this.fields,
+            conformsToProtocols: this.conformsToProtocols,
         }
     }
 }
@@ -389,14 +425,16 @@ export class Enum extends Type {
 
 export class Protocol {
     readonly name: string;
+    readonly numRequirements: number;
 
     constructor(readonly descriptor: TargetProtocolDescriptor) {
         this.name = descriptor.name;
+        this.numRequirements = descriptor.numRequirements;
     }
 
     toJSON() {
         return {
-            numReuirements: this.descriptor.numRequirements
+            numRequirements: this.descriptor.numRequirements
         }
     }
 }

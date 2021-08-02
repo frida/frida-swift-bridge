@@ -7,7 +7,9 @@ import { ContextDescriptorKind,
          MetadataKind,
          TargetValueWitnessFlags,
          TypeContextDescriptorFlags,
-         MethodDescriptorFlags } from "./metadatavalues";
+         MethodDescriptorFlags,
+         TypeReferenceKind,
+         ConformanceFlags} from "./metadatavalues";
 import { RelativeDirectPointer,
          RelativeIndirectablePointer } from "../basic/relativepointer";
 
@@ -414,6 +416,79 @@ export class TargetProtocolDescriptor extends TargetContextDescriptor {
         }
 
         return this.#numRequirements;
+    }
+}
+
+class TargetTypeReference {
+    constructor(private readonly handle: NativePointer) {}
+
+    getTypeDescriptor(kind: TypeReferenceKind): NativePointer {
+        let pointer: NativePointer = null;
+
+        switch (kind) {
+            case TypeReferenceKind.DirectTypeDescriptor:
+                pointer = RelativeDirectPointer.From(this.handle).get();
+                break;
+            case TypeReferenceKind.IndirectTypeDescriptor:
+                pointer = RelativeDirectPointer.From(this.handle).get();
+                pointer = pointer.readPointer();
+                break;
+            /* TODO: what to do with those? */
+            case TypeReferenceKind.DirectObjCClassName:
+            case TypeReferenceKind.IndirectObjCClass:
+                break;
+        }
+
+        return pointer;
+    }
+}
+
+export class TargetProtocolConformanceDescriptor {
+    static readonly OFFSETOF_PROTOTCOL = 0x0;
+    static readonly OFFSETOF_TYPE_REF = 0x4;
+    static readonly OFFSETOF_FLAGS = 0xC;
+
+    #protocol: NativePointer;
+    #typeRef: TargetTypeReference;
+    #flags: ConformanceFlags;
+
+    constructor(readonly handle: NativePointer) { }
+
+    get protocol(): NativePointer {
+        if (this.#protocol === undefined) {
+            this.#protocol = RelativeIndirectablePointer.From(this.handle.add(
+                TargetProtocolConformanceDescriptor.OFFSETOF_PROTOTCOL)).get();
+        }
+
+        return this.#protocol;
+    }
+
+    get typeRef(): TargetTypeReference {
+        if (this.#typeRef === undefined) {
+            const pointer = this.handle.add(
+                TargetProtocolConformanceDescriptor.OFFSETOF_TYPE_REF);
+            this.#typeRef = new TargetTypeReference(pointer)
+        }
+
+        return this.#typeRef;
+    }
+
+    get flags(): ConformanceFlags {
+        if (this.#flags === undefined) {
+            const pointer = this.handle.add(
+                TargetProtocolConformanceDescriptor.OFFSETOF_FLAGS);
+            this.#flags = new ConformanceFlags(pointer.readU32());
+        }
+
+        return this.#flags;
+    }
+
+    getTypeKind(): TypeReferenceKind {
+        return this.flags.getTypeReferenceKind();
+    }
+
+    getTypeDescriptor(): NativePointer {
+        return this.typeRef.getTypeDescriptor(this.getTypeKind());
     }
 }
 

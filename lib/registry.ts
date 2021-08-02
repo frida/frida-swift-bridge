@@ -57,6 +57,10 @@ export class Registry {
                 this.protocols[proto.name] = proto;
             }
         }
+
+        for (const [name, swiftModule] of Object.entries(this.modules)) {
+            swiftModule.bindProtocolConformances(this.types);
+        }
     }
 
     typesForModule(nativeName: string): Type[] {
