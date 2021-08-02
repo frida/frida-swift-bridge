@@ -14,6 +14,8 @@ TESTLIST_BEGIN (basics)
     TESTENTRY (swiftcall_with_indirect_result)
     TESTENTRY (swiftcall_with_direct_result)
     TESTENTRY (swiftcall_with_indirect_result_and_stack_arguments)
+    TESTENTRY (swiftcall_multipayload_enum_can_be_passed_to_function)
+    TESTENTRY (swiftcall_multipayload_enum_can_be_returned_from_function)
     TESTENTRY (c_style_enum_can_be_made_from_raw)
     TESTENTRY (c_style_enum_cases_can_be_gotten)
     TESTENTRY (c_style_enum_equals_works)
@@ -27,8 +29,6 @@ TESTLIST_BEGIN (basics)
     TESTENTRY (multipayload_enum_data_case_can_be_made_from_raw)
     TESTENTRY (multipayload_enum_data_case_can_be_made_ad_hoc)
     TESTENTRY (multipayload_enum_equals_works)
-    TESTENTRY (multipayload_enum_can_be_passed_to_function)
-    TESTENTRY (multipayload_enum_can_be_returned_from_function)
     TESTENTRY (protocol_num_requirements_can_be_gotten)
     TESTENTRY (protocol_conformance_can_be_gotten)
 TESTLIST_END ()
@@ -138,6 +138,55 @@ TESTCASE(swiftcall_with_indirect_result_and_stack_arguments)
       "send(!big.handle.equals(ptr(0x0)));"
       "send(big.handle.add(0x20).readU32() == 1);"
       "send(big.handle.add(0x10).readU32() == 3);");
+  EXPECT_SEND_MESSAGE_WITH ("true");
+  EXPECT_SEND_MESSAGE_WITH ("true");
+  EXPECT_SEND_MESSAGE_WITH ("true");
+}
+
+TESTCASE (swiftcall_multipayload_enum_can_be_passed_to_function)
+{
+  COMPILE_AND_LOAD_SCRIPT(
+    "var dummy = Process.getModuleByName('dummy.o');"
+    "var symbols = dummy.enumerateSymbols();"
+    "symbols = symbols.filter(s => s.name == '$s5dummy20takeMultiPayloadEnum4kaseSiAA0cdE0O_tF');"
+    "var target = symbols[0].address;"
+    "var Int = Swift.structs.Int;"
+    "var MultiPayloadEnum = Swift.enums.MultiPayloadEnum;"
+    "var takeMultiPayloadEnumCase = Swift.NativeFunction(target, Int, [MultiPayloadEnum]);"
+     "var buf = Memory.alloc(8);"
+    "buf.writeU64(0xCAFE);"
+    "var i = Int.makeFromRaw(buf);"
+    "var a = MultiPayloadEnum.a(i);"
+    "send(takeMultiPayloadEnumCase(a) == 0);"
+    "var Bool = Swift.structs.Bool;"
+    "var truthy = Bool.makeFromRaw(Memory.alloc(1).writeU8(1));"
+    "var d = MultiPayloadEnum.d(truthy);"
+    "send(takeMultiPayloadEnumCase(d) == 3);"
+  );
+  EXPECT_SEND_MESSAGE_WITH ("true");
+  EXPECT_SEND_MESSAGE_WITH ("true");
+}
+
+TESTCASE (swiftcall_multipayload_enum_can_be_returned_from_function)
+{
+    COMPILE_AND_LOAD_SCRIPT(
+    "var Int = Swift.structs.Int;"
+    "var tag0 = Int.makeFromRaw(Memory.alloc(8).writeU64(0x0));"
+    "var dummy = Process.getModuleByName('dummy.o');"
+    "var symbols = dummy.enumerateSymbols();"
+    "symbols = symbols.filter(s => s.name == '$s5dummy24makeMultiPayloadEnumCase4withAA0cdE0OSi_tF');"
+    "var target = symbols[0].address;"
+    "var MultiPayloadEnum = Swift.enums.MultiPayloadEnum;"
+    "var makeMultiPayloadEnumCase = Swift.NativeFunction(target, MultiPayloadEnum, [Int]);"
+    "var a = makeMultiPayloadEnumCase(tag0);"
+    "send(a.tag === 0);"
+    "send(a.payload.handle.readU64() == 0x1337);"
+    "var tag1 = Int.makeFromRaw(Memory.alloc(8).writeU64(0x1));"
+    "var b = makeMultiPayloadEnumCase(tag1);"
+    "send(b.tag === 1);"
+    "send(b.payload.handle.readCString() == 'Octagon');"
+  );
+  EXPECT_SEND_MESSAGE_WITH ("true");
   EXPECT_SEND_MESSAGE_WITH ("true");
   EXPECT_SEND_MESSAGE_WITH ("true");
   EXPECT_SEND_MESSAGE_WITH ("true");
@@ -335,55 +384,6 @@ TESTCASE (multipayload_enum_equals_works)
   );
   EXPECT_SEND_MESSAGE_WITH ("false");
   EXPECT_SEND_MESSAGE_WITH ("false");
-}
-
-TESTCASE (multipayload_enum_can_be_passed_to_function)
-{
-  COMPILE_AND_LOAD_SCRIPT(
-    "var dummy = Process.getModuleByName('dummy.o');"
-    "var symbols = dummy.enumerateSymbols();"
-    "symbols = symbols.filter(s => s.name == '$s5dummy20takeMultiPayloadEnum4kaseSiAA0cdE0O_tF');"
-    "var target = symbols[0].address;"
-    "var Int = Swift.structs.Int;"
-    "var MultiPayloadEnum = Swift.enums.MultiPayloadEnum;"
-    "var takeMultiPayloadEnumCase = Swift.NativeFunction(target, Int, [MultiPayloadEnum]);"
-     "var buf = Memory.alloc(8);"
-    "buf.writeU64(0xCAFE);"
-    "var i = Int.makeFromRaw(buf);"
-    "var a = MultiPayloadEnum.a(i);"
-    "send(takeMultiPayloadEnumCase(a) == 0);"
-    "var Bool = Swift.structs.Bool;"
-    "var truthy = Bool.makeFromRaw(Memory.alloc(1).writeU8(1));"
-    "var d = MultiPayloadEnum.d(truthy);"
-    "send(takeMultiPayloadEnumCase(d) == 3);"
-  );
-  EXPECT_SEND_MESSAGE_WITH ("true");
-  EXPECT_SEND_MESSAGE_WITH ("true");
-}
-
-TESTCASE (multipayload_enum_can_be_returned_from_function)
-{
-    COMPILE_AND_LOAD_SCRIPT(
-    "var Int = Swift.structs.Int;"
-    "var tag0 = Int.makeFromRaw(Memory.alloc(8).writeU64(0x0));"
-    "var dummy = Process.getModuleByName('dummy.o');"
-    "var symbols = dummy.enumerateSymbols();"
-    "symbols = symbols.filter(s => s.name == '$s5dummy24makeMultiPayloadEnumCase4withAA0cdE0OSi_tF');"
-    "var target = symbols[0].address;"
-    "var MultiPayloadEnum = Swift.enums.MultiPayloadEnum;"
-    "var makeMultiPayloadEnumCase = Swift.NativeFunction(target, MultiPayloadEnum, [Int]);"
-    "var a = makeMultiPayloadEnumCase(tag0);"
-    "send(a.tag === 0);"
-    "send(a.payload.handle.readU64() == 0x1337);"
-    "var tag1 = Int.makeFromRaw(Memory.alloc(8).writeU64(0x1));"
-    "var b = makeMultiPayloadEnumCase(tag1);"
-    "send(b.tag === 1);"
-    "send(b.payload.handle.readCString() == 'Octagon');"
-  );
-  EXPECT_SEND_MESSAGE_WITH ("true");
-  EXPECT_SEND_MESSAGE_WITH ("true");
-  EXPECT_SEND_MESSAGE_WITH ("true");
-  EXPECT_SEND_MESSAGE_WITH ("true");
 }
 
 TESTCASE (protocol_num_requirements_can_be_gotten)
