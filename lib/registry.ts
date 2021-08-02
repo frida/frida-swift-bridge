@@ -1,4 +1,4 @@
-import { Class, Enum, Struct, SwiftModule, Type } from "./types";
+import { Class, Enum, Protocol, Struct, SwiftModule, Type } from "./types";
 
 export class Registry {
     private static sharedInstance: Registry;
@@ -8,6 +8,7 @@ export class Registry {
     readonly classes: Record<string, Class> = {};
     readonly structs: Record<string, Struct> = {};
     readonly enums: Record<string, Enum> = {};
+    readonly protocols: Record<string, Protocol> = {};
 
     private readonly swiftyNameMap: Record<string, string> = {};
 
@@ -50,6 +51,10 @@ export class Registry {
                     default:
                         throw new Error(`Unknown type kind: ${type.kind}`);
                 }
+            }
+
+            for (const proto of swiftModule.$protocols) {
+                this.protocols[proto.name] = proto;
             }
         }
     }

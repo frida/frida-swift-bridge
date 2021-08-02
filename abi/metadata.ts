@@ -385,6 +385,38 @@ export class TargetStructDescriptor extends TargetTypeContextDescriptor {
 export class TargetEnumDescriptor extends TargetTypeContextDescriptor {
 }
 
+export class TargetProtocolDescriptor extends TargetContextDescriptor {
+    static readonly OFFSETOF_NAME = 0x8;
+    static readonly OFFSETOF_NUM_REQUIREMENTS = 0x10;
+
+    #name: string;
+    #numRequirements: number;
+
+    constructor(handle: NativePointer) {
+        super(handle);
+    }
+
+    get name(): string {
+        if (this.#name === undefined) {
+            const pointer = RelativeDirectPointer.From(
+                this.handle.add(TargetProtocolDescriptor.OFFSETOF_NAME)).get();
+            this.#name = pointer.readCString();
+        }
+
+        return this.#name;
+    }
+
+    get numRequirements(): number {
+        if (this.#numRequirements === undefined) {
+            const pointer = this.handle.add(
+                TargetProtocolDescriptor.OFFSETOF_NUM_REQUIREMENTS);
+            this.#numRequirements = pointer.readU32();
+        }
+
+        return this.#numRequirements;
+    }
+}
+
 export interface FieldDetails {
     name: string;
     type?: string;

@@ -9,7 +9,7 @@
  */
 
 import { getApi, API } from "./lib/api";
-import { SwiftModule, Type, Class, Struct, Enum } from "./lib/types";
+import { SwiftModule, Type, Class, Struct, Enum, Protocol } from "./lib/types";
 import { enumerateDemangledSymbols } from "./lib/symbols";
 import { makeSwiftNativeFunction } from "./lib/callingconvention";
 import { Registry } from "./lib/registry";
@@ -59,6 +59,10 @@ class Runtime {
 
     get enums(): Record<string, Enum> {
         return Registry.shared().enums;
+    }
+
+    get protocols(): Record<string, Protocol> {
+        return Registry.shared().protocols;
     }
 
     enumerateDemangledSymbols(module: Module): ModuleSymbolDetails[] {

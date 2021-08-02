@@ -40,7 +40,7 @@ TESTCASE (modules_can_be_enumerated)
   COMPILE_AND_LOAD_SCRIPT(
     "send(Object.keys(Swift.modules).length > 3);"
     "send(Swift.modules.Swift.$allTypes.length > 100);"
-    "send(Swift.modules.dummy.$allTypes.length > 10);"
+    "send(Swift.modules.dummy.$allTypes.length > 8);"
   );
   EXPECT_SEND_MESSAGE_WITH ("true");
   EXPECT_SEND_MESSAGE_WITH ("true");
@@ -56,7 +56,10 @@ TESTCASE (types_can_be_enumerated)
     "send(numStructs > 100);"
     "var numEnums = Object.keys(Swift.enums).length;"
     "send(numEnums > 70);"
+    "var numProtos = Object.keys(Swift.protocols).length;"
+    "send(numProtos > 100);"
   );
+  EXPECT_SEND_MESSAGE_WITH ("true");
   EXPECT_SEND_MESSAGE_WITH ("true");
   EXPECT_SEND_MESSAGE_WITH ("true");
   EXPECT_SEND_MESSAGE_WITH ("true");

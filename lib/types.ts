@@ -6,6 +6,7 @@
 import { TargetClassDescriptor,
          TargetEnumDescriptor,
          TargetMetadata,
+         TargetProtocolDescriptor,
          TargetStructDescriptor,
          TargetTypeContextDescriptor,
          TypeLayout, } from "../abi/metadata";
@@ -19,7 +20,7 @@ import { getPrivateAPI } from "./api";
 import { EnumValue, Value } from "./runtime";
 import { Registry } from "./registry";
 
-type SwiftTypeKind = "Class" | "Enum" | "Struct";
+type SwiftTypeKind = "Class" | "Enum" | "Struct" | "Protocol";
 type MethodType = "Init" | "Getter" | "Setter" | "ModifyCoroutine" |
     "ReadCoroutine" | "Method";
 
@@ -41,9 +42,11 @@ export class SwiftModule {
     readonly $classes: Class[] = [];
     readonly $structs: Struct[] = [];
     readonly $enums: Enum[] = [];
+    readonly $protocols: Protocol[] = [];
 
     constructor(readonly $native: Module) {
         this.cacheSwift5Types();
+        this.cacheSwift5Protocols();
 
         if (this.$allTypes.length > 0) {
             this.$name = this.$allTypes[0].moduleName;
@@ -52,13 +55,11 @@ export class SwiftModule {
 
     cacheSwift5Types() {
         const section = this.getSwif5TypesSection();
-        /* TODO: centralize this value */
-        const sizeofRelativePointer = 0x4;
-        const nTypes = section.size / sizeofRelativePointer;
+        const nTypes = section.size / RelativeDirectPointer.sizeOf;
 
         /* TODO: only type context descriptors exist in __swift5_types? */
         for (let i = 0; i < nTypes; i++) {
-            const record = section.vmAddress.add(i * sizeofRelativePointer);
+            const record = section.vmAddress.add(i * RelativeDirectPointer.sizeOf);
             const ctxDescPtr = RelativeDirectPointer.From(record).get();
             const ctxDesc = new TargetTypeContextDescriptor(ctxDescPtr);
 
@@ -92,15 +93,44 @@ export class SwiftModule {
                 configurable: true,
                 enumerable: true,
                 writable: false,
-                value: type,
+                value: type
             })
         }
     }
 
+    cacheSwift5Protocols() {
+        const section = this.getSwift5ProtocolsSection();
+        const numTypes = section.size / RelativeDirectPointer.sizeOf;
+
+        for (let i = 0; i < numTypes; i++) {
+            const record = section.vmAddress.add(i * RelativeDirectPointer.sizeOf);
+            const ctxDescPtr = RelativeDirectPointer.From(record).get();
+            const ctxDesc = new TargetProtocolDescriptor(ctxDescPtr);
+            const protocol = new Protocol(ctxDesc);
+
+            this.$protocols.push(protocol);
+
+            Object.defineProperty(this, protocol.name, {
+                configurable: true,
+                enumerable: true,
+                writable: false,
+                value: protocol
+            });
+        }
+    }
+
     getSwif5TypesSection(): MachOSection {
+        return this.getMachoSection("__swift5_types");
+    }
+
+    getSwift5ProtocolsSection(): MachOSection {
+        return this.getMachoSection("__swift5_protos");
+    }
+
+    getMachoSection(sectionName: string, segmentName: string = "__TEXT"): MachOSection {
         const machHeader = this.$native.base;
-        const segName = Memory.allocUtf8String("__TEXT");
-        const sectName = Memory.allocUtf8String("__swift5_types");
+        const segName = Memory.allocUtf8String(segmentName);
+        const sectName = Memory.allocUtf8String(sectionName);
         const sizeOut = Memory.alloc(Process.pointerSize);
         const privAPI = getPrivateAPI();
 
@@ -116,6 +146,7 @@ export class SwiftModule {
             classes: this.$classes.length,
             structs: this.$structs.length,
             enums: this.$enums.length,
+            protocols: this.$protocols.length,
         };
     }
 }
@@ -353,6 +384,20 @@ export class Enum extends Type {
         }
 
         return new EnumValue(this, tag, payload);
+    }
+}
+
+export class Protocol {
+    readonly name: string;
+
+    constructor(readonly descriptor: TargetProtocolDescriptor) {
+        this.name = descriptor.name;
+    }
+
+    toJSON() {
+        return {
+            numReuirements: this.descriptor.numRequirements
+        }
     }
 }
 

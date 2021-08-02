@@ -4,6 +4,7 @@
  */
 
 export class RelativeDirectPointer {
+    static sizeOf = 4;
 	static From (handle: NativePointer) {
 		const offset = handle.readS32();
 
