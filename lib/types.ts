@@ -325,6 +325,19 @@ export class Struct extends Type {
 
         return new Value(this, handle);
     }
+
+    makeFromValue(fields: UInt64[]): Value {
+        const size = fields.length * Process.pointerSize;
+        const buffer = Memory.alloc(size);
+
+        let i = 0;
+        for (const field of fields) {
+            buffer.add(i).writeU64(field);
+            i += Process.pointerSize;
+        }
+
+        return this.makeFromRaw(buffer);
+    }
 }
 
 enum EnumKind {
@@ -420,6 +433,19 @@ export class Enum extends Type {
         }
 
         return new EnumValue(this, tag, payload);
+    }
+
+    makeFromValue(fields: UInt64[]): EnumValue {
+        const size = fields.length * Process.pointerSize;
+        const buffer = Memory.alloc(size);
+
+        let i = 0;
+        for (const field of fields) {
+            buffer.add(i).writeU64(field);
+            i += Process.pointerSize;
+        }
+
+        return this.makeFromRaw(buffer);
     }
 }
 

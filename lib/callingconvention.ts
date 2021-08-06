@@ -9,18 +9,6 @@ import { Enum, Struct, Type } from "./types";
 import { EnumValue, Value } from "./runtime";
 
 type SwiftType = Type;
-type SwiftcallReturnKind = "direct" | "indirect" | "expand";
-
-interface SwiftcallResultOptions {
-    kind: SwiftcallReturnKind;
-    buffer?: NativePointer;
-    bufferSize?: number;
-};
-interface SwiftNativeFunctionObject {
-    readonly extraStorage: ArrayBuffer;
-};
-
-export type SwiftNativeFunctionType = Function & SwiftNativeFunctionObject;
 
 class TrampolinePool {
     private static pages: NativePointer[];
@@ -59,60 +47,39 @@ export function makeSwiftNativeFunction(address: NativePointer,
                                         retType: SwiftType,
                                         argTypes: SwiftType[],
                                         context?: NativePointer,
-                                        throws?: boolean): SwiftNativeFunctionType {
-    let nativeRetType = makeCType(retType);
-    const nativeArgTypes = argTypes.map(ty => makeCType(ty)).flat();
-    const retOpts: SwiftcallResultOptions = { kind: "direct" };
+                                        throws?: boolean): Function {
+    const loweredArgType = argTypes.map(ty => makeCType(ty));
+    const loweredRetType = makeCType(retType);
 
-    if (Array.isArray(nativeRetType)) {
-        const stride = retType.metadata.getTypeLayout().stride;
-        const buffer = Memory.alloc(stride);
+    const swiftcallWrapper = new SwiftcallNativeFunction(address, loweredArgType,
+                loweredRetType, context).wrapper;
 
-        if (nativeRetType.length > 4) {
-            retOpts.kind = "indirect";
-        } else {
-            retOpts.kind = "expand";
-        }
-
-        retOpts.buffer = buffer;
-        retOpts.bufferSize = stride;
-        nativeRetType = "pointer";
-    }
-
-    const extraStorage = new ArrayBuffer(16);
-    const formattedArgs = `[${nativeArgTypes.map(a => `"${a}"`)}]`;
-    const trampoline = jitSwiftcallTrampoline(address, extraStorage.unwrap(),
-                                              retOpts, context, throws);
-    const nativeFunction = eval(`var f = new NativeFunction(ptr(${trampoline}),` +
-                                `"${nativeRetType}",${formattedArgs}); f;`);
     const wrapper = function(...args: Value[]) {
         const acutalArgs: any[] = [];
 
         for (const arg of args) {
-            const cValue = makeCValue(arg);
-
-            if (Array.isArray(cValue)) {
-                acutalArgs.push(...cValue);
-            } else {
-                acutalArgs.push(cValue);
-            }
+            acutalArgs.push(makeCValue(arg));
         }
 
-        const retval = nativeFunction(...acutalArgs);
+        const retval = swiftcallWrapper(...acutalArgs) as UInt64[];
 
-        if (retOpts.kind === "indirect" || retOpts.kind === "expand") {
-            if (retType instanceof Enum) {
-                const asEnum = retType as Enum;
-                return asEnum.makeFromRaw(retOpts.buffer);
-            }
-            return new Value(retType, retOpts.buffer);
+        /* TODO: bad? */
+        switch (retType.kind) {
+            case "Struct":
+                const struct = retType as Struct;
+                return struct.makeFromValue(retval);
+            case "Enum":
+                const anEnum = retType as Enum;
+                return anEnum.makeFromValue(retval);
+            case "Class":
+                return new Value(retType, ptr(retval[0].toNumber()));
+            default:
+                console.warn("Unimplemented kind: " + retType.kind);
+                return retval;
         }
-
-        /* TODO: don't lose type metadata for register-sized values */
-        return retval;
     }
 
-    return Object.assign(wrapper, { extraStorage });
+    return wrapper;
 }
 
 function makeCType(type: Type): NativeType {
@@ -125,9 +92,7 @@ function makeCType(type: Type): NativeType {
          * - Unsigned ints?
          */
         const sizeInQWords = asStruct.typeLayout.stride / 8;
-        return sizeInQWords === 1 ?
-               "uint64" :
-               Array(sizeInQWords).fill("uint64");
+        return Array(sizeInQWords).fill("uint64");
     }
 }
 
@@ -171,7 +136,7 @@ function makeCValue(value: Value): UInt64 | UInt64[] | NativePointer {
         }
     }
 
-    return result.length === 1 ? result[0] : result;
+    return result;
 }
 
 function shouldPassIndirectly(type: Type) {
@@ -180,54 +145,136 @@ function shouldPassIndirectly(type: Type) {
     return !vwt.flags.isBitwiseTakable || vwt.stride > 32;
 }
 
-function jitSwiftcallTrampoline(target: NativePointer,
-                                extraStorage: NativePointer,
-                                resultOpts: SwiftcallResultOptions,
-                                context?: NativePointer,
-                                throws?: boolean): NativePointer {
-    const maxPatchSize = 0x44;
-    const trampoline = TrampolinePool.allocateTrampoline(maxPatchSize);
+class StrongQueue<T> {
+    #queue: Record<number, T> = {};
+    #next = 0;
 
-    Memory.patchCode(trampoline, maxPatchSize, (code) => {
-        const writer = new Arm64Writer(code, { pc: trampoline });
+    get length(): number {
+        return Object.keys(this.#queue).length - this.#next;
+    }
 
-        /* TODO: not thread safe? */
-        writer.putLdrRegAddress("x15", extraStorage);
-        writer.putStpRegRegRegOffset("x29", "x30", "x15", 0, "post-adjust");
+    enqueue(item: T) {
+        const tail = Object.keys(this.#queue).length;
+        this.#queue[tail] = item;
+    }
 
-        if (context !== undefined) {
-            writer.putLdrRegAddress("x20", context);
+    dequeue(): T {
+        if (Object.keys(this.#queue).length === 0) {
+            return undefined;
         }
 
-        if (!!throws) {
-            writer.putAndRegRegImm("x21", "x21", 0);
-        }
+        return this.#queue[this.#next++];
+    }
+}
 
-        if (resultOpts.kind === "indirect") {
-            writer.putLdrRegAddress("x8", resultOpts.buffer);
-        }
+export class SwiftcallNativeFunction {
+    #argumentBuffers: StrongQueue<NativePointer>;
+    #returnBufferSize?: number;
+    #returnBuffer?: NativePointer;
+    #extraBuffer: NativePointer;
+    #nativeFunction: NativeFunction;
 
-        writer.putLdrRegAddress("x14", target)
-        writer.putBlrRegNoAuth("x14");
-
-        if (resultOpts.kind === "expand") {
-            const buffer = resultOpts.buffer;
-            let i = 0, offset = 0;
-
-            writer.putLdrRegAddress("x15", buffer);
-
-            for (; offset < resultOpts.bufferSize; i++, offset += 8) {
-                const reg = `x${i}` as Arm64Register;
-                writer.putStrRegRegOffset(reg, "x15", offset);
+    constructor(target: NativePointer, argTypes: NativeType[],
+                resultType: NativeType, context?: NativePointer,
+                errorResult?: NativePointer) {
+        argTypes = argTypes.map(argType => {
+            if (Array.isArray(argType) && argType.length > 4) {
+                this.#argumentBuffers.enqueue(Memory.alloc(argType.length));
+                return "pointer";
             }
+            return argType;
+        }).flat();
+
+        let indirectResult: NativePointer;
+
+        if (Array.isArray(resultType)) {
+            this.#returnBufferSize = Process.pointerSize * resultType.length;
+            this.#returnBuffer = Memory.alloc(this.#returnBufferSize);
+
+            if (resultType.length > 4) {
+                indirectResult = this.#returnBuffer;
+            }
+        } else {
+            this.#returnBufferSize = Process.pointerSize;
+            this.#returnBuffer = Memory.alloc(this.#returnBufferSize);
         }
 
-        writer.putLdrRegAddress("x15", extraStorage);
-        writer.putLdpRegRegRegOffset("x29", "x30", "x15", 0, "post-adjust");
-        writer.putRet();
+        this.#extraBuffer= Memory.alloc(Process.pointerSize * 2);
 
-        writer.flush();
-    });;
+        const maxPatchSize = 0x4C;
+        const trampoline = TrampolinePool.allocateTrampoline(maxPatchSize);
 
-    return trampoline;
+        Memory.patchCode(trampoline, maxPatchSize, (code) => {
+            const writer = new Arm64Writer(code, { pc: trampoline });
+
+            /* TODO: not thread safe? */
+            writer.putLdrRegAddress("x15", this.#extraBuffer);
+            writer.putStpRegRegRegOffset("x29", "x30", "x15", 0, "post-adjust");
+
+            if (context !== undefined) {
+                writer.putLdrRegAddress("x20", context);
+            }
+
+            /* TODO: test this */
+            if (errorResult !== undefined) {
+                writer.putLdrRegAddress("x21", errorResult);
+            }
+
+            if (indirectResult !== undefined) {
+                writer.putLdrRegAddress("x8", indirectResult);
+            }
+
+            writer.putLdrRegAddress("x14", target)
+            writer.putBlrRegNoAuth("x14");
+
+            if (indirectResult === undefined && this.#returnBufferSize > 0) {
+                let i = 0, offset = 0;
+                writer.putLdrRegAddress("x15", this.#returnBuffer);
+
+                for (; offset < this.#returnBufferSize; i++, offset += 8) {
+                    const reg = `x${i}` as Arm64Register;
+                    writer.putStrRegRegOffset(reg, "x15", offset);
+                }
+            }
+
+            writer.putLdrRegAddress("x15", this.#extraBuffer);
+            writer.putLdpRegRegRegOffset("x29", "x30", "x15", 0, "post-adjust");
+            writer.putRet();
+
+            writer.flush();
+        });;
+
+        this.#nativeFunction = new NativeFunction(trampoline, "pointer", argTypes)
+    }
+
+    wrapper = (...args: NativeArgumentValue[]) => {
+        /* TODO: Type-check args? */
+
+        args = args.map(arg => {
+            if (Array.isArray(arg) && arg.length > 4) {
+                return this.#argumentBuffers.dequeue();
+            }
+            return arg;
+        }).flat();
+
+        const func = this.#nativeFunction;
+        func(...args);
+
+        if (this.#returnBufferSize === 0) {
+            return undefined;
+        }
+
+        const result: NativeReturnValue[] = [];
+
+        /* TODO: handle signed values */
+        for (let i = 0; i < this.#returnBufferSize; i += 8) {
+            result.push(this.#returnBuffer.add(i).readU64());
+        }
+
+        return result;
+    }
+
+    call(...args: NativeArgumentValue[]): NativeReturnValue[] {
+        return this.wrapper(args);
+    }
 }
