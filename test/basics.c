@@ -10,7 +10,7 @@
 TESTLIST_BEGIN (basics)
     TESTENTRY (modules_can_be_enumerated)
     TESTENTRY (types_can_be_enumerated)
-    TESTENTRY (swiftcall_with_context)
+    TESTENTRY (swiftcall_with_context) /* TODO: test with struct context */
     TESTENTRY (swiftcall_with_indirect_result)
     TESTENTRY (swiftcall_with_direct_result)
     TESTENTRY (swiftcall_with_indirect_result_and_stack_arguments)
@@ -77,7 +77,7 @@ TESTCASE (swiftcall_with_context)
     "var initPtr = SimpleClass.$methods[SimpleClass.$methods.length - 1].address;" // TODO parse initializer
     "var init = Swift.NativeFunction(initPtr, SimpleClass, [Int, Int], SimpleClass.metadataPointer);"
     "var instance = init(i1, i2);"
-    "send(instance.equals(ptr(0x0)));"
+    "send(instance.handle.equals(ptr(0x0)));"
   );
   EXPECT_SEND_MESSAGE_WITH ("false");
 }
@@ -157,11 +157,11 @@ TESTCASE (swiftcall_multipayload_enum_can_be_passed_to_function)
     "buf.writeU64(0xCAFE);"
     "var i = Int.makeFromRaw(buf);"
     "var a = MultiPayloadEnum.a(i);"
-    "send(takeMultiPayloadEnumCase(a) == 0);"
+    "send(takeMultiPayloadEnumCase(a).handle.readU64() == 0);"
     "var Bool = Swift.structs.Bool;"
     "var truthy = Bool.makeFromRaw(Memory.alloc(1).writeU8(1));"
     "var d = MultiPayloadEnum.d(truthy);"
-    "send(takeMultiPayloadEnumCase(d) == 3);"
+    "send(takeMultiPayloadEnumCase(d).handle.readU64() == 3);"
   );
   EXPECT_SEND_MESSAGE_WITH ("true");
   EXPECT_SEND_MESSAGE_WITH ("true");
