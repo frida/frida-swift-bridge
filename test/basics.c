@@ -14,6 +14,7 @@ TESTLIST_BEGIN (basics)
     TESTENTRY (swiftcall_with_indirect_result)
     TESTENTRY (swiftcall_with_direct_result)
     TESTENTRY (swiftcall_with_indirect_result_and_stack_arguments)
+    TESTENTRY (swiftcall_with_direct_typed_result)
     TESTENTRY (swiftcall_multipayload_enum_can_be_passed_to_function)
     TESTENTRY (swiftcall_multipayload_enum_can_be_returned_from_function)
     TESTENTRY (c_style_enum_can_be_made_from_raw)
@@ -139,6 +140,18 @@ TESTCASE(swiftcall_with_indirect_result_and_stack_arguments)
       "send(big.handle.add(0x20).readU32() == 1);"
       "send(big.handle.add(0x10).readU32() == 3);");
   EXPECT_SEND_MESSAGE_WITH ("true");
+  EXPECT_SEND_MESSAGE_WITH ("true");
+  EXPECT_SEND_MESSAGE_WITH ("true");
+}
+
+TESTCASE (swiftcall_with_direct_typed_result)
+{
+  COMPILE_AND_LOAD_SCRIPT(
+    "var LoadableStruct = Swift.structs.LoadableStruct;"
+    "var box = Swift.api.swift_allocBox(LoadableStruct.metadataPointer);"
+    "send(box[0] instanceof NativePointer);"
+    "send(box[1] instanceof NativePointer);"
+  );
   EXPECT_SEND_MESSAGE_WITH ("true");
   EXPECT_SEND_MESSAGE_WITH ("true");
 }
