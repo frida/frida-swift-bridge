@@ -61,7 +61,7 @@ export function makeSwiftNativeFunction(address: NativePointer,
             acutalArgs.push(makeCValue(arg));
         }
 
-        const retval = swiftcallWrapper(...acutalArgs) as UInt64[];
+        const retval = swiftcallWrapper(...acutalArgs);
 
         /* TODO: bad? */
         switch (retType.kind) {
@@ -72,7 +72,7 @@ export function makeSwiftNativeFunction(address: NativePointer,
                 const anEnum = retType as Enum;
                 return anEnum.makeFromValue(retval);
             case "Class":
-                return new Value(retType, ptr(retval[0].toNumber()));
+                return new Value(retType, retval as NativePointer);
             default:
                 console.warn("Unimplemented kind: " + retType.kind);
                 return retval;
@@ -321,7 +321,7 @@ NativePointer.prototype.readValue = function(type: NativeType): NativeReturnValu
         case "int64":
             return this.readS64();
         case "uint64":
-            return this.readUIn64();
+            return this.readU64();
         default:
             throw new Error(`Unimplemented type: ${type}`);
     }
