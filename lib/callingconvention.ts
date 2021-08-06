@@ -51,8 +51,8 @@ export function makeSwiftNativeFunction(address: NativePointer,
     const loweredArgType = argTypes.map(ty => makeCType(ty));
     const loweredRetType = makeCType(retType);
 
-    const swiftcallWrapper = new SwiftcallNativeFunction(address, loweredArgType,
-                loweredRetType, context).wrapper;
+    const swiftcallWrapper = new SwiftcallNativeFunction(address, loweredRetType,
+                loweredArgType, context).wrapper;
 
     const wrapper = function(...args: Value[]) {
         const acutalArgs: any[] = [];
@@ -169,13 +169,14 @@ class StrongQueue<T> {
 
 export class SwiftcallNativeFunction {
     #argumentBuffers: StrongQueue<NativePointer>;
+    #resultType: NativeType;
     #returnBufferSize?: number;
     #returnBuffer?: NativePointer;
     #extraBuffer: NativePointer;
     #nativeFunction: NativeFunction;
 
-    constructor(target: NativePointer, argTypes: NativeType[],
-                resultType: NativeType, context?: NativePointer,
+    constructor(target: NativePointer, resultType: NativeType,
+                argTypes: NativeType[], context?: NativePointer,
                 errorResult?: NativePointer) {
         argTypes = argTypes.map(argType => {
             if (Array.isArray(argType) && argType.length > 4) {
@@ -185,6 +186,7 @@ export class SwiftcallNativeFunction {
             return argType;
         }).flat();
 
+        this.#resultType = resultType;
         let indirectResult: NativePointer;
 
         if (Array.isArray(resultType)) {
@@ -266,9 +268,14 @@ export class SwiftcallNativeFunction {
 
         const result: NativeReturnValue[] = [];
 
+        if (!Array.isArray(this.#resultType)) {
+            return this.#returnBuffer.readValue(this.#resultType);
+        }
+
         /* TODO: handle signed values */
-        for (let i = 0; i < this.#returnBufferSize; i += 8) {
-            result.push(this.#returnBuffer.add(i).readU64());
+        for (let i = 0, j = 0; i < this.#returnBufferSize; i += 8, j++) {
+            const type = this.#resultType[j];
+            result.push(this.#returnBuffer.add(i).readValue(type));
         }
 
         return result;
@@ -276,5 +283,46 @@ export class SwiftcallNativeFunction {
 
     call(...args: NativeArgumentValue[]): NativeReturnValue[] {
         return this.wrapper(args);
+    }
+}
+
+declare global {
+    interface NativePointer {
+        readValue(type: NativeType);
+    }
+}
+
+NativePointer.prototype.readValue = function(type: NativeType): NativeReturnValue {
+    switch (type) {
+        case "pointer":
+            return this.readPointer();
+        case "string":
+            return this.readCString();
+        case "int":
+            return this.readInt();
+        case "uint":
+            return this.readUInt();
+        case "long":
+            return this.readLong();
+        case "ulong":
+            return this.readULong();
+        case "int8":
+            return this.readS8();
+        case "uint8":
+            return this.readU8();
+        case "int16":
+            return this.readS16();
+        case "uint16":
+            return this.readU16();
+        case "int32":
+            return this.readS32();
+        case "uint32":
+            return this.readU32();
+        case "int64":
+            return this.readS64();
+        case "uint64":
+            return this.readUIn64();
+        default:
+            throw new Error(`Unimplemented type: ${type}`);
     }
 }
