@@ -1,5 +1,7 @@
+import { SwiftcallNativeFunction } from "../lib/callingconvention";
+
 export interface API {
-    [func: string]: NativeFunction,
+    [func: string]: Function,
 }
 
 let cachedApi: API = null;
@@ -16,16 +18,25 @@ export function getApi(): API {
             functions: {
                 "swift_demangle": ["pointer", ["pointer", "size_t",
                     "pointer", "pointer", "int32"]],
-                /* This one uses swiftcall actually but we we're lucky the
-                 * registers are the same as SystemV for this particular case.
-                 */
+                /** This one uses Swiftcall actually but we we're lucky the
+                  * registers are the same as SystemV for this particular case.
+                  */
                 "swift_stdlib_getTypeByMangledNameUntrusted": ["pointer",
                     ["pointer", "size_t"]],
             }
         }
     ];
-
     cachedApi = makeAPI(pending);
+
+    const pendingSwift = [{
+        module: "libswiftCore.dylib",
+        functions: {
+            "swift_allocBox": [["pointer", "pointer"], ["pointer"]],
+        }
+    }];
+    const swiftAPI = makeAPI(pendingSwift, true);
+    cachedApi = Object.assign(cachedApi, swiftAPI);
+
     return cachedApi;
 }
 
@@ -48,7 +59,7 @@ export function getPrivateAPI(): API {
     return cachedPrivateAPI;
 }
 
-function makeAPI(exports: any): API {
+function makeAPI(exports: any, swiftcall = false): API {
     const result: API = {};
 
     exports.forEach(api => {
@@ -67,7 +78,9 @@ function makeAPI(exports: any): API {
 
             const returnType = functions[name][0];
             const argumentTypes = functions[name][1];
-            const native = new NativeFunction(exp, returnType, argumentTypes);
+            const native = swiftcall ?
+                           new SwiftcallNativeFunction(exp, returnType, argumentTypes).wrapper:
+                           new NativeFunction(exp, returnType, argumentTypes);
 
             result[name] = native;
         });
