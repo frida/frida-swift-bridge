@@ -145,7 +145,7 @@ export class SwiftModule {
                              cachedTypes[typeDesc.name];
 
             if (cachedType instanceof Type) {
-                cachedType.conformsToProtocols.push(protocolDesc.name);
+                cachedType.conformances.push(protocolDesc);
             }
         }
     }
@@ -193,7 +193,7 @@ export class Type {
     readonly moduleName: string;
     readonly metadataPointer: NativePointer;
     readonly metadata: TargetMetadata;
-    readonly conformsToProtocols: string[];
+    readonly conformances: TargetProtocolDescriptor[];
 
     constructor (readonly module: Module,
                  readonly kind: SwiftTypeKind,
@@ -205,7 +205,7 @@ export class Type {
         this.metadataPointer = descriptor.getAccessFunction()
                 .call() as NativePointer;
         this.metadata = new TargetMetadata(this.metadataPointer);
-        this.conformsToProtocols = [];
+        this.conformances = [];
     }
 
     static getFieldsDetails(descriptor: TargetTypeContextDescriptor):
@@ -236,10 +236,12 @@ export class Type {
     }
 
     toJSON() {
+        const protocolNames = this.conformances.map(p => p.name);
+
         return {
             name: this.name,
             fields: this.fields,
-            conformsToProtocols: this.conformsToProtocols,
+            comnformances: protocolNames,
         }
     }
 }
