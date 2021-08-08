@@ -415,9 +415,15 @@ TESTCASE (protocol_conformance_can_be_gotten)
 {
   COMPILE_AND_LOAD_SCRIPT(
     "var URL = Swift.structs.URL;"
-    "send(URL.conformsToProtocols.includes('Hashable'));"
+    "var Hashable = Swift.protocols.Hashable;"
+    "var hasHashable = false;"
+    "URL.conformances.forEach(p => { if (p.handle.equals(Hashable.descriptor.handle)) hasHashable = true });"
+    "send(hasHashable);"
     "var OnOffSwitch = Swift.enums.OnOffSwitch;"
-    "send(OnOffSwitch.conformsToProtocols.includes('Togglable'));"
+    "var Togglable = Swift.protocols.Togglable;"
+    "var hasTogglable = false;"
+    "OnOffSwitch.conformances.forEach(p => { if (p.handle.equals(Togglable.descriptor.handle)) hasTogglable = true });"
+    "send(hasTogglable);"
   );
   EXPECT_SEND_MESSAGE_WITH ("true");
   EXPECT_SEND_MESSAGE_WITH ("true");
