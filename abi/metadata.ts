@@ -446,10 +446,12 @@ class TargetTypeReference {
 export class TargetProtocolConformanceDescriptor {
     static readonly OFFSETOF_PROTOTCOL = 0x0;
     static readonly OFFSETOF_TYPE_REF = 0x4;
+    static readonly OFFSTEOF_WITNESS_TABLE_PATTERN = 0x8;
     static readonly OFFSETOF_FLAGS = 0xC;
 
     #protocol: NativePointer;
     #typeRef: TargetTypeReference;
+    #witnessTablePattern: NativePointer;
     #flags: ConformanceFlags;
 
     constructor(readonly handle: NativePointer) { }
@@ -471,6 +473,19 @@ export class TargetProtocolConformanceDescriptor {
         }
 
         return this.#typeRef;
+    }
+
+    /* This is actually the protocol witness table */
+    get witnessTablePattern(): NativePointer {
+        if (this.#witnessTablePattern === undefined) {
+            console.log(this.handle);
+            const witnessTable = RelativeDirectPointer.From(this.handle.add(
+                TargetProtocolConformanceDescriptor.OFFSTEOF_WITNESS_TABLE_PATTERN));
+            console.log(JSON.stringify(witnessTable));
+            this.#witnessTablePattern = witnessTable ? witnessTable.get() : null;
+        }
+
+        return this.#witnessTablePattern;
     }
 
     get flags(): ConformanceFlags {

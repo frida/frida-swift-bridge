@@ -5,7 +5,6 @@
  */
 
 import { TargetClassDescriptor,
-         TargetContextDescriptor,
          TargetEnumDescriptor,
          TargetMetadata,
          TargetProtocolConformanceDescriptor,
@@ -37,7 +36,12 @@ interface MethodDetails {
     address: NativePointer;
     name: string;
     type: MethodType;
-}
+};
+
+interface TypeProtocolConformance {
+    protocol: TargetProtocolDescriptor,
+    witnessTable: NativePointer,
+};
 
 export class SwiftModule {
     readonly $name: string;
@@ -145,7 +149,12 @@ export class SwiftModule {
                              cachedTypes[typeDesc.name];
 
             if (cachedType instanceof Type) {
-                cachedType.conformances.push(protocolDesc);
+                const conformance = {
+                    protocol: protocolDesc,
+                    witnessTable: conformanceDesc.witnessTablePattern,
+                };
+
+                cachedType.conformances[protocolDesc.name] = conformance;
             }
         }
     }
@@ -193,7 +202,7 @@ export class Type {
     readonly moduleName: string;
     readonly metadataPointer: NativePointer;
     readonly metadata: TargetMetadata;
-    readonly conformances: TargetProtocolDescriptor[];
+    readonly conformances: Record<string, TypeProtocolConformance>;
 
     constructor (readonly module: Module,
                  readonly kind: SwiftTypeKind,
@@ -205,7 +214,7 @@ export class Type {
         this.metadataPointer = descriptor.getAccessFunction()
                 .call() as NativePointer;
         this.metadata = new TargetMetadata(this.metadataPointer);
-        this.conformances = [];
+        this.conformances = {};
     }
 
     static getFieldsDetails(descriptor: TargetTypeContextDescriptor):
@@ -236,12 +245,10 @@ export class Type {
     }
 
     toJSON() {
-        const protocolNames = this.conformances.map(p => p.name);
-
         return {
             name: this.name,
             fields: this.fields,
-            comnformances: protocolNames,
+            conformances: Object.keys(this.conformances),
         }
     }
 }
