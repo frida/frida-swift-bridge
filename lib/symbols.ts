@@ -55,7 +55,7 @@ export function resolveSymbolicReferences(symbol: NativePointer): string {
             }
             break;
         } else if (endValue >= 0x18 && endValue <= 0x1F) {
-            console.log("UNIMPLEMENTED 0x18 - 0x1F");
+            throw new Error("UNIMPLEMENTED 0x18 - 0x1F");
         }
 
         end = end.add(1);
