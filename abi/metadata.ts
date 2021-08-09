@@ -478,10 +478,8 @@ export class TargetProtocolConformanceDescriptor {
     /* This is actually the protocol witness table */
     get witnessTablePattern(): NativePointer {
         if (this.#witnessTablePattern === undefined) {
-            console.log(this.handle);
             const witnessTable = RelativeDirectPointer.From(this.handle.add(
                 TargetProtocolConformanceDescriptor.OFFSTEOF_WITNESS_TABLE_PATTERN));
-            console.log(JSON.stringify(witnessTable));
             this.#witnessTablePattern = witnessTable ? witnessTable.get() : null;
         }
 
