@@ -53,6 +53,10 @@ export class TargetMetadata {
         }
     }
 
+    vw_initializeWithCopy(dest: NativePointer, src: NativePointer): NativePointer {
+        return this.getValueWitnesses().initializeWithCopy(dest, src, this.handle);
+    }
+
     vw_getEnumTag(object: NativePointer): number {
         return this.getValueWitnesses().asEVWT().getEnumTag(object);
     }
@@ -64,17 +68,29 @@ export class TargetMetadata {
 }
 
 class TargetValueWitnessTable {
+    static readonly OFFSETOF_INTIALIZE_WITH_COPY = 0x10;
     static readonly OFFSETOF_SIZE = 0x40;
     static readonly OFFSETOF_STRIDE = 0x48;
     static readonly OFFSETOF_FLAGS = 0x50;
     static readonly OFFSETOF_EXTRA_INHABITANT_COUNT = 0x54;
 
+    readonly initializeWithCopy: (dest: NativePointer, src: NativePointer,
+        self: NativePointer) => NativePointer;
     readonly size: number;
     readonly stride: number;
     readonly flags: TargetValueWitnessFlags;
     readonly extraInhabitantCount: number;
 
     constructor (protected handle: NativePointer) {
+        const ptrInitializeWithCopy = this.handle.add(
+                    TargetValueWitnessTable.OFFSETOF_INTIALIZE_WITH_COPY)
+                    .readPointer();
+        const initializeWithCopy = new NativeFunction(ptrInitializeWithCopy,
+                    "pointer", ["pointer", "pointer", "pointer"]);
+        this.initializeWithCopy = (dest, src, self) => {
+            return initializeWithCopy(dest, src, self) as NativePointer;
+        };
+
         this.size = this.getSize();
         this.stride = this.getStride();
         this.flags = this.getFlags();
