@@ -4,13 +4,19 @@
  * Licence: wxWindows Library Licence, Version 3.1
  */
 
+/**
+ * TODO:
+ *  - Test with swiftcall with a struct context
+ *  - Test enums with class payloads
+ */
+
 #define SUITE "/Basics"
 #include "fixture.c"
 
 TESTLIST_BEGIN (basics)
     TESTENTRY (modules_can_be_enumerated)
     TESTENTRY (types_can_be_enumerated)
-    TESTENTRY (swiftcall_with_context) /* TODO: test with struct context */
+    TESTENTRY (swiftcall_with_context)
     TESTENTRY (swiftcall_with_indirect_result)
     TESTENTRY (swiftcall_with_direct_result)
     TESTENTRY (swiftcall_with_indirect_result_and_stack_arguments)
@@ -70,10 +76,10 @@ TESTCASE (swiftcall_with_context)
     "var Int = Swift.structs.Int;"
     "var buf1 = Memory.alloc(8);"
     "buf1.writeU64(0xDEAD);"
-    "var i1 = Int.makeFromRaw(buf1);"
+    "var i1 = Int.makeValueFromRaw(buf1);"
     "var buf2 = Memory.alloc(8);"
     "buf2.writeU64(0xBABE);"
-    "var i2 = Int.makeFromRaw(buf2);"
+    "var i2 = Int.makeValueFromRaw(buf2);"
     "var SimpleClass = Swift.classes.SimpleClass;"
     "var initPtr = SimpleClass.$methods[SimpleClass.$methods.length - 1].address;" // TODO parse initializer
     "var init = Swift.NativeFunction(initPtr, SimpleClass, [Int, Int], SimpleClass.metadataPointer);"
@@ -133,7 +139,7 @@ TESTCASE(swiftcall_with_indirect_result_and_stack_arguments)
       "var makeLoadableStruct = Swift.NativeFunction(target, LoadableStruct, [Int, Int, Int, Int]);"
       "var buf1 = Memory.alloc(8);"
       "buf1.writeU64(0x1);"
-      "var i1 = Int.makeFromRaw(buf1);"
+      "var i1 = Int.makeValueFromRaw(buf1);"
       "var loadable = makeLoadableStruct(i1, i1, i1, i1);"
       "var big = makeBigStructWithManyArguments(loadable, loadable, i1, i1, i1, i1, i1);"
       "send(!big.handle.equals(ptr(0x0)));"
@@ -168,11 +174,11 @@ TESTCASE (swiftcall_multipayload_enum_can_be_passed_to_function)
     "var takeMultiPayloadEnumCase = Swift.NativeFunction(target, Int, [MultiPayloadEnum]);"
      "var buf = Memory.alloc(8);"
     "buf.writeU64(0xCAFE);"
-    "var i = Int.makeFromRaw(buf);"
+    "var i = Int.makeValueFromRaw(buf);"
     "var a = MultiPayloadEnum.a(i);"
     "send(takeMultiPayloadEnumCase(a).handle.readU64() == 0);"
     "var Bool = Swift.structs.Bool;"
-    "var truthy = Bool.makeFromRaw(Memory.alloc(1).writeU8(1));"
+    "var truthy = Bool.makeValueFromRaw(Memory.alloc(1).writeU8(1));"
     "var d = MultiPayloadEnum.d(truthy);"
     "send(takeMultiPayloadEnumCase(d).handle.readU64() == 3);"
   );
@@ -184,7 +190,7 @@ TESTCASE (swiftcall_multipayload_enum_can_be_returned_from_function)
 {
     COMPILE_AND_LOAD_SCRIPT(
     "var Int = Swift.structs.Int;"
-    "var tag0 = Int.makeFromRaw(Memory.alloc(8).writeU64(0x0));"
+    "var tag0 = Int.makeValueFromRaw(Memory.alloc(8).writeU64(0x0));"
     "var dummy = Process.getModuleByName('dummy.o');"
     "var symbols = dummy.enumerateSymbols();"
     "symbols = symbols.filter(s => s.name == '$s5dummy24makeMultiPayloadEnumCase4withAA0cdE0OSi_tF');"
@@ -194,7 +200,7 @@ TESTCASE (swiftcall_multipayload_enum_can_be_returned_from_function)
     "var a = makeMultiPayloadEnumCase(tag0);"
     "send(a.tag === 0);"
     "send(a.payload.handle.readU64() == 0x1337);"
-    "var tag1 = Int.makeFromRaw(Memory.alloc(8).writeU64(0x1));"
+    "var tag1 = Int.makeValueFromRaw(Memory.alloc(8).writeU64(0x1));"
     "var b = makeMultiPayloadEnumCase(tag1);"
     "send(b.tag === 1);"
     "send(b.payload.handle.readCString() == 'Octagon');"
@@ -209,10 +215,10 @@ TESTCASE (c_style_enum_can_be_made_from_raw)
 {
   COMPILE_AND_LOAD_SCRIPT(
     "var CStyle = Swift.enums.CStyle;"
-    "var buf = Memory.alloc(1);"
-    "buf.writeU8(1);"
-    "var e = CStyle.makeFromRaw(buf);"
-    "send(e.tag === 1);"
+    "var tmp = CStyle.makeEmptyValue();"
+    "tmp.handle.writeU8(1);"
+    "var b = CStyle.makeValueFromRaw(tmp.handle);"
+    "send(b.tag === 1);"
   );
   EXPECT_SEND_MESSAGE_WITH ("true");
 }
@@ -247,11 +253,11 @@ TESTCASE (singlepayload_enum_empty_case_can_be_made_from_raw)
     "var rawA = Memory.alloc(16);"
     "rawA.add(8).writeU8(1);"
     "var SinglePayloadEnumWithNoExtraInhabitants = Swift.enums.SinglePayloadEnumWithNoExtraInhabitants;"
-    "var a = SinglePayloadEnumWithNoExtraInhabitants.makeFromRaw(rawA);"
+    "var a = SinglePayloadEnumWithNoExtraInhabitants.makeValueFromRaw(rawA);"
     "send(a.tag === 1);"
     "rawA = Memory.alloc(16);"
     "var SinglePayloadEnumWithExtraInhabitants = Swift.enums.SinglePayloadEnumWithExtraInhabitants;"
-    "a = SinglePayloadEnumWithExtraInhabitants.makeFromRaw(rawA);"
+    "a = SinglePayloadEnumWithExtraInhabitants.makeValueFromRaw(rawA);"
     "send(a.tag === 1);"
   );
   EXPECT_SEND_MESSAGE_WITH ("true");
@@ -278,12 +284,12 @@ TESTCASE (singlepayload_enum_data_case_can_be_made_from_raw)
     "var rawSome = Memory.alloc(16);"
     "rawSome.writeU64(0x1337);"
     "var SinglePayloadEnumWithNoExtraInhabitants = Swift.enums.SinglePayloadEnumWithNoExtraInhabitants;"
-    "var some = SinglePayloadEnumWithNoExtraInhabitants.makeFromRaw(rawSome);"
+    "var some = SinglePayloadEnumWithNoExtraInhabitants.makeValueFromRaw(rawSome);"
     "send(some.tag === 0);"
     "var SinglePayloadEnumWithExtraInhabitants = Swift.enums.SinglePayloadEnumWithExtraInhabitants;"
     "rawSome = Memory.alloc(16);"
     "rawSome.writeByteArray([0x48, 0x65, 0x6c, 0x6c, 0x6f, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xe5]);"
-    "some = SinglePayloadEnumWithExtraInhabitants.makeFromRaw(rawSome);"
+    "some = SinglePayloadEnumWithExtraInhabitants.makeValueFromRaw(rawSome);"
     "send(some.tag === 0);"
   );
   EXPECT_SEND_MESSAGE_WITH ("true");
@@ -294,11 +300,10 @@ TESTCASE (singlepayload_enum_data_case_can_be_made_ad_hoc)
 {
   COMPILE_AND_LOAD_SCRIPT(
     "var Int = Swift.structs.Int;"
-    "var buffer = Memory.alloc(8);"
-    "var zero = Int.makeFromRaw(buffer);"
+    "var zero = Int.makeEmptyValue();"
     "var SinglePayloadEnumWithNoExtraInhabitants = Swift.enums.SinglePayloadEnumWithNoExtraInhabitants;"
     "var i = SinglePayloadEnumWithNoExtraInhabitants.Some(zero);"
-    "send(i.payload.handle.equals(zero.handle));"
+    "send(i.payload.handle.readU64().toNumber() == zero.handle.readU64().toNumber());"
   );
   EXPECT_SEND_MESSAGE_WITH ("true");
 }
@@ -321,7 +326,7 @@ TESTCASE (singlepayload_enum_equals_works)
     "var b = SinglePayloadEnumWithExtraInhabitants.b;"
     "send(a.equals(b))"
   );
-  EXPECT_SEND_MESSAGE_WITH ("true");
+  EXPECT_SEND_MESSAGE_WITH ("false");
   EXPECT_SEND_MESSAGE_WITH ("false");
 }
 
@@ -332,7 +337,7 @@ TESTCASE (multipayload_enum_empty_case_can_be_made_from_raw)
     "rawF.writeU8(1);"
     "rawF.add(0x10).writeU8(4);"
     "var MultiPayloadEnum = Swift.enums.MultiPayloadEnum;"
-    "var f = MultiPayloadEnum.makeFromRaw(rawF);"
+    "var f = MultiPayloadEnum.makeValueFromRaw(rawF);"
     "send(f.tag === 5);"
   );
   EXPECT_SEND_MESSAGE_WITH ("true");
@@ -356,7 +361,7 @@ TESTCASE (multipayload_enum_data_case_can_be_made_from_raw)
     "rawB.writeByteArray([0x57, 0x6f, 0x72, 0x6c, 0x64, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xe5]);"
     "rawB.add(0x10).writeU8(1);"
     "var MultiPayloadEnum = Swift.enums.MultiPayloadEnum;"
-    "var b = MultiPayloadEnum.makeFromRaw(rawB);"
+    "var b = MultiPayloadEnum.makeValueFromRaw(rawB);"
     "send(b.tag === 1);"
   );
   EXPECT_SEND_MESSAGE_WITH ("true");
@@ -368,7 +373,7 @@ TESTCASE (multipayload_enum_data_case_can_be_made_ad_hoc)
     "var buf = Memory.alloc(8);"
     "buf.writeU64(0xCAFE);"
     "var Int = Swift.structs.Int;"
-    "var i = Int.makeFromRaw(buf);"
+    "var i = Int.makeValueFromRaw(buf);"
     "var MultiPayloadEnum = Swift.enums.MultiPayloadEnum;"
     "var a = MultiPayloadEnum.a(i);"
     "send(a.tag === 0);"
@@ -386,12 +391,12 @@ TESTCASE (multipayload_enum_equals_works)
     "var buf1 = Memory.alloc(8);"
     "buf1.writeU64(0xCAFE);"
     "var Int = Swift.structs.Int;"
-    "var i1 = Int.makeFromRaw(buf1);"
+    "var i1 = Int.makeValueFromRaw(buf1);"
     "var MultiPayloadEnum = Swift.enums.MultiPayloadEnum;"
     "var a1 = MultiPayloadEnum.a(i1);"
     "var buf2 = Memory.alloc(8);"
     "buf2.writeU64(0xBABE);"
-    "var i2 = Int.makeFromRaw(buf2);"
+    "var i2 = Int.makeValueFromRaw(buf2);"
     "var a2 = MultiPayloadEnum.a(i2);"
     "send(a1.equals(a2));"
   );
@@ -415,14 +420,10 @@ TESTCASE (protocol_conformance_can_be_gotten)
 {
   COMPILE_AND_LOAD_SCRIPT(
     "var URL = Swift.structs.URL;"
-    "var Hashable = Swift.protocols.Hashable;"
-    "var hasHashable = false;"
-    "URL.conformances.forEach(p => { if (p.handle.equals(Hashable.descriptor.handle)) hasHashable = true });"
+    "var hasHashable = 'Hashable' in URL.conformances;"
     "send(hasHashable);"
     "var OnOffSwitch = Swift.enums.OnOffSwitch;"
-    "var Togglable = Swift.protocols.Togglable;"
-    "var hasTogglable = false;"
-    "OnOffSwitch.conformances.forEach(p => { if (p.handle.equals(Togglable.descriptor.handle)) hasTogglable = true });"
+    "var hasTogglable = 'Togglable' in OnOffSwitch.conformances;"
     "send(hasTogglable);"
   );
   EXPECT_SEND_MESSAGE_WITH ("true");

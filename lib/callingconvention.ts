@@ -5,8 +5,8 @@
  * 	- Can we tell whether a function throws via its metadata?
  */
 
-import { Enum, Struct, Type } from "./types";
-import { EnumValue, Value } from "./runtime";
+import { Struct, Type, ValueType } from "./types";
+import { makeRuntimeValue, ObjectInstance, RuntimeValue, SwiftValue } from "./runtime";
 
 type SwiftType = Type;
 
@@ -43,6 +43,17 @@ class TrampolinePool {
     }
 }
 
+function moveValueToBuffer(fields: UInt64[]): NativePointer {
+    const size = Process.pointerSize * fields.length;
+    const buffer = Memory.alloc(size);
+
+    for (let i = 0, offset = 0; offset < size; i++, offset += Process.pointerSize) {
+        buffer.add(offset).writeU64(fields[i])
+    }
+
+    return buffer;
+}
+
 export function makeSwiftNativeFunction(address: NativePointer,
                                         retType: SwiftType,
                                         argTypes: SwiftType[],
@@ -54,7 +65,7 @@ export function makeSwiftNativeFunction(address: NativePointer,
     const swiftcallWrapper = new SwiftcallNativeFunction(address, loweredRetType,
                 loweredArgType, context).wrapper;
 
-    const wrapper = function(...args: Value[]) {
+    const wrapper = function(...args: RuntimeValue[]) {
         const acutalArgs: any[] = [];
 
         for (const arg of args) {
@@ -63,16 +74,13 @@ export function makeSwiftNativeFunction(address: NativePointer,
 
         const retval = swiftcallWrapper(...acutalArgs);
 
-        /* TODO: bad? */
         switch (retType.kind) {
             case "Struct":
-                const struct = retType as Struct;
-                return struct.makeFromValue(retval);
             case "Enum":
-                const anEnum = retType as Enum;
-                return anEnum.makeFromValue(retval);
+                const buffer = moveValueToBuffer(retval);
+                return makeRuntimeValue(retType as ValueType, buffer);
             case "Class":
-                return new Value(retType, retval as NativePointer);
+                return new ObjectInstance(retval as NativePointer);
             default:
                 console.warn("Unimplemented kind: " + retType.kind);
                 return retval;
@@ -96,44 +104,24 @@ function makeCType(type: Type): NativeType {
     }
 }
 
-function makeCValue(value: Value): UInt64 | UInt64[] | NativePointer {
-    const type = value.type;
+function makeCValue(value: SwiftValue): UInt64 | UInt64[] | NativePointer {
     const result: UInt64[] = [];
+
+    if (value instanceof ObjectInstance) {
+        return value.handle;
+    }
+
+    value as RuntimeValue;
+    const type = value.type;
 
     if (shouldPassIndirectly(type)) {
         return value.handle;
-    } else if (value instanceof EnumValue) {
-        const asEnum = type as Enum;
-        const enumValue = value as EnumValue;
+    }
 
-        if (asEnum.payloadCases.length > 0) {
-            const stride = asEnum.typeLayout.stride;
-            const tmp = Memory.alloc(stride);
-            let payloadSize: number;
+    const stride = type.typeLayout.stride;
 
-            if (enumValue.payload.type instanceof Struct) {
-                const payloadType = enumValue.payload.type as Struct;
-                payloadSize = payloadType.typeLayout.stride;
-            } else {
-                payloadSize = Process.pointerSize; // TODO: bad?
-            }
-
-            Memory.copy(tmp, enumValue.payload.handle, payloadSize);
-            asEnum.metadata.vw_destructiveInjectEnumTag(tmp, enumValue.tag);
-
-            for (let i = 0; i < stride; i += 8) {
-                result.push(tmp.add(i).readU64());
-            }
-        } else {
-            result.push(uint64(enumValue.tag));
-        }
-    } else {
-        const asStruct = type as Struct;
-        const stride = asStruct.typeLayout.stride;
-
-        for (let i = 0; i < stride; i += 8) {
-            result.push(value.handle.add(i).readU64());
-        }
+    for (let i = 0; i < stride; i += 8) {
+        result.push(value.handle.add(i).readU64());
     }
 
     return result;

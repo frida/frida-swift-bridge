@@ -19,8 +19,10 @@ import { FieldDescriptor } from "../reflection/records";
 import { RelativeDirectPointer } from "../basic/relativepointer";
 import { getSymbolAtAddress } from "./symbols";
 import { getPrivateAPI } from "./api";
-import { EnumValue, Value } from "./runtime";
-import { Registry } from "./registry";
+import { EnumValue,
+         RuntimeValue,
+         StructValue,
+         SwiftValue } from "./runtime";
 
 type SwiftTypeKind = "Class" | "Enum" | "Struct" | "Protocol";
 type MethodType = "Init" | "Getter" | "Setter" | "ModifyCoroutine" |
@@ -307,45 +309,39 @@ export class Class extends Type {
     }
 }
 
-/* TODO: agree on interface for structs and enums
-interface ValueType {
-    readonly typeLayout: TypeLayout;
-    makeFromRaw(buffer: ArrayBuffer): Value;
-    makeFromRegion(handle: NativePointer): Value;
-}
-*/
-
-export class Struct extends Type {
+export abstract class ValueType extends Type {
     readonly typeLayout: TypeLayout;
 
-    constructor(module: Module, descriptorPtr: NativePointer) {
-        const descriptor = new TargetStructDescriptor(descriptorPtr);
-        super(module, "Struct", descriptor);
+    constructor(module: Module, kind: SwiftTypeKind,
+                descriptor: TargetTypeContextDescriptor) {
+        super(module, kind, descriptor);
 
         if (!this.descriptor.flags.isGeneric()) {
             this.typeLayout = this.metadata.getTypeLayout();
         }
     }
 
-    makeFromRaw(handle: NativePointer): Value {
-        if (this.descriptor.flags.isGeneric()) {
-            throw new Error("Unimplemneted");
-        }
-
-        return new Value(this, handle);
+    copy(dest: RuntimeValue, src: RuntimeValue) {
+        this.metadata.vw_initializeWithCopy(dest.handle, src.handle);
     }
 
-    makeFromValue(fields: UInt64[]): Value {
-        const size = fields.length * Process.pointerSize;
-        const buffer = Memory.alloc(size);
+    abstract makeValueFromRaw(buffer: NativePointer): RuntimeValue;
+    abstract makeEmptyValue(): RuntimeValue;
+}
 
-        let i = 0;
-        for (const field of fields) {
-            buffer.add(i).writeU64(field);
-            i += Process.pointerSize;
-        }
+export class Struct extends ValueType {
+    constructor(module: Module, descriptorPtr: NativePointer) {
+        const descriptor = new TargetStructDescriptor(descriptorPtr);
+        super(module, "Struct", descriptor);
+    }
 
-        return this.makeFromRaw(buffer);
+    makeValueFromRaw(buffer: NativePointer): StructValue {
+        return new StructValue(this, buffer);
+    }
+
+    makeEmptyValue(): StructValue {
+        const buffer = Memory.alloc(this.typeLayout.stride);
+        return new StructValue(this, buffer);
     }
 }
 
@@ -355,22 +351,19 @@ enum EnumKind {
     MutliPayload
 }
 
-export class Enum extends Type {
-    readonly typeLayout: TypeLayout;
+export class Enum extends ValueType {
     private readonly enumKind: EnumKind;
     readonly emptyCases: FieldDetails[];
     readonly payloadCases: FieldDetails[];
 
     constructor(module: Module, descriptroPtr: NativePointer) {
         const descriptor = new TargetEnumDescriptor(descriptroPtr);
-
         super(module, "Enum", descriptor);
 
         if (this.fields === undefined) {
             return;
         }
 
-        this.typeLayout = this.metadata.getTypeLayout();
         this.emptyCases = [];
         this.payloadCases = [];
         this.enumKind = EnumKind.NoPayload;
@@ -394,8 +387,8 @@ export class Enum extends Type {
         for (const kase of this.payloadCases) { //test this
             const caseTag = tagIndex++;
 
-            const associatedValueWrapper = (value: Value) => {
-                if (value === undefined) {
+            const associatedValueWrapper = (payload: SwiftValue) => {
+                if (payload === undefined) {
                     throw new Error("Case requires an associated value");
                 }
 
@@ -405,7 +398,13 @@ export class Enum extends Type {
                 }
                 */
 
-                return new EnumValue(this, caseTag, value);
+                // TODO: special-case reference values
+
+
+                const enumValue = this.makeEmptyValue();
+                enumValue.setContent(caseTag, payload);
+
+                return enumValue;
             }
 
             Object.defineProperty(this, kase.name, {
@@ -417,44 +416,29 @@ export class Enum extends Type {
         }
 
         for (const [i, kase] of this.emptyCases.entries()) {
+            const caseTag = tagIndex++;
+
             Object.defineProperty(this, kase.name, {
-                configurable: false,
+                configurable: true,
                 enumerable: true,
-                value: new EnumValue(this, tagIndex++),
-                writable: false
+                get: () => {
+                    const enumVal = this.makeEmptyValue();
+                    enumVal.setContent(caseTag);
+
+                    Object.defineProperty(this, kase.name, { value: enumVal });
+                    return enumVal;
+                }
             });
         }
-
     }
 
-    makeFromRaw(handle: NativePointer): EnumValue {
-        const tag = this.metadata.vw_getEnumTag(handle);
-        let payload: Value;
-
-        if (tag - this.payloadCases.length >= this.emptyCases.length) {
-            throw new Error("Invalid pointer for an enum of this type");
-        }
-
-        if (tag < this.payloadCases.length) {
-            const typeName = this.payloadCases[tag].typeName;
-            const type = Registry.shared().typeByName(typeName);
-            payload = new Value(type, handle);
-        }
-
-        return new EnumValue(this, tag, payload);
+    makeValueFromRaw(buffer: NativePointer): EnumValue {
+        return new EnumValue(this, buffer);
     }
 
-    makeFromValue(fields: UInt64[]): EnumValue {
-        const size = fields.length * Process.pointerSize;
-        const buffer = Memory.alloc(size);
-
-        let i = 0;
-        for (const field of fields) {
-            buffer.add(i).writeU64(field);
-            i += Process.pointerSize;
-        }
-
-        return this.makeFromRaw(buffer);
+    makeEmptyValue(): EnumValue {
+        const buffer = Memory.alloc(this.typeLayout.stride);
+        return new EnumValue(this, buffer);
     }
 }
 
