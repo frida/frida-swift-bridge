@@ -45,6 +45,14 @@ func makeBigStructWithManyArguments(with loadable1: LoadableStruct,
     return big
 }
 
+func takeBigStruct(_ b: BigStruct) -> Bool {
+    return b.a == 1 &&
+           b.b == 2 &&
+           b.c == 3 &&
+           b.d == 4 &&
+           b.e == 5
+}
+
 struct LoadableStruct {
     let a: Int
     let b: Int
