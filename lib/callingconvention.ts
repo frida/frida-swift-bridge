@@ -136,7 +136,7 @@ function lowerPhysically(value: SwiftValue): UInt64 | UInt64[] | NativePointer {
     return result;
 }
 
-function shouldPassIndirectly(type: Type) {
+function shouldPassIndirectly(type: ValueType) {
     const vwt = type.metadata.getValueWitnesses();
     return !vwt.flags.isBitwiseTakable;
 }

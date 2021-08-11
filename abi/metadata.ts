@@ -1,5 +1,6 @@
 /**
  * TODO:
+ *  - Implement TargetEnumDescriptor
  *  - Use a cleaner property-caching approach
  */
 
@@ -20,7 +21,7 @@ export interface TypeLayout {
     extraInhabitantCount: number,
 }
 
-export class TargetMetadata {
+export abstract class TargetMetadata {
     static readonly OFFSETOF_KIND = 0x0;
 
     readonly kind: MetadataKind;
@@ -64,6 +65,41 @@ export class TargetMetadata {
     vw_destructiveInjectEnumTag(object: NativePointer, tag: number) {
         return this.getValueWitnesses().asEVWT().destructiveInjectEnumTag(object,
                 tag);
+    }
+}
+
+export class TargetValueMetadata extends TargetMetadata {
+    static readonly OFFSETOF_DESCRIPTION = Process.pointerSize;
+
+    #description: NativePointer;
+
+    constructor(handle: NativePointer) {
+        super(handle);
+    }
+
+    get description(): NativePointer {
+        if (this.#description === undefined) {
+            this.#description = this.handle.add(
+                        TargetValueMetadata.OFFSETOF_DESCRIPTION);
+        }
+
+        return this.#description;
+    }
+
+    getDescription(): TargetValueTypeDescriptor {
+        return new TargetTypeContextDescriptor(this.description);
+    }
+}
+
+export class TargetStructMetadata extends TargetValueMetadata {
+    getDescription(): TargetStructDescriptor {
+        return new TargetStructDescriptor(this.description);
+    }
+}
+
+export class TargetEnumMetadata extends TargetValueMetadata {
+    getDescription(): TargetEnumDescriptor {
+        return new TargetEnumDescriptor(this.description);
     }
 }
 
@@ -270,6 +306,8 @@ export class TargetTypeContextDescriptor extends TargetContextDescriptor {
         return new NativeFunction(this.accessFunctionPointer, "pointer", []);
     }
 }
+
+type TargetValueTypeDescriptor = TargetTypeContextDescriptor;
 
 export class TargetClassDescriptor extends TargetTypeContextDescriptor {
     static readonly OFFSETOF_TARGET_VTABLE_DESCRIPTOR_HEADER = 0x2C;

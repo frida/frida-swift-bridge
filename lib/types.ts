@@ -6,11 +6,13 @@
 
 import { TargetClassDescriptor,
          TargetEnumDescriptor,
-         TargetMetadata,
+         TargetEnumMetadata,
          TargetProtocolConformanceDescriptor,
          TargetProtocolDescriptor,
          TargetStructDescriptor,
+         TargetStructMetadata,
          TargetTypeContextDescriptor,
+         TargetValueMetadata,
          TypeLayout, } from "../abi/metadata";
 import { ContextDescriptorKind,
          MethodDescriptorKind } from "../abi/metadatavalues";
@@ -203,7 +205,6 @@ export class Type {
     readonly fields?: FieldDetails[];
     readonly moduleName: string;
     readonly metadataPointer: NativePointer;
-    readonly metadata: TargetMetadata;
     readonly conformances: Record<string, TypeProtocolConformance>;
 
     constructor (readonly module: Module,
@@ -215,7 +216,6 @@ export class Type {
         this.moduleName = descriptor.getModuleContext().name;
         this.metadataPointer = descriptor.getAccessFunction()
                 .call() as NativePointer;
-        this.metadata = new TargetMetadata(this.metadataPointer);
         this.conformances = {};
     }
 
@@ -310,11 +310,14 @@ export class Class extends Type {
 }
 
 export abstract class ValueType extends Type {
+    readonly metadata: TargetValueMetadata;
     readonly typeLayout: TypeLayout;
 
     constructor(module: Module, kind: SwiftTypeKind,
                 descriptor: TargetTypeContextDescriptor) {
         super(module, kind, descriptor);
+
+        this.metadata = new TargetValueMetadata(this.metadataPointer);
 
         if (!this.descriptor.flags.isGeneric()) {
             this.typeLayout = this.metadata.getTypeLayout();
@@ -330,9 +333,13 @@ export abstract class ValueType extends Type {
 }
 
 export class Struct extends ValueType {
+    readonly metadata: TargetStructMetadata;
+
     constructor(module: Module, descriptorPtr: NativePointer) {
         const descriptor = new TargetStructDescriptor(descriptorPtr);
         super(module, "Struct", descriptor);
+
+        this.metadata = new TargetStructMetadata(this.metadataPointer);
     }
 
     makeValueFromRaw(buffer: NativePointer): StructValue {
@@ -352,6 +359,7 @@ enum EnumKind {
 }
 
 export class Enum extends ValueType {
+    readonly metadata: TargetEnumMetadata;
     private readonly enumKind: EnumKind;
     readonly emptyCases: FieldDetails[];
     readonly payloadCases: FieldDetails[];
@@ -359,6 +367,8 @@ export class Enum extends ValueType {
     constructor(module: Module, descriptroPtr: NativePointer) {
         const descriptor = new TargetEnumDescriptor(descriptroPtr);
         super(module, "Enum", descriptor);
+
+        this.metadata = new TargetEnumMetadata(this.metadataPointer);
 
         if (this.fields === undefined) {
             return;
