@@ -43,7 +43,7 @@ class TrampolinePool {
     }
 }
 
-function moveValueToBuffer(fields: UInt64[]): NativePointer {
+function makeBufferFromValue(fields: UInt64[]): NativePointer {
     const size = Process.pointerSize * fields.length;
     const buffer = Memory.alloc(size);
 
@@ -54,13 +54,21 @@ function moveValueToBuffer(fields: UInt64[]): NativePointer {
     return buffer;
 }
 
+function moveValueToBuffer(fields: UInt64[], buffer: NativePointer) {
+    const size =  Process.pointerSize * fields.length;
+
+    for (let i = 0, offset = 0; offset < size; i++, offset += Process.pointerSize) {
+        buffer.add(offset).writeU64(fields[i]);
+    }
+}
+
 export function makeSwiftNativeFunction(address: NativePointer,
                                         retType: SwiftType,
                                         argTypes: SwiftType[],
                                         context?: NativePointer,
                                         throws?: boolean): Function {
-    const loweredArgType = argTypes.map(ty => makeCType(ty));
-    const loweredRetType = makeCType(retType);
+    const loweredArgType = argTypes.map(ty => lowerSemantically(ty));
+    const loweredRetType = lowerSemantically(retType);
 
     const swiftcallWrapper = new SwiftcallNativeFunction(address, loweredRetType,
                 loweredArgType, context).wrapper;
@@ -69,7 +77,7 @@ export function makeSwiftNativeFunction(address: NativePointer,
         const acutalArgs: any[] = [];
 
         for (const arg of args) {
-            acutalArgs.push(makeCValue(arg));
+            acutalArgs.push(lowerPhysically(arg));
         }
 
         const retval = swiftcallWrapper(...acutalArgs);
@@ -77,7 +85,7 @@ export function makeSwiftNativeFunction(address: NativePointer,
         switch (retType.kind) {
             case "Struct":
             case "Enum":
-                const buffer = moveValueToBuffer(retval);
+                const buffer = makeBufferFromValue(retval);
                 return makeRuntimeValue(retType as ValueType, buffer);
             case "Class":
                 return new ObjectInstance(retval as NativePointer);
@@ -90,21 +98,22 @@ export function makeSwiftNativeFunction(address: NativePointer,
     return wrapper;
 }
 
-function makeCType(type: Type): NativeType {
+function lowerSemantically(type: Type): NativeType {
     if (type.kind === "Class") {
         return "pointer";
-    } else {
-        const asStruct = type as Struct;
-        /**TODO:
-         * - Make it arch-agnostic
-         * - Unsigned ints?
-         */
-        const sizeInQWords = asStruct.typeLayout.stride / 8;
-        return Array(sizeInQWords).fill("uint64");
     }
+
+    const valueType = type as ValueType;
+    /**TODO:
+     * - Make it arch-agnostic
+     * - Unsigned ints?
+     */
+    let sizeInQWords = valueType.typeLayout.stride / 8;
+    sizeInQWords = sizeInQWords > 1 ? sizeInQWords : 1;
+    return Array(sizeInQWords).fill("uint64");
 }
 
-function makeCValue(value: SwiftValue): UInt64 | UInt64[] | NativePointer {
+function lowerPhysically(value: SwiftValue): UInt64 | UInt64[] | NativePointer {
     const result: UInt64[] = [];
 
     if (value instanceof ObjectInstance) {
@@ -128,9 +137,8 @@ function makeCValue(value: SwiftValue): UInt64 | UInt64[] | NativePointer {
 }
 
 function shouldPassIndirectly(type: Type) {
-    // TODO: enums with references?
     const vwt = type.metadata.getValueWitnesses();
-    return !vwt.flags.isBitwiseTakable || vwt.stride > 32;
+    return !vwt.flags.isBitwiseTakable;
 }
 
 class StrongQueue<T> {
@@ -151,7 +159,14 @@ class StrongQueue<T> {
             return undefined;
         }
 
-        return this.#queue[this.#next++];
+        const item = this.#queue[this.#next];
+        delete this.#queue[this.#next++];
+
+        return item;
+    }
+
+    toJSON() {
+        return this.#queue;
     }
 }
 
@@ -166,9 +181,13 @@ export class SwiftcallNativeFunction {
     constructor(target: NativePointer, resultType: NativeType,
                 argTypes: NativeType[], context?: NativePointer,
                 errorResult?: NativePointer) {
+        this.#argumentBuffers = new StrongQueue<NativePointer>();
+
         argTypes = argTypes.map(argType => {
             if (Array.isArray(argType) && argType.length > 4) {
-                this.#argumentBuffers.enqueue(Memory.alloc(argType.length));
+                const buf = Memory.alloc(Process.pointerSize * argType.length);
+                this.#argumentBuffers.enqueue(buf);
+
                 return "pointer";
             }
             return argType;
@@ -242,7 +261,10 @@ export class SwiftcallNativeFunction {
 
         args = args.map(arg => {
             if (Array.isArray(arg) && arg.length > 4) {
-                return this.#argumentBuffers.dequeue();
+                const argBuf = this.#argumentBuffers.dequeue();
+                moveValueToBuffer(arg, argBuf);
+
+                return argBuf;
             }
             return arg;
         }).flat();
