@@ -17,6 +17,7 @@ TESTLIST_BEGIN (basics)
     TESTENTRY (modules_can_be_enumerated)
     TESTENTRY (types_can_be_enumerated)
     TESTENTRY (swiftcall_with_context)
+    TESTENTRY (swiftcall_with_indirect_argument)
     TESTENTRY (swiftcall_with_indirect_result)
     TESTENTRY (swiftcall_with_direct_result)
     TESTENTRY (swiftcall_with_indirect_result_and_stack_arguments)
@@ -87,6 +88,27 @@ TESTCASE (swiftcall_with_context)
     "send(instance.handle.equals(ptr(0x0)));"
   );
   EXPECT_SEND_MESSAGE_WITH ("false");
+}
+
+TESTCASE (swiftcall_with_indirect_argument)
+{
+  COMPILE_AND_LOAD_SCRIPT(
+    "var dummy = Process.getModuleByName('dummy.o');"
+    "var symbols = dummy.enumerateSymbols();"
+    "symbols = symbols.filter(s => s.name == '$s5dummy15returnBigStructAA0cD0VyF');"
+    "var target = symbols[0].address;"
+    "var BigStruct = Swift.structs.BigStruct;"
+    "var returnBigStruct = Swift.NativeFunction(target, BigStruct, []);"
+    "var big = returnBigStruct();"
+    "symbols = dummy.enumerateSymbols();"
+    "symbols = symbols.filter(s => s.name == '$s5dummy13takeBigStructySbAA0cD0VF');"
+    "target = symbols[0].address;"
+    "var Bool = Swift.structs.Bool;"
+    "var takeBigStruct = Swift.NativeFunction(target, Bool, [BigStruct]);"
+    "var result = takeBigStruct(big);"
+    "send(result.handle.readU8() == 1);"
+  );
+  EXPECT_SEND_MESSAGE_WITH ("true");
 }
 
 TESTCASE (swiftcall_with_indirect_result)
