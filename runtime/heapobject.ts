@@ -14,7 +14,7 @@ export class HeapObject {
 
     getMetadata<T extends TargetMetadata>(c: new (handle: NativePointer) => T ):
                 T {
-        return new c(this.handle);
+        return new c(this.handle.readPointer());
     }
 }
 
