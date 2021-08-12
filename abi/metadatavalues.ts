@@ -1,3 +1,5 @@
+export const NumWords_ValueBuffer = 3;
+
 const MetadataKindIsNonHeap = 0x200;
 
 enum TargetValueWitnessFlags_Values {
@@ -14,6 +16,10 @@ export class TargetValueWitnessFlags {
     constructor(public data: number) {
     }
 
+    get isInlineStorage(): boolean {
+        return !(this.data & TargetValueWitnessFlags_Values.IsNonInline);
+    }
+
     get isPOD(): boolean {
         return !(this.data & TargetValueWitnessFlags_Values.IsNonPOD);
     }
@@ -21,12 +27,24 @@ export class TargetValueWitnessFlags {
     get isBitwiseTakable(): boolean {
         return !(this.data & TargetValueWitnessFlags_Values.IsNonBitwiseTakable);
     }
+
+    getAlignmentMask(): number {
+        return this.data & TargetValueWitnessFlags_Values.AlignmentMask;
+    }
 }
 
 export enum MetadataKind {
     Class = 0,
     Struct = 0 | MetadataKindIsNonHeap,
     Enum = 1 | MetadataKindIsNonHeap,
+    LastEnumerated = 0x7FF
+}
+
+export function getEnumeratedMetadataKind(kind: MetadataKind): MetadataKind {
+    if (kind > MetadataKind.LastEnumerated) {
+        return MetadataKind.Class;
+    }
+    return kind;
 }
 
 export enum ContextDescriptorKind {

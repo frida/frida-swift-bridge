@@ -10,9 +10,12 @@ import { ContextDescriptorKind,
          TypeContextDescriptorFlags,
          MethodDescriptorFlags,
          TypeReferenceKind,
-         ConformanceFlags} from "./metadatavalues";
+         ConformanceFlags,
+         getEnumeratedMetadataKind} from "./metadatavalues";
 import { RelativeDirectPointer,
          RelativeIndirectablePointer } from "../basic/relativepointer";
+import { BoxPair } from "../runtime/heapobject";
+import { getApi } from "../lib/api";
 
 export type OpaqueValue = NativePointer;
 
@@ -23,23 +26,36 @@ export interface TypeLayout {
     extraInhabitantCount: number,
 }
 
+export class TargetValueBuffer {
+    constructor(readonly privateData: NativePointer) {
+    }
+}
+
+type ValueBuffer = TargetValueBuffer;
+
 export abstract class TargetMetadata {
     static readonly OFFSETOF_KIND = 0x0;
 
-    readonly kind: MetadataKind;
+    #kind: MetadataKind;
 
     constructor(public readonly handle: NativePointer) {
-        this.kind = this.getKind();
+        this.#kind = this.handle.add(TargetMetadata.OFFSETOF_KIND).readU32();
     }
 
     getKind(): MetadataKind {
-        return this.handle.add(TargetMetadata.OFFSETOF_KIND).readU32();
+        return getEnumeratedMetadataKind(this.#kind);
+    }
+
+    isClassObject(): boolean {
+        return this.getKind() == MetadataKind.Class;
     }
 
     getValueWitnesses(): TargetValueWitnessTable {
-        if (this.kind !== MetadataKind.Enum &&
-            this.kind !== MetadataKind.Struct) {
-            throw new Error(`Kind does not have a VWT: ${this.kind}`);
+        const kind = this.getKind();
+
+        if (kind !== MetadataKind.Enum &&
+            kind !== MetadataKind.Struct) {
+            throw new Error(`Kind does not have a VWT: ${kind}`);
         }
 
         const handle = this.handle.sub(Process.pointerSize).readPointer();
@@ -70,6 +86,19 @@ export abstract class TargetMetadata {
     }
 
     abstract getDescription(): TargetTypeContextDescriptor;
+
+    allocateBoxForExistentialIn(buffer: ValueBuffer): OpaqueValue {
+        const vwt = this.getValueWitnesses();
+
+        if (vwt.isValueInline()) {
+            return buffer.privateData;
+        }
+
+        const api = getApi();
+        const refAndValue = new BoxPair(api.swift_allocBox(this.handle));
+        buffer.privateData.writePointer(refAndValue.object.handle);
+        return refAndValue.buffer;
+    }
 }
 
 export class TargetValueMetadata extends TargetMetadata {
@@ -87,7 +116,7 @@ export class TargetValueMetadata extends TargetMetadata {
     }
 
     getDescription(): TargetValueTypeDescriptor {
-        return new TargetTypeContextDescriptor(this.description);
+        return new TargetValueTypeDescriptor(this.description);
     }
 }
 
@@ -106,7 +135,7 @@ export class TargetClassMetadata extends TargetMetadata {
     }
 
     getDescription(): TargetClassDescriptor {
-        return new TargetClassDescriptor(this.#description);
+        return new TargetClassDescriptor(this.description);
     }
 }
 
@@ -152,6 +181,10 @@ class TargetValueWitnessTable {
         this.extraInhabitantCount = this.getExtraInhabitantCount();
     }
 
+    isValueInline(): boolean {
+        return this.flags.isInlineStorage;
+    }
+
     getSize(): number {
         return this.handle.add(
             TargetValueWitnessTable.OFFSETOF_SIZE).readU64().toNumber();
@@ -160,6 +193,10 @@ class TargetValueWitnessTable {
     getStride(): number {
 		return this.handle.add(
 			TargetValueWitnessTable.OFFSETOF_STRIDE).readU64().toNumber();
+    }
+
+    getAlignmentMask(): number {
+        return this.flags.getAlignmentMask();
     }
 
     getFlags(): TargetValueWitnessFlags {
@@ -216,7 +253,8 @@ export class TargetContextDescriptor {
     #flags: ContextDescriptorFlags;
     #parent: RelativeIndirectablePointer;
 
-    constructor(protected handle: NativePointer) { }
+    constructor(protected handle: NativePointer) {
+    }
 
     get flags(): ContextDescriptorFlags {
         if (this.#flags != undefined) {
@@ -326,7 +364,8 @@ export class TargetTypeContextDescriptor extends TargetContextDescriptor {
     }
 }
 
-type TargetValueTypeDescriptor = TargetTypeContextDescriptor;
+class TargetValueTypeDescriptor extends TargetTypeContextDescriptor {
+}
 
 export class TargetClassDescriptor extends TargetTypeContextDescriptor {
     static readonly OFFSETOF_TARGET_VTABLE_DESCRIPTOR_HEADER = 0x2C;
@@ -521,6 +560,7 @@ export class TargetProtocolConformanceDescriptor {
     static readonly OFFSETOF_TYPE_REF = 0x4;
     static readonly OFFSTEOF_WITNESS_TABLE_PATTERN = 0x8;
     static readonly OFFSETOF_FLAGS = 0xC;
+    static readonly OFFSETOF_WITNESS_TABLE_PATTERN = 0x10;
 
     #protocol: NativePointer;
     #typeRef: TargetTypeReference;
