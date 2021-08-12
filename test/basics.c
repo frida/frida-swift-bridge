@@ -22,8 +22,21 @@ TESTLIST_BEGIN (basics)
     TESTENTRY (swiftcall_with_direct_result)
     TESTENTRY (swiftcall_with_indirect_result_and_stack_arguments)
     TESTENTRY (swiftcall_with_direct_typed_result)
+    TESTENTRY (swiftcall_class_can_be_passed_to_function)
+    TESTENTRY (swiftcall_class_can_be_returned_from_function)
     TESTENTRY (swiftcall_multipayload_enum_can_be_passed_to_function)
     TESTENTRY (swiftcall_multipayload_enum_can_be_returned_from_function)
+    TESTENTRY (opaque_existential_inline_can_be_passed_to_function)
+    TESTENTRY (opaque_existential_inline_can_be_returned_from_function)
+    TESTENTRY (opaque_existential_outofline_can_be_passed_to_function)
+    TESTENTRY (opaque_existential_outofline_can_be_returned_from_function)
+    TESTENTRY (opaque_existential_class_can_be_passed_to_and_returned_from_function)
+    TESTENTRY (opaque_existential_inline_multiple_conformances_can_be_passed_to_function)
+    TESTENTRY (opaque_existential_inline_multiple_conformances_can_be_returned_from_function)
+    TESTENTRY (class_existential_can_be_passed_to_function)
+    TESTENTRY (class_existential_can_be_returned_from_function)
+    TESTENTRY (class_existential_multiple_conformances_can_be_passed_to_function)
+    TESTENTRY (class_existential_multiple_conformances_can_be_returned_from_function)
     TESTENTRY (c_style_enum_can_be_made_from_raw)
     TESTENTRY (c_style_enum_cases_can_be_gotten)
     TESTENTRY (c_style_enum_equals_works)
@@ -166,7 +179,8 @@ TESTCASE(swiftcall_with_indirect_result_and_stack_arguments)
       "var big = makeBigStructWithManyArguments(loadable, loadable, i1, i1, i1, i1, i1);"
       "send(!big.handle.equals(ptr(0x0)));"
       "send(big.handle.add(0x20).readU32() == 1);"
-      "send(big.handle.add(0x10).readU32() == 3);");
+      "send(big.handle.add(0x10).readU32() == 3);"
+  );
   EXPECT_SEND_MESSAGE_WITH ("true");
   EXPECT_SEND_MESSAGE_WITH ("true");
   EXPECT_SEND_MESSAGE_WITH ("true");
@@ -182,6 +196,31 @@ TESTCASE (swiftcall_with_direct_typed_result)
   );
   EXPECT_SEND_MESSAGE_WITH ("true");
   EXPECT_SEND_MESSAGE_WITH ("true");
+}
+
+TESTCASE (swiftcall_class_can_be_passed_to_function)
+{
+  /* TODO:
+  COMPILE_AND_LOAD_SCRIPT(
+    "var dummy = Process.getModuleByName('dummy.o');"
+    "var symbols = dummy.enumerateSymbols();"
+    "symbols = symbols.filter(s => s.name == '$s5dummy11SimpleClassC5first6secondACSi_Sitcfc');"
+    "var target = symbols[0].address;"
+    "var SimpleClass = Swift.classes.SimpleClass;"
+    "var Int = Swift.structs.Int;"
+    "var simpleClassInit = Swift.NativeFunction(target, SimpleClass, [Int, Int]);"
+    "var i1 = Int.makeFromRaw(Memory.alloc(8).writeU64(0x1337));"
+    "var i2 = Int.makeFromRaw(Memory.alloc(8).writeU64(0xaaaa));"
+    "var simple = simpleClassInit(i1, i2);"
+    "send(simple.handle.add(8).readU64() == 0x1337);"
+  );
+  EXPECT_SEND_MESSAGE_WITH ("true");
+  */
+}
+
+TESTCASE (swiftcall_class_can_be_returned_from_function)
+{
+  /* TODO */
 }
 
 TESTCASE (swiftcall_multipayload_enum_can_be_passed_to_function)
@@ -231,6 +270,145 @@ TESTCASE (swiftcall_multipayload_enum_can_be_returned_from_function)
   EXPECT_SEND_MESSAGE_WITH ("true");
   EXPECT_SEND_MESSAGE_WITH ("true");
   EXPECT_SEND_MESSAGE_WITH ("true");
+}
+
+TESTCASE (opaque_existential_inline_can_be_passed_to_function)
+{
+  COMPILE_AND_LOAD_SCRIPT(
+    "var dummy = Process.getModuleByName('dummy.o');"
+    "var symbols = dummy.enumerateSymbols();"
+    "symbols = symbols.filter(s => s.name == '$s5dummy27takeInlineExistentialStructySbAA0D0_pF');"
+    "var target = symbols[0].address;"
+    "var Existential = Swift.protocols.Existential;"
+    "var Bool = Swift.structs.Bool;"
+    "var takeInlineExistentialStruct = Swift.NativeFunction(target, Bool, [Existential]);"
+    "var InlineExistentialStruct = Swift.structs.InlineExistentialStruct;"
+    "var inline = InlineExistentialStruct.makeEmptyValue();"
+    "inline.handle.writeU64(0xCAFE);"
+    "inline.handle.add(8).writeU64(0xBABE);"
+    "var result = takeInlineExistentialStruct(inline);"
+    "send(result.handle.readU8() == 1);"
+  );
+  EXPECT_SEND_MESSAGE_WITH ("true");
+}
+
+TESTCASE (opaque_existential_inline_can_be_returned_from_function)
+{
+  COMPILE_AND_LOAD_SCRIPT(
+    "var dummy = Process.getModuleByName('dummy.o');"
+    "var symbols = dummy.enumerateSymbols();"
+    "symbols = symbols.filter(s => s.name == '$s5dummy22passThroughExistentialyAA0D0_pAaC_pF');"
+    "var target = symbols[0].address;"
+    "var Existential = Swift.protocols.Existential;"
+    "var passThroughExistential = Swift.NativeFunction(target, Existential, [Existential]);"
+    "var InlineExistentialStruct = Swift.structs.InlineExistentialStruct;"
+    "var inline = InlineExistentialStruct.makeEmptyValue();"
+    "inline.handle.writeU64(0xCAFE);"
+    "inline.handle.add(8).writeU64(0xBABE);"
+    "var result = passThroughExistential(inline);"
+    "send(result.type.name === 'InlineExistentialStruct');"
+    "send(result.handle.readU64().toNumber() == 0xCAFE);"
+    "send(result.handle.add(8).readU64().toNumber() == 0xBABE);"
+  );
+  EXPECT_SEND_MESSAGE_WITH ("true");
+  EXPECT_SEND_MESSAGE_WITH ("true");
+  EXPECT_SEND_MESSAGE_WITH ("true");
+}
+
+TESTCASE (opaque_existential_outofline_can_be_passed_to_function)
+{
+ COMPILE_AND_LOAD_SCRIPT(
+    "var dummy = Process.getModuleByName('dummy.o');"
+    "var symbols = dummy.enumerateSymbols();"
+    "symbols = symbols.filter(s => s.name == '$s5dummy30takeOutOfLineExistentialStructySbAA0F0_pF');"
+    "var target = symbols[0].address;"
+    "var Existential = Swift.protocols.Existential;"
+    "var Bool = Swift.structs.Bool;"
+    "var takeOutOfLineExistentialStruct = Swift.NativeFunction(target, Bool, [Existential]);"
+    "var OutOfLineExistentialStruct = Swift.structs.OutOfLineExistentialStruct;"
+    "var outOfLine = OutOfLineExistentialStruct.makeEmptyValue();"
+    "outOfLine.handle.writeU64(0xDEAD);"
+    "outOfLine.handle.add(8).writeU64(0xBEEF);"
+    "var result = takeOutOfLineExistentialStruct(outOfLine);"
+    "send(result.handle.readU8() == 1);"
+  );
+  EXPECT_SEND_MESSAGE_WITH ("true");
+}
+
+TESTCASE (opaque_existential_outofline_can_be_returned_from_function)
+{
+  COMPILE_AND_LOAD_SCRIPT(
+    "var dummy = Process.getModuleByName('dummy.o');"
+    "var symbols = dummy.enumerateSymbols();"
+    "symbols = symbols.filter(s => s.name == '$s5dummy22passThroughExistentialyAA0D0_pAaC_pF');"
+    "var target = symbols[0].address;"
+    "var Existential = Swift.protocols.Existential;"
+    "var passThroughExistential = Swift.NativeFunction(target, Existential, [Existential]);"
+    "var OutOfLineExistentialStruct = Swift.structs.OutOfLineExistentialStruct;"
+    "var outOfLine = OutOfLineExistentialStruct.makeEmptyValue();"
+    "outOfLine.handle.writeU64(0xDEAD);"
+    "outOfLine.handle.add(8).writeU64(0xBEEF);"
+    "var result = passThroughExistential(outOfLine);"
+    "send(result.type.name === 'OutOfLineExistentialStruct');"
+    "send(result.handle.readU64().toNumber() == 0xDEAD);"
+    "send(result.handle.add(8).readU64().toNumber() == 0xBEEF);"
+  );
+  EXPECT_SEND_MESSAGE_WITH ("true");
+  EXPECT_SEND_MESSAGE_WITH ("true");
+  EXPECT_SEND_MESSAGE_WITH ("true");
+}
+
+TESTCASE (opaque_existential_class_can_be_passed_to_and_returned_from_function)
+{
+  COMPILE_AND_LOAD_SCRIPT(
+    "var dummy = Process.getModuleByName('dummy.o');"
+    "var symbols = dummy.enumerateSymbols();"
+    "symbols = symbols.filter(s => s.name == '$s5dummy22passThroughExistentialyAA0D0_pAaC_pF');"
+    "var target = symbols[0].address;"
+    "var Existential = Swift.protocols.Existential;"
+    "var passThroughExistential = Swift.NativeFunction(target, Existential, [Existential]);"
+    "var ExistentialClass = Swift.classes.ExistentialClass;"
+    "symbols = dummy.enumerateSymbols();"
+    "symbols = symbols.filter(s => s.name == '$s5dummy20makeExistentialClassAA0cD0CyF');"
+    "target = symbols[0].address;"
+    "var makeExistentialClass = Swift.NativeFunction(target, ExistentialClass, []);"
+    "var instance = makeExistentialClass();"
+    "var result = passThroughExistential(instance);"
+    "send(result.handle.readPointer().equals(ExistentialClass.$metadata.handle));"
+    "send(result.handle.add(0x10).readU64() == 0x1337);"
+  );
+  EXPECT_SEND_MESSAGE_WITH ("true");
+  EXPECT_SEND_MESSAGE_WITH ("true");
+}
+
+TESTCASE (opaque_existential_inline_multiple_conformances_can_be_passed_to_function)
+{
+  /* TODO */
+}
+
+TESTCASE (opaque_existential_inline_multiple_conformances_can_be_returned_from_function)
+{
+  /* TODO */
+}
+
+TESTCASE (class_existential_can_be_passed_to_function)
+{
+  /* TODO */
+}
+
+TESTCASE (class_existential_can_be_returned_from_function)
+{
+  /* TODO */
+}
+
+TESTCASE (class_existential_multiple_conformances_can_be_passed_to_function)
+{
+  /* TODO */
+}
+
+TESTCASE (class_existential_multiple_conformances_can_be_returned_from_function)
+{
+  /* TODO */
 }
 
 TESTCASE (c_style_enum_can_be_made_from_raw)

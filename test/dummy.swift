@@ -17,6 +17,14 @@ class SimpleClass {
     }
 }
 
+func takeSimpleClass(klass: SimpleClass) -> Int {
+    return klass.x
+}
+
+func makeSimpleClass(f: Int, s: Int) -> SimpleClass {
+    return SimpleClass(first: f, second: s)
+}
+
 struct BigStruct {
     let a: Int
     let b: Int
@@ -141,6 +149,10 @@ func makeMultiPayloadEnumCase(with tag: Int) -> MultiPayloadEnum {
     }
 }
 
+func makeString() -> String {
+    return "New Cairo"
+}
+
 protocol SomeProtocol {
     var mustBeSettable: Int { get set }
     var doesNotNeedToBeSettable: Int { get }
@@ -162,6 +174,55 @@ enum OnOffSwitch: Togglable {
     }
 }
 
-func makeString() -> String {
-    return "New Cairo"
+protocol Existential {
+    var x: Int { get }
+    var y: Int { get }
+}
+
+struct InlineExistentialStruct : Existential {
+    let x = 0xCAFE
+    let y = 0xBABE
+}
+
+func takeInlineExistentialStruct(_ e: Existential) -> Bool {
+    return e.x == 0xCAFE && e.y == 0xBABE
+}
+
+struct OutOfLineExistentialStruct: Existential {
+    let x = 0xDEAD
+    let y = 0xBEEF
+    let a = 0xaaaa
+    let b = 0xbbbb
+    let c = 0xcccc
+}
+
+func takeOutOfLineExistentialStruct(_ e: Existential) -> Bool {
+    return e.x == 0xDEAD && e.y == 0xBEEF
+}
+
+class ExistentialClass: Existential {
+    let x = 0x1337
+    let y = 0x7331
+}
+
+func makeExistentialClass() -> ExistentialClass {
+    return ExistentialClass()
+}
+
+func passThroughExistential(_ e: Existential) -> Existential {
+    return e
+}
+
+protocol ClassBoundExistential: AnyObject{
+    var a: Int { get }
+    var b: Int { get }
+}
+
+class ClassOnlyExistentialClass: ClassBoundExistential {
+    let a = 0xAAAAAAAA
+    let b = 0xBBBBBBBB
+}
+
+func passClassBoundExistentialThrough(_ c: ClassBoundExistential) -> ClassBoundExistential {
+    return c
 }
