@@ -11,7 +11,7 @@
 import { getApi, API } from "./lib/api";
 import { SwiftModule, Type, Class, Struct, Enum, Protocol } from "./lib/types";
 import { enumerateDemangledSymbols } from "./lib/symbols";
-import { makeSwiftNativeFunction } from "./lib/callingconvention";
+import { makeSwiftNativeFunction, SwiftType } from "./lib/callingconvention";
 import { Registry } from "./lib/registry";
 
 interface TypeEnumerationOptions {
@@ -79,8 +79,9 @@ class Runtime {
         }
     }
 
-    NativeFunction(address: NativePointer, retType: Type, argTypes: Type[],
-                   context?: NativePointer, throws?: boolean) {
+    NativeFunction(address: NativePointer, retType: SwiftType,
+                   argTypes: SwiftType[], context?: NativePointer,
+                   throws?: boolean) {
         return makeSwiftNativeFunction(address, retType, argTypes, context, throws);
     }
 }

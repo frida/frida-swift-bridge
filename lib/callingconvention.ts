@@ -5,14 +5,15 @@
  * 	- Can we tell whether a function throws via its metadata?
  */
 
-import { Type, ValueType } from "./types";
-import { makeValueInstance,
-         ObjectInstance,
-         ValueInstance,
-         RuntimeInstance } from "./runtime";
+import { Protocol, Type, ValueType } from "./types";
+import { ObjectInstance,
+         RuntimeInstance,
+         makeValueInstance} from "./runtime";
 import { TargetValueMetadata } from "../abi/metadata";
+import { TargetOpaqueExistentialContainer } from "../runtime/existentialcontainer";
+import { Registry } from "./registry";
 
-type SwiftType = Type;
+export type SwiftType = Type | Protocol;
 
 class TrampolinePool {
     private static pages: NativePointer[];
@@ -47,12 +48,23 @@ class TrampolinePool {
     }
 }
 
-function makeBufferFromValue(fields: UInt64[]): NativePointer {
+type NativeStorageUnit = UInt64 | NativePointer;
+
+function makeBufferFromValue(fields: NativeStorageUnit[]): NativePointer {
     const size = Process.pointerSize * fields.length;
     const buffer = Memory.alloc(size);
 
     for (let i = 0, offset = 0; offset < size; i++, offset += Process.pointerSize) {
-        buffer.add(offset).writeU64(fields[i])
+        const field = fields[i];
+        const target = buffer.add(offset);
+
+        if (field instanceof NativePointer) {
+            target.writePointer(field);
+        } else if (field instanceof UInt64) {
+            target.writeU64(field);
+        } else {
+            throw new Error("Bad field type");
+        }
     }
 
     return buffer;
@@ -66,6 +78,17 @@ function moveValueToBuffer(fields: UInt64[], buffer: NativePointer) {
     }
 }
 
+function makeValueFromBuffer(buffer: NativePointer, lengthInBytes: number): UInt64[] {
+    const result: UInt64[] = [];
+
+    /* XXX: Assume only buffer sizes that are multiples of 8 for now  */
+    for (let i = 0; i < lengthInBytes; i += 8) {
+        result.push(buffer.add(i).readU64());
+    }
+
+    return result;
+}
+
 export function makeSwiftNativeFunction(address: NativePointer,
                                         retType: SwiftType,
                                         argTypes: SwiftType[],
@@ -77,14 +100,55 @@ export function makeSwiftNativeFunction(address: NativePointer,
     const swiftcallWrapper = new SwiftcallNativeFunction(address, loweredRetType,
                 loweredArgType, context).wrapper;
 
-    const wrapper = function(...args: ValueInstance[]) {
-        const acutalArgs: any[] = [];
+    const wrapper = function(...args: RuntimeInstance[]) {
+        const actualArgs: any[] = [];
 
-        for (const arg of args) {
-            acutalArgs.push(lowerPhysically(arg));
+        for (const [i, arg] of args.entries()) {
+
+            if (argTypes[i] instanceof Protocol) {
+                const typeMetadata = arg.typeMetadata;
+                const typeName = typeMetadata.getDescription().name;
+                const type = Registry.shared().typeByName(typeName);
+                const container = TargetOpaqueExistentialContainer.alloc();
+                const proto = argTypes[i] as Protocol;
+
+                container.type = typeMetadata;
+                container.setWitnessTable(
+                            type.conformances[proto.name].witnessTable);
+
+                if (typeMetadata.isClassObject()) {
+                    container.buffer.privateData.writePointer(arg.handle);
+                } else {
+                    const box = typeMetadata.allocateBoxForExistentialIn(
+                            container.buffer);
+                    (<ValueType>type).copyRaw(box, arg.handle);
+                }
+
+                actualArgs.push(lowerPhysically(container));
+            } else {
+                actualArgs.push(lowerPhysically(arg));
+            }
         }
 
-        const retval = swiftcallWrapper(...acutalArgs);
+        const retval = swiftcallWrapper(...actualArgs);
+
+        if (retType instanceof Protocol) {
+            const buf = makeBufferFromValue(retval);
+            const container = TargetOpaqueExistentialContainer.makeFromRaw(buf);
+            const typeMetadata = container.type;
+            const runtimeTypeName = typeMetadata.getDescription().name;
+            const runtimeType = Registry.shared().typeByName(runtimeTypeName);
+
+            if (typeMetadata.isClassObject()) {
+                return new ObjectInstance(
+                        container.buffer.privateData.readPointer());
+            } else {
+
+                const valueType = runtimeType as ValueType;
+                const handle = container.projectValue();
+                return valueType.intializeWithCopyRaw(handle);
+            }
+        }
 
         switch (retType.kind) {
             case "Struct":
@@ -94,16 +158,20 @@ export function makeSwiftNativeFunction(address: NativePointer,
             case "Class":
                 return new ObjectInstance(retval as NativePointer);
             default:
-                console.warn("Unimplemented kind: " + retType.kind);
-                return retval;
+                throw new Error("Unimplemented kind: " + retType.kind);
         }
     }
 
     return wrapper;
 }
 
-function lowerSemantically(type: Type): NativeType {
-    if (type.kind === "Class") {
+function lowerSemantically(type: SwiftType): NativeType {
+    if (type instanceof Protocol) {
+        return ["uint64", "uint64", "uint64", "pointer", "pointer"];
+    }
+
+    /* FIXME: ugly */
+    if (type.kind === "Class" || shouldPassIndirectly((<ValueType>type).metadata)) {
         return "pointer";
     }
 
@@ -117,24 +185,21 @@ function lowerSemantically(type: Type): NativeType {
     return Array(sizeInQWords).fill("uint64");
 }
 
-function lowerPhysically(value: RuntimeInstance): UInt64 | UInt64[] | NativePointer {
-    const result: UInt64[] = [];
-
+function lowerPhysically(value: RuntimeInstance| TargetOpaqueExistentialContainer):
+            UInt64 | UInt64[] | NativePointer {
     if (value instanceof ObjectInstance) {
         return value.handle;
+    } else if (value instanceof TargetOpaqueExistentialContainer) {
+        return makeValueFromBuffer(value.handle,
+                   TargetOpaqueExistentialContainer.SIZEOF);
     }
 
     if (shouldPassIndirectly(value.typeMetadata as TargetValueMetadata)) {
         return value.handle;
     }
 
-    const stride = value.typeMetadata.getTypeLayout().stride;
-
-    for (let i = 0; i < stride; i += 8) {
-        result.push(value.handle.add(i).readU64());
-    }
-
-    return result;
+    return makeValueFromBuffer(value.handle,
+                value.typeMetadata.getTypeLayout().stride);
 }
 
 function shouldPassIndirectly(typeMetadata: TargetValueMetadata) {
@@ -238,8 +303,9 @@ export class SwiftcallNativeFunction {
             writer.putBlrRegNoAuth("x14");
 
             if (indirectResult === undefined && this.#returnBufferSize > 0) {
-                let i = 0, offset = 0;
                 writer.putLdrRegAddress("x15", this.#returnBuffer);
+
+                let i = 0, offset = 0;
 
                 for (; offset < this.#returnBufferSize; i++, offset += 8) {
                     const reg = `x${i}` as Arm64Register;
