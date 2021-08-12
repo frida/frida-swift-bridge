@@ -1,6 +1,6 @@
 RUNNER_ARGS ?=
 
-frida_version := 14.2.18
+frida_version := 15.0.13
 
 cflags := -Wall -pipe -Os -g
 ldflags := -Wl, -framework Foundation -lfrida-gumjs -lresolv -Wl,-dead_strip
