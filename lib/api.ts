@@ -26,6 +26,7 @@ export function getApi(): API {
             }
         }
     ];
+
     cachedApi = makeAPI(pending);
 
     const pendingSwift = [{
@@ -34,6 +35,7 @@ export function getApi(): API {
             "swift_allocBox": [["pointer", "pointer"], ["pointer"]],
         }
     }];
+
     const swiftAPI = makeAPI(pendingSwift, true);
     cachedApi = Object.assign(cachedApi, swiftAPI);
 
