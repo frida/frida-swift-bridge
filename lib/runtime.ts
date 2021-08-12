@@ -1,25 +1,39 @@
 /**
  * TODO:
- *  - Use a common generic base class for struct and enum values?
- *  - Replace Struct with a ValueType in the constructor / factory
  *  - Pretty print enum values
- *  - Parse struct fields and map Builtin Swift types to JS ones
  */
 
+import { TargetClassMetadata,
+         TargetEnumMetadata,
+         TargetMetadata,
+         TargetStructMetadata,
+         TargetValueMetadata } from "../abi/metadata";
+import { HeapObject } from "../runtime/heapobject";
 import { Registry } from "./registry";
-import { Enum, Struct, Type, ValueType } from "./types";
+import { Enum, Struct, ValueType } from "./types";
 
-export type SwiftValue = ObjectInstance | RuntimeValue;
+/* XXX: If you think this is bad, please suggest a better name */
+export abstract class RuntimeInstance {
+    readonly typeMetadata: TargetMetadata;
+    readonly handle: NativePointer;
 
-export interface RuntimeValue {
-    type: ValueType;
-    handle: NativePointer;
+    equals(other: RuntimeInstance) {
+        return this.handle.equals(other.handle);
+    }
 
-    equals(other: RuntimeValue): boolean;
-    toJSON(): any;
+    toJSON() {
+        return {
+            handle: this.handle
+        }
+    }
 }
 
-export function makeRuntimeValue(type: ValueType, handle: NativePointer): RuntimeValue {
+export abstract class ValueInstance extends RuntimeInstance {
+    readonly typeMetadata: TargetValueMetadata;
+}
+
+export function makeValueInstance(type: ValueType, handle: NativePointer):
+            ValueInstance {
     if (type.kind === "Struct") {
         return new StructValue(type as Struct, handle);
     } else if (type.kind === "Enum") {
@@ -29,8 +43,11 @@ export function makeRuntimeValue(type: ValueType, handle: NativePointer): Runtim
     }
 }
 
-export class StructValue implements RuntimeValue {
+export class StructValue implements ValueInstance {
+    readonly typeMetadata: TargetStructMetadata;
+
     constructor(readonly type: Struct, readonly handle: NativePointer) {
+        this.typeMetadata = type.metadata;
     }
 
      equals(other: StructValue) {
@@ -44,13 +61,17 @@ export class StructValue implements RuntimeValue {
     }
 }
 
-export class EnumValue implements RuntimeValue {
+export class EnumValue implements ValueInstance {
+    readonly typeMetadata: TargetEnumMetadata;
+
     #tag: number;
-    #payload: SwiftValue;
+    #payload: RuntimeInstance;
 
     constructor(readonly type: Enum, readonly handle: NativePointer) {
+        this.typeMetadata = type.metadata;
+
         const tag = this.type.metadata.vw_getEnumTag(handle);
-        let payload: RuntimeValue;
+        let payload: ValueInstance;
 
         if (tag - this.type.payloadCases.length >= this.type.emptyCases.length) {
             throw new Error("Invalid pointer for an enum of this type");
@@ -59,32 +80,34 @@ export class EnumValue implements RuntimeValue {
         if (this.isPayloadTag(tag)) {
             const typeName = this.type.payloadCases[tag].typeName;
             const type = Registry.shared().typeByName(typeName);
-            payload = makeRuntimeValue(type as ValueType, handle);
+            payload = makeValueInstance(type as ValueType, handle);
         }
 
         this.#tag = tag;
         this.#payload = payload;
     }
 
-    setContent(tag: number, payload?: SwiftValue) {
+    setContent(tag: number, payload?: RuntimeInstance) {
         if (tag - this.type.payloadCases.length >= this.type.emptyCases.length) {
             throw new Error("Invalid tag for an enum of this type");
         }
 
         if (this.isPayloadTag(tag)) {
+            const typeName = this.type.payloadCases[tag].typeName;
+            const type = Registry.shared().typeByName(typeName);
+
+            if (payload.typeMetadata.getDescription().name !== type.name) {
+                throw new Error("Payload must be of type " + typeName);
+            }
+
             if (payload instanceof ObjectInstance) {
-                Memory.copy(this.handle, payload.handle, Process.pointerSize);
+                this.handle.writePointer(payload.handle);
                 this.#payload = payload;
             } else {
-                const typeName = this.type.payloadCases[tag].typeName;
-                const type = Registry.shared().typeByName(typeName) as ValueType;
-
-                if (payload.type.name !== type.name) {
-                    throw new Error("Payload must be of type " + typeName);
-                }
-
-                this.#payload = type.makeValueFromRaw(this.handle);
-                type.copy(this.#payload as RuntimeValue, payload);
+                const valueType = type as ValueType;
+                this.#payload = valueType.makeValueFromRaw(this.handle);
+                valueType.copy(<ValueInstance>this.#payload,
+                            <ValueInstance>payload);
             }
         }
 
@@ -96,7 +119,7 @@ export class EnumValue implements RuntimeValue {
         return this.#tag;
     }
 
-    get payload(): SwiftValue {
+    get payload(): RuntimeInstance {
         return this.#payload;
     }
 
@@ -128,12 +151,14 @@ export class EnumValue implements RuntimeValue {
     }
 }
 
-export class ObjectInstance implements ObjectWrapper {
-    constructor(readonly handle: NativePointer) { }
+export class ObjectInstance extends RuntimeInstance {
+    readonly typeMetadata: TargetClassMetadata;
 
-    toJSON() {
-        return {
-            handle: this.handle,
-        }
+    #heapObject: HeapObject;
+
+    constructor(readonly handle: NativePointer) {
+        super();
+        this.#heapObject = new HeapObject(handle);
+        this.typeMetadata = this.#heapObject.getMetadata(TargetClassMetadata);
     }
 }

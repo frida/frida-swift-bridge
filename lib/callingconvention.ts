@@ -5,8 +5,12 @@
  * 	- Can we tell whether a function throws via its metadata?
  */
 
-import { Struct, Type, ValueType } from "./types";
-import { makeRuntimeValue, ObjectInstance, RuntimeValue, SwiftValue } from "./runtime";
+import { Type, ValueType } from "./types";
+import { makeValueInstance,
+         ObjectInstance,
+         ValueInstance,
+         RuntimeInstance } from "./runtime";
+import { TargetValueMetadata } from "../abi/metadata";
 
 type SwiftType = Type;
 
@@ -73,7 +77,7 @@ export function makeSwiftNativeFunction(address: NativePointer,
     const swiftcallWrapper = new SwiftcallNativeFunction(address, loweredRetType,
                 loweredArgType, context).wrapper;
 
-    const wrapper = function(...args: RuntimeValue[]) {
+    const wrapper = function(...args: ValueInstance[]) {
         const acutalArgs: any[] = [];
 
         for (const arg of args) {
@@ -86,7 +90,7 @@ export function makeSwiftNativeFunction(address: NativePointer,
             case "Struct":
             case "Enum":
                 const buffer = makeBufferFromValue(retval);
-                return makeRuntimeValue(retType as ValueType, buffer);
+                return makeValueInstance(retType as ValueType, buffer);
             case "Class":
                 return new ObjectInstance(retval as NativePointer);
             default:
@@ -113,21 +117,18 @@ function lowerSemantically(type: Type): NativeType {
     return Array(sizeInQWords).fill("uint64");
 }
 
-function lowerPhysically(value: SwiftValue): UInt64 | UInt64[] | NativePointer {
+function lowerPhysically(value: RuntimeInstance): UInt64 | UInt64[] | NativePointer {
     const result: UInt64[] = [];
 
     if (value instanceof ObjectInstance) {
         return value.handle;
     }
 
-    value as RuntimeValue;
-    const type = value.type;
-
-    if (shouldPassIndirectly(type)) {
+    if (shouldPassIndirectly(value.typeMetadata as TargetValueMetadata)) {
         return value.handle;
     }
 
-    const stride = type.typeLayout.stride;
+    const stride = value.typeMetadata.getTypeLayout().stride;
 
     for (let i = 0; i < stride; i += 8) {
         result.push(value.handle.add(i).readU64());
@@ -136,8 +137,8 @@ function lowerPhysically(value: SwiftValue): UInt64 | UInt64[] | NativePointer {
     return result;
 }
 
-function shouldPassIndirectly(type: ValueType) {
-    const vwt = type.metadata.getValueWitnesses();
+function shouldPassIndirectly(typeMetadata: TargetValueMetadata) {
+    const vwt = typeMetadata.getValueWitnesses();
     return !vwt.flags.isBitwiseTakable;
 }
 

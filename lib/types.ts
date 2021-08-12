@@ -5,6 +5,7 @@
  */
 
 import { TargetClassDescriptor,
+         TargetClassMetadata,
          TargetEnumDescriptor,
          TargetEnumMetadata,
          TargetProtocolConformanceDescriptor,
@@ -22,9 +23,9 @@ import { RelativeDirectPointer } from "../basic/relativepointer";
 import { getSymbolAtAddress } from "./symbols";
 import { getPrivateAPI } from "./api";
 import { EnumValue,
-         RuntimeValue,
+         ValueInstance,
          StructValue,
-         SwiftValue } from "./runtime";
+         RuntimeInstance } from "./runtime";
 
 type SwiftTypeKind = "Class" | "Enum" | "Struct" | "Protocol";
 type MethodType = "Init" | "Getter" | "Setter" | "ModifyCoroutine" |
@@ -199,6 +200,7 @@ export class SwiftModule {
     }
 }
 
+/* TODO: make this an abstract class */
 export class Type {
     readonly name: string;
     readonly flags: number;
@@ -256,12 +258,14 @@ export class Type {
 }
 
 export class Class extends Type {
+    readonly $metadata: TargetClassMetadata;
     readonly $methods: MethodDetails[];
 
     constructor(module: Module, descriptorPtr: NativePointer) {
         const descriptor = new TargetClassDescriptor(descriptorPtr);
         super(module, "Class", descriptor);
 
+        this.$metadata = new TargetClassMetadata(this.metadataPointer);
         this.$methods = this.getMethodsDetails();
     }
 
@@ -324,12 +328,12 @@ export abstract class ValueType extends Type {
         }
     }
 
-    copy(dest: RuntimeValue, src: RuntimeValue) {
+    copy(dest: ValueInstance, src: ValueInstance) {
         this.metadata.vw_initializeWithCopy(dest.handle, src.handle);
     }
 
-    abstract makeValueFromRaw(buffer: NativePointer): RuntimeValue;
-    abstract makeEmptyValue(): RuntimeValue;
+    abstract makeValueFromRaw(buffer: NativePointer): ValueInstance;
+    abstract makeEmptyValue(): ValueInstance;
 }
 
 export class Struct extends ValueType {
@@ -397,7 +401,7 @@ export class Enum extends ValueType {
         for (const kase of this.payloadCases) { //test this
             const caseTag = tagIndex++;
 
-            const associatedValueWrapper = (payload: SwiftValue) => {
+            const associatedValueWrapper = (payload: RuntimeInstance) => {
                 if (payload === undefined) {
                     throw new Error("Case requires an associated value");
                 }
@@ -407,9 +411,6 @@ export class Enum extends ValueType {
                     throw new Error(`Case ${kase.name} requires an associated value of type: ${caseType.name}`);
                 }
                 */
-
-                // TODO: special-case reference values
-
 
                 const enumValue = this.makeEmptyValue();
                 enumValue.setContent(caseTag, payload);

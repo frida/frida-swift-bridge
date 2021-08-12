@@ -14,6 +14,8 @@ import { ContextDescriptorKind,
 import { RelativeDirectPointer,
          RelativeIndirectablePointer } from "../basic/relativepointer";
 
+export type OpaqueValue = NativePointer;
+
 export interface TypeLayout {
     size: number,
     stride: number,
@@ -66,6 +68,8 @@ export abstract class TargetMetadata {
         return this.getValueWitnesses().asEVWT().destructiveInjectEnumTag(object,
                 tag);
     }
+
+    abstract getDescription(): TargetTypeContextDescriptor;
 }
 
 export class TargetValueMetadata extends TargetMetadata {
@@ -73,14 +77,10 @@ export class TargetValueMetadata extends TargetMetadata {
 
     #description: NativePointer;
 
-    constructor(handle: NativePointer) {
-        super(handle);
-    }
-
     get description(): NativePointer {
         if (this.#description === undefined) {
             this.#description = this.handle.add(
-                        TargetValueMetadata.OFFSETOF_DESCRIPTION);
+                        TargetValueMetadata.OFFSETOF_DESCRIPTION).readPointer();
         }
 
         return this.#description;
@@ -88,6 +88,25 @@ export class TargetValueMetadata extends TargetMetadata {
 
     getDescription(): TargetValueTypeDescriptor {
         return new TargetTypeContextDescriptor(this.description);
+    }
+}
+
+export class TargetClassMetadata extends TargetMetadata {
+    static readonly OFFSTETOF_DESCRIPTION = Process.pointerSize * 8;
+
+    #description: NativePointer;
+
+    get description(): NativePointer {
+        if (this.#description === undefined) {
+            this.#description = this.handle.add(
+                    TargetClassMetadata.OFFSTETOF_DESCRIPTION).readPointer();
+        }
+
+        return this.#description;
+    }
+
+    getDescription(): TargetClassDescriptor {
+        return new TargetClassDescriptor(this.#description);
     }
 }
 
