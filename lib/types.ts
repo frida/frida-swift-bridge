@@ -27,7 +27,7 @@ import { EnumValue,
          StructValue,
          RuntimeInstance } from "./runtime";
 
-type SwiftTypeKind = "Class" | "Enum" | "Struct" | "Protocol";
+type SwiftTypeKind = "Class" | "Enum" | "Struct";
 type MethodType = "Init" | "Getter" | "Setter" | "ModifyCoroutine" |
                   "ReadCoroutine" | "Method";
 
@@ -150,8 +150,8 @@ export class SwiftModule {
 
             const protocolDesc = new TargetProtocolDescriptor(
                         conformanceDesc.protocol);
-            let cachedType = this[typeDesc.name] ||
-                             cachedTypes[typeDesc.name];
+            const cachedType = this[typeDesc.name] ||
+                               cachedTypes[typeDesc.name];
 
             if (cachedType instanceof Type) {
                 const conformance = {
@@ -324,7 +324,7 @@ export abstract class ValueType extends Type {
         this.metadata = new TargetValueMetadata(this.metadataPointer);
 
         if (!this.descriptor.flags.isGeneric()) {
-            this.typeLayout = this.metadata.getTypeLayout();
+           this.typeLayout = this.metadata.getTypeLayout();
         }
     }
 
@@ -332,8 +332,18 @@ export abstract class ValueType extends Type {
         this.metadata.vw_initializeWithCopy(dest.handle, src.handle);
     }
 
-    abstract makeValueFromRaw(buffer: NativePointer): ValueInstance;
-    abstract makeEmptyValue(): ValueInstance;
+    copyRaw(dest: NativePointer, src: NativePointer) {
+        this.metadata.vw_initializeWithCopy(dest, src);
+    }
+
+    intializeWithCopyRaw(src: NativePointer): RuntimeInstance{
+        const dest = this.makeEmptyValue();
+        this.metadata.vw_initializeWithCopy(dest.handle, src);
+        return dest;
+    }
+
+    abstract makeValueFromRaw(buffer: NativePointer): RuntimeInstance;
+    abstract makeEmptyValue(): RuntimeInstance;
 }
 
 export class Struct extends ValueType {
