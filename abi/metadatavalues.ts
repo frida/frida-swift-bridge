@@ -59,10 +59,24 @@ export enum ContextDescriptorKind {
     Enum = TypeFirst + 2,
 };
 
-export enum TypeContextDescriptorFlags {
+enum TypeContextDescriptorFlags_Values {
+    Class_ResilientSuperclassReferenceKind = 9,
     Class_HasResilientSuperclass = 13,
     Class_HasVTable = 15,
 };
+
+export class TypeContextDescriptorFlags {
+    constructor(private value: TypeContextDescriptorFlags_Values) {
+    }
+
+    class_hasVTable() {
+        return !!(this.value << TypeContextDescriptorFlags_Values.Class_HasVTable);
+    }
+
+    class_hasResilientSuperClass() {
+        return !!(this.value << TypeContextDescriptorFlags_Values.Class_HasResilientSuperclass);
+    }
+}
 
 export enum MethodDescriptorKind {
     Method,

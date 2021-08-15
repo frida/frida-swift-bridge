@@ -253,7 +253,7 @@ export class TargetContextDescriptor {
     #flags: ContextDescriptorFlags;
     #parent: RelativeIndirectablePointer;
 
-    constructor(protected handle: NativePointer) {
+    constructor(readonly handle: NativePointer) {
     }
 
     get flags(): ContextDescriptorFlags {
@@ -323,8 +323,8 @@ export class TargetTypeContextDescriptor extends TargetContextDescriptor {
     #accessFunctionPtr: NativePointer;
     #fields: RelativeDirectPointer;
 
-    getTypeContextDescriptorFlags(): number {
-        return this.flags.getKindSpecificFlags();
+    getTypeContextDescriptorFlags(): TypeContextDescriptorFlags {
+        return new TypeContextDescriptorFlags(this.flags.getKindSpecificFlags());
     }
 
     get name(): string {
@@ -371,9 +371,12 @@ export class TargetClassDescriptor extends TargetTypeContextDescriptor {
     static readonly OFFSETOF_TARGET_VTABLE_DESCRIPTOR_HEADER = 0x2C;
     static readonly OFFSETOF_METHOD_DESCRIPTORS = 0x34;
 
-    hasVTable(): boolean {
-        return !!(this.getTypeContextDescriptorFlags() &
-            (1 << TypeContextDescriptorFlags.Class_HasVTable));
+    hasVTable() {
+        return this.getTypeContextDescriptorFlags().class_hasVTable();
+    }
+
+    hasResilientSuperClass() {
+        return this.getTypeContextDescriptorFlags().class_hasResilientSuperClass();
     }
 
     getVTableDescriptor(): VTableDescriptorHeader {
@@ -390,9 +393,11 @@ export class TargetClassDescriptor extends TargetTypeContextDescriptor {
     getMethodDescriptors(): TargetMethodDescriptor[] {
         const result: TargetMethodDescriptor[] = [];
 
-        /** TODO: handle generic classes properly, we're skipping them for now.
+        /** TODO:
+         * - Handle generic classes properly, we're skipping them for now.
+         * - Handle classes with a resilient superclass
          */
-        if (!this.hasVTable() || this.isGeneric()) {
+        if (!this.hasVTable() || this.isGeneric() || this.hasResilientSuperClass()) {
             return result;
         }
 
