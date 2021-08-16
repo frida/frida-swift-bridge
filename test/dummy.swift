@@ -214,7 +214,7 @@ func passThroughExistential(_ e: Existential) -> Existential {
     return e
 }
 
-protocol ClassBoundExistential: AnyObject{
+protocol ClassBoundExistential: AnyObject {
     var a: Int { get }
     var b: Int { get }
 }
