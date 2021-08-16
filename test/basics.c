@@ -33,8 +33,7 @@ TESTLIST_BEGIN (basics)
     TESTENTRY (opaque_existential_class_can_be_passed_to_and_returned_from_function)
     TESTENTRY (opaque_existential_inline_multiple_conformances_can_be_passed_to_function)
     TESTENTRY (opaque_existential_inline_multiple_conformances_can_be_returned_from_function)
-    TESTENTRY (class_existential_can_be_passed_to_function)
-    TESTENTRY (class_existential_can_be_returned_from_function)
+    TESTENTRY (class_existential_can_be_passed_to_and_returned_from_function)
     TESTENTRY (class_existential_multiple_conformances_can_be_passed_to_function)
     TESTENTRY (class_existential_multiple_conformances_can_be_returned_from_function)
     TESTENTRY (c_style_enum_can_be_made_from_raw)
@@ -95,7 +94,7 @@ TESTCASE (swiftcall_with_context)
     "buf2.writeU64(0xBABE);"
     "var i2 = Int.makeValueFromRaw(buf2);"
     "var SimpleClass = Swift.classes.SimpleClass;"
-    "var initPtr = SimpleClass.$methods[SimpleClass.$methods.length - 1].address;" // TODO parse initializer
+    "var initPtr = SimpleClass.$methods[SimpleClass.$methods.length - 1].address;" // TODO parse initializers
     "var init = Swift.NativeFunction(initPtr, SimpleClass, [Int, Int], SimpleClass.metadataPointer);"
     "var instance = init(i1, i2);"
     "send(instance.handle.equals(ptr(0x0)));"
@@ -391,14 +390,25 @@ TESTCASE (opaque_existential_inline_multiple_conformances_can_be_returned_from_f
   /* TODO */
 }
 
-TESTCASE (class_existential_can_be_passed_to_function)
+TESTCASE (class_existential_can_be_passed_to_and_returned_from_function)
 {
-  /* TODO */
-}
-
-TESTCASE (class_existential_can_be_returned_from_function)
-{
-  /* TODO */
+  COMPILE_AND_LOAD_SCRIPT(
+    "var ClassOnlyExistentialClass = Swift.classes.ClassOnlyExistentialClass;"
+    "var initPtr = ClassOnlyExistentialClass.$methods[ClassOnlyExistentialClass.$methods.length - 1].address;"
+    "var init = Swift.NativeFunction(initPtr, ClassOnlyExistentialClass, [], ClassOnlyExistentialClass.metadataPointer);"
+    "var instance = init();"
+    "var dummy = Process.getModuleByName('dummy.o');"
+    "var symbols = dummy.enumerateSymbols();"
+    "symbols = symbols.filter(s => s.name == '$s5dummy32passClassBoundExistentialThroughyAA0cdE0_pAaC_pF');"
+    "var target = symbols[0].address;"
+    "var ClassBoundExistential = Swift.protocols.ClassBoundExistential;"
+    "var passClassBoundExistentialThrough = Swift.NativeFunction(target, ClassBoundExistential, [ClassBoundExistential]);"
+    "var e = passClassBoundExistentialThrough(instance);"
+    "send(ClassOnlyExistentialClass.metadataPointer.equals(e.typeMetadata.handle));"
+    "send(e.handle.add(0x10).readU64() == 0xAAAAAAAA);"
+  );
+  EXPECT_SEND_MESSAGE_WITH ("true");
+  EXPECT_SEND_MESSAGE_WITH ("true");
 }
 
 TESTCASE (class_existential_multiple_conformances_can_be_passed_to_function)
