@@ -70,11 +70,13 @@ export class TypeContextDescriptorFlags {
     }
 
     class_hasVTable() {
-        return !!(this.value << TypeContextDescriptorFlags_Values.Class_HasVTable);
+        return !!(this.value &
+                 (1 << TypeContextDescriptorFlags_Values.Class_HasVTable));
     }
 
     class_hasResilientSuperClass() {
-        return !!(this.value << TypeContextDescriptorFlags_Values.Class_HasResilientSuperclass);
+        return !!(this.value &
+                 (1 << TypeContextDescriptorFlags_Values.Class_HasResilientSuperclass));
     }
 }
 
