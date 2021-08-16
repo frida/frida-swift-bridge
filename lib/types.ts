@@ -16,7 +16,9 @@ import { TargetClassDescriptor,
          TargetValueMetadata,
          TypeLayout, } from "../abi/metadata";
 import { ContextDescriptorKind,
-         MethodDescriptorKind } from "../abi/metadatavalues";
+         MethodDescriptorKind, 
+         ProtocolClassConstraint, 
+         ProtocolContextDescriptorFlags} from "../abi/metadatavalues";
 import { resolveSymbolicReferences } from "../lib/symbols";
 import { FieldDescriptor } from "../reflection/records";
 import { RelativeDirectPointer } from "../basic/relativepointer";
@@ -466,15 +468,19 @@ export class Enum extends ValueType {
 export class Protocol {
     readonly name: string;
     readonly numRequirements: number;
+    readonly isClassOnly: boolean;
 
     constructor(readonly descriptor: TargetProtocolDescriptor) {
         this.name = descriptor.name;
         this.numRequirements = descriptor.numRequirements;
+        this.isClassOnly = descriptor.getProtocolContextDescriptorFlags()
+                .getClassConstraint() == ProtocolClassConstraint.Class;
     }
 
     toJSON() {
         return {
-            numRequirements: this.descriptor.numRequirements
+            numRequirements: this.descriptor.numRequirements,
+            isClassOnly: this.isClassOnly,
         }
     }
 }

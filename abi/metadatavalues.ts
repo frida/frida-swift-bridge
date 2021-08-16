@@ -119,3 +119,23 @@ export class ConformanceFlags {
                 ConformanceFlags_Value.TypeMetadataKindShift;
     }
 }
+
+export class ProtocolClassConstraint {
+    static readonly Class = false;
+    static readonly Any = true;
+}
+
+enum ProtocolContextDescriptorFlags_Values {
+    HasClassConstratint = 0,
+    HasClassConstratint_width = 1,
+}
+
+export class ProtocolContextDescriptorFlags {
+    constructor(private bits: number) {
+    }
+
+    getClassConstraint(): ProtocolClassConstraint {
+        return !!(this.bits &
+                 (1 << ProtocolContextDescriptorFlags_Values.HasClassConstratint));
+    }
+}

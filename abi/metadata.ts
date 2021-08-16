@@ -1,5 +1,6 @@
 /**
  * TODO:
+ *  - Implement TargetProtocolRequirement
  *  - Implement TargetEnumDescriptor
  *  - Use a cleaner property-caching approach
  */
@@ -11,7 +12,8 @@ import { ContextDescriptorKind,
          MethodDescriptorFlags,
          TypeReferenceKind,
          ConformanceFlags,
-         getEnumeratedMetadataKind} from "./metadatavalues";
+         getEnumeratedMetadataKind,
+         ProtocolContextDescriptorFlags} from "./metadatavalues";
 import { RelativeDirectPointer,
          RelativeIndirectablePointer } from "../basic/relativepointer";
 import { BoxPair } from "../runtime/heapobject";
@@ -533,6 +535,11 @@ export class TargetProtocolDescriptor extends TargetContextDescriptor {
         }
 
         return this.#numRequirements;
+    }
+
+    getProtocolContextDescriptorFlags(): ProtocolContextDescriptorFlags {
+        return new ProtocolContextDescriptorFlags(
+                this.flags.getKindSpecificFlags());
     }
 }
 
