@@ -82,3 +82,49 @@ export class TargetOpaqueExistentialContainer {
         return heapObject.add(byteOffset);
     }
 }
+
+export class ClassExistentialContainer {
+    static readonly SIZEOF = Process.pointerSize * 2;
+    static readonly OFFSETOF = {
+        value: 0,
+        witnessTables: Process.pointerSize
+    };
+
+    #value: NativePointer;
+
+    constructor(readonly handle: NativePointer) {
+    }
+
+    static alloc(): ClassExistentialContainer {
+        const buf = Memory.alloc(ClassExistentialContainer.SIZEOF);
+        return new ClassExistentialContainer(buf);
+    }
+
+    static makeFromRaw(handle: NativePointer) {
+        const container = new ClassExistentialContainer(handle);
+        container.#value = handle.add(ClassExistentialContainer.OFFSETOF.value)
+                .readPointer();
+
+        return container;
+    }
+
+    get value(): NativePointer {
+        return this.#value;
+    }
+
+    set value(newValue: NativePointer) {
+        this.handle.add(ClassExistentialContainer.OFFSETOF.value)
+                .writePointer(newValue);
+        this.#value = newValue;
+    }
+
+    getWitnessTables(): NativePointer {
+        return this.handle.add(ClassExistentialContainer.OFFSETOF.witnessTables)
+                .readPointer();
+    }
+
+    setWitnessTable(witnessTablePointer: NativePointer) {
+        this.handle.add(ClassExistentialContainer.OFFSETOF.witnessTables)
+                .writePointer(witnessTablePointer);
+    }
+}

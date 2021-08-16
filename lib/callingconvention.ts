@@ -10,7 +10,8 @@ import { ObjectInstance,
          RuntimeInstance,
          makeValueInstance} from "./runtime";
 import { TargetValueMetadata } from "../abi/metadata";
-import { TargetOpaqueExistentialContainer } from "../runtime/existentialcontainer";
+import { ClassExistentialContainer,
+         TargetOpaqueExistentialContainer } from "../runtime/existentialcontainer";
 import { Registry } from "./registry";
 
 export type SwiftType = Type | Protocol;
@@ -104,24 +105,31 @@ export function makeSwiftNativeFunction(address: NativePointer,
         const actualArgs: any[] = [];
 
         for (const [i, arg] of args.entries()) {
-
             if (argTypes[i] instanceof Protocol) {
+                const proto = argTypes[i] as Protocol;
                 const typeMetadata = arg.typeMetadata;
                 const typeName = typeMetadata.getDescription().name;
                 const type = Registry.shared().typeByName(typeName);
-                const container = TargetOpaqueExistentialContainer.alloc();
-                const proto = argTypes[i] as Protocol;
+                let container;
 
-                container.type = typeMetadata;
-                container.setWitnessTable(
-                            type.conformances[proto.name].witnessTable);
+                if (!proto.isClassOnly) {
+                    container = TargetOpaqueExistentialContainer.alloc();
 
-                if (typeMetadata.isClassObject()) {
-                    container.buffer.privateData.writePointer(arg.handle);
+                    container.type = typeMetadata;
+                    container.setWitnessTable(
+                                type.conformances[proto.name].witnessTable);
+
+                    if (typeMetadata.isClassObject()) {
+                        container.buffer.privateData.writePointer(arg.handle);
+                    } else {
+                        const box = typeMetadata.allocateBoxForExistentialIn(
+                                container.buffer);
+                        (<ValueType>type).copyRaw(box, arg.handle);
+                    }
                 } else {
-                    const box = typeMetadata.allocateBoxForExistentialIn(
-                            container.buffer);
-                    (<ValueType>type).copyRaw(box, arg.handle);
+                    container = ClassExistentialContainer.alloc();
+                    container.value = arg.handle;
+                    container.setWitnessTable(type.conformances[proto.name].witnessTable);
                 }
 
                 actualArgs.push(lowerPhysically(container));
@@ -134,19 +142,24 @@ export function makeSwiftNativeFunction(address: NativePointer,
 
         if (retType instanceof Protocol) {
             const buf = makeBufferFromValue(retval);
-            const container = TargetOpaqueExistentialContainer.makeFromRaw(buf);
-            const typeMetadata = container.type;
-            const runtimeTypeName = typeMetadata.getDescription().name;
-            const runtimeType = Registry.shared().typeByName(runtimeTypeName);
 
-            if (typeMetadata.isClassObject()) {
-                return new ObjectInstance(
-                        container.buffer.privateData.readPointer());
+            if (!retType.isClassOnly) {
+                const container = TargetOpaqueExistentialContainer.makeFromRaw(buf);
+                const typeMetadata = container.type;
+                const runtimeTypeName = typeMetadata.getDescription().name;
+                const runtimeType = Registry.shared().typeByName(runtimeTypeName);
+
+                if (typeMetadata.isClassObject()) {
+                    return new ObjectInstance(
+                            container.buffer.privateData.readPointer());
+                } else {
+                    const valueType = runtimeType as ValueType;
+                    const handle = container.projectValue();
+                    return valueType.intializeWithCopyRaw(handle);
+                }
             } else {
-
-                const valueType = runtimeType as ValueType;
-                const handle = container.projectValue();
-                return valueType.intializeWithCopyRaw(handle);
+                const container = ClassExistentialContainer.makeFromRaw(buf);
+                return new ObjectInstance(container.value);
             }
         }
 
@@ -167,7 +180,9 @@ export function makeSwiftNativeFunction(address: NativePointer,
 
 function lowerSemantically(type: SwiftType): NativeType {
     if (type instanceof Protocol) {
-        return ["uint64", "uint64", "uint64", "pointer", "pointer"];
+        return  type.isClassOnly ?
+                ["pointer", "pointer"] :
+                ["uint64", "uint64", "uint64", "pointer", "pointer"];
     }
 
     /* FIXME: ugly */
@@ -185,13 +200,21 @@ function lowerSemantically(type: SwiftType): NativeType {
     return Array(sizeInQWords).fill("uint64");
 }
 
-function lowerPhysically(value: RuntimeInstance| TargetOpaqueExistentialContainer):
-            UInt64 | UInt64[] | NativePointer {
+type PointerSized = UInt64 | NativePointer;
+
+function lowerPhysically(
+            value: RuntimeInstance | TargetOpaqueExistentialContainer |
+                   ClassExistentialContainer):
+            PointerSized | PointerSized[] {
     if (value instanceof ObjectInstance) {
         return value.handle;
     } else if (value instanceof TargetOpaqueExistentialContainer) {
         return makeValueFromBuffer(value.handle,
                    TargetOpaqueExistentialContainer.SIZEOF);
+    } else if (value instanceof ClassExistentialContainer) {
+        /* FIXME: use a generic, type-aware buffer-to-value transformer */
+        const container = value as ClassExistentialContainer;
+        return [container.value, container.getWitnessTables()];
     }
 
     if (shouldPassIndirectly(value.typeMetadata as TargetValueMetadata)) {
