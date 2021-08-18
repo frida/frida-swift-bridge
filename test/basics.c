@@ -31,11 +31,9 @@ TESTLIST_BEGIN (basics)
     TESTENTRY (opaque_existential_outofline_can_be_passed_to_function)
     TESTENTRY (opaque_existential_outofline_can_be_returned_from_function)
     TESTENTRY (opaque_existential_class_can_be_passed_to_and_returned_from_function)
-    TESTENTRY (opaque_existential_inline_multiple_conformances_can_be_passed_to_function)
-    TESTENTRY (opaque_existential_inline_multiple_conformances_can_be_returned_from_function)
+    TESTENTRY (opaque_existential_inline_multiple_conformances_can_be_passed_to_and_returned_from_function) // WIP
     TESTENTRY (class_existential_can_be_passed_to_and_returned_from_function)
-    TESTENTRY (class_existential_multiple_conformances_can_be_passed_to_function)
-    TESTENTRY (class_existential_multiple_conformances_can_be_returned_from_function)
+    TESTENTRY (class_existential_multiple_conformances_can_be_passed_to_and_rerturned_from_function) // WIP
     TESTENTRY (c_style_enum_can_be_made_from_raw)
     TESTENTRY (c_style_enum_cases_can_be_gotten)
     TESTENTRY (c_style_enum_equals_works)
@@ -380,14 +378,26 @@ TESTCASE (opaque_existential_class_can_be_passed_to_and_returned_from_function)
   EXPECT_SEND_MESSAGE_WITH ("true");
 }
 
-TESTCASE (opaque_existential_inline_multiple_conformances_can_be_passed_to_function)
+TESTCASE (opaque_existential_inline_multiple_conformances_can_be_passed_to_and_returned_from_function)
 {
-  /* TODO */
-}
-
-TESTCASE (opaque_existential_inline_multiple_conformances_can_be_returned_from_function)
-{
-  /* TODO */
+  COMPILE_AND_LOAD_SCRIPT(
+    "var dummy = Process.getModuleByName('dummy.o');"
+    "var symbols = dummy.enumerateSymbols();"
+    "symbols = symbols.filter(s => s.name == '$s5dummy31passCompositeExistentialThroughyAA0D0_AA9TogglablepAaC_AaDpF');"
+    "var target = symbols[0].address;"
+    "var Existential = Swift.protocols.Existential;"
+    "var Togglable = Swift.protocols.Togglable;"
+    "var ExistentialAndTogglable = Swift.ComposeProtocol(Existential, Togglable);"
+    "var passCompositeExistentialThrough = Swift.NativeFunction(target, ExistentialAndTogglable, [ExistentialAndTogglable]);"
+    "var inlineExistential = Swift.structs.InlineCompositeExistentialStruct;"
+    "var i = inlineExistential.makeEmptyValue();"
+    "i.handle.writeU64(0xDEAD);"
+    "i.handle.add(Process.pointerSize).writeU64(0xBEEF);"
+    "var result = passCompositeExistentialThrough(i);"
+    "send(result.handle.readU64(0xDEAD) == 0xDEAD);"
+    "send(result.handle.add(8).readU64(0xBEEF) == 0xBEEF);"
+  );
+  EXPECT_SEND_MESSAGE_WITH ("true");
 }
 
 TESTCASE (class_existential_can_be_passed_to_and_returned_from_function)
@@ -411,14 +421,29 @@ TESTCASE (class_existential_can_be_passed_to_and_returned_from_function)
   EXPECT_SEND_MESSAGE_WITH ("true");
 }
 
-TESTCASE (class_existential_multiple_conformances_can_be_passed_to_function)
+TESTCASE (class_existential_multiple_conformances_can_be_passed_to_and_rerturned_from_function)
 {
-  /* TODO */
-}
-
-TESTCASE (class_existential_multiple_conformances_can_be_returned_from_function)
-{
-  /* TODO */
+  COMPILE_AND_LOAD_SCRIPT(
+    "var CompositeClassBoundExistentialClass = Swift.classes.CompositeClassBoundExistentialClass;"
+    "var initPtr = CompositeClassBoundExistentialClass.$methods[CompositeClassBoundExistentialClass.$methods.length - 1].address;"
+    "var init = Swift.NativeFunction(initPtr, CompositeClassBoundExistentialClass, [], CompositeClassBoundExistentialClass.metadataPointer);"
+    "var instance = init();"
+    "var dummy = Process.getModuleByName('dummy.o');"
+    "var symbols = dummy.enumerateSymbols();"
+    "symbols = symbols.filter(s => s.name == '$s5dummy41passCompositeClassBoundExistentialThroughyAA0deF0_AA0F0pAaC_AaDpF');"
+    "var target = symbols[0].address;"
+    "var ClassBoundExistential = Swift.protocols.ClassBoundExistential;"
+    "var Togglable = Swift.protocols.Togglable;"
+    "var ClassBoundExistentialAndTogglable = Swift.ComposeProtocol(ClassBoundExistential, Togglable);"
+    "var passCompositeClassBoundExistentialThrough = Swift.NativeFunction(target, ClassBoundExistentialAndTogglable, [ClassBoundExistentialAndTogglable]);"
+    "var result = passCompositeClassBoundExistentialThrough(instance);"
+    "send(result.typeMetadata.handle.equals(CompositeClassBoundExistentialClass.metadataPointer));"
+    "send(result.handle.add(2 * Process.pointerSize).readU64() == 0x0B00B135);"
+    "send(result.handle.add(3 * Process.pointerSize).readU64() == 0xB16B00B5);"
+  );
+  EXPECT_SEND_MESSAGE_WITH ("true");
+  EXPECT_SEND_MESSAGE_WITH ("true");
+  EXPECT_SEND_MESSAGE_WITH ("true");
 }
 
 TESTCASE (c_style_enum_can_be_made_from_raw)

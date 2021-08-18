@@ -224,6 +224,38 @@ class ClassOnlyExistentialClass: ClassBoundExistential {
     let b = 0xBBBBBBBB
 }
 
-func passClassBoundExistentialThrough(_ c: ClassBoundExistential) -> ClassBoundExistential {
+func passClassBoundExistentialThrough(
+    _ c: ClassBoundExistential
+) -> ClassBoundExistential {
+    return c
+}
+
+struct InlineCompositeExistentialStruct: Existential, Togglable {
+    let x = 0xDEAD
+    let y = 0xBEEF
+
+    mutating func toggle() {
+        print("Toggle from struct")
+    }
+}
+
+func passCompositeExistentialThrough(
+    _ c: Existential & Togglable
+) -> Existential & Togglable {
+    return c
+}
+
+class CompositeClassBoundExistentialClass: ClassBoundExistential, Togglable {
+    let a = 0x0B00B135
+    let b = 0xB16B00B5
+
+    func toggle() {
+        print("Toggle from class")
+    }
+}
+
+func passCompositeClassBoundExistentialThrough(
+    _ c: ClassBoundExistential & Existential
+) -> ClassBoundExistential & Existential {
     return c
 }
