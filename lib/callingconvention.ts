@@ -5,7 +5,7 @@
  * 	- Can we tell whether a function throws via its metadata?
  */
 
-import { Protocol, Type, ValueType } from "./types";
+import { Protocol, ProtocolComposition, Type, ValueType } from "./types";
 import { ObjectInstance,
          RuntimeInstance,
          makeValueInstance} from "./runtime";
@@ -14,7 +14,7 @@ import { ClassExistentialContainer,
          TargetOpaqueExistentialContainer } from "../runtime/existentialcontainer";
 import { Registry } from "./registry";
 
-export type SwiftType = Type | Protocol;
+export type SwiftType = Type | Protocol | ProtocolComposition;
 
 class TrampolinePool {
     private static pages: NativePointer[];
@@ -105,84 +105,106 @@ export function makeSwiftNativeFunction(address: NativePointer,
         const actualArgs: any[] = [];
 
         for (const [i, arg] of args.entries()) {
-            if (argTypes[i] instanceof Protocol) {
-                const proto = argTypes[i] as Protocol;
-                const typeMetadata = arg.typeMetadata;
-                const typeName = typeMetadata.getDescription().name;
-                const type = Registry.shared().typeByName(typeName);
-                let container;
+            const argType = argTypes[i];
 
-                if (!proto.isClassOnly) {
-                    container = TargetOpaqueExistentialContainer.alloc();
-
-                    container.type = typeMetadata;
-                    container.setWitnessTable(
-                                type.conformances[proto.name].witnessTable);
-
-                    if (typeMetadata.isClassObject()) {
-                        container.buffer.privateData.writePointer(arg.handle);
-                    } else {
-                        const box = typeMetadata.allocateBoxForExistentialIn(
-                                container.buffer);
-                        (<ValueType>type).copyRaw(box, arg.handle);
-                    }
-                } else {
-                    container = ClassExistentialContainer.alloc();
-                    container.value = arg.handle;
-                    container.setWitnessTable(type.conformances[proto.name].witnessTable);
-                }
-
-                actualArgs.push(lowerPhysically(container));
-            } else {
+            if (argType instanceof Type) {
                 actualArgs.push(lowerPhysically(arg));
+                continue;
             }
+
+            const composition = (argType instanceof Protocol) ?
+                                new ProtocolComposition([argType]) :
+                                argType;
+            const typeMetadata = arg.typeMetadata;
+            const type = Registry.shared()
+                    .typeByName(typeMetadata.getDescription().name);
+            let container: TargetOpaqueExistentialContainer | ClassExistentialContainer;
+
+            if (!composition.isClassOnly) {
+                container = TargetOpaqueExistentialContainer
+                        .alloc(composition.numProtocols);
+                container.type = typeMetadata;
+
+                if (typeMetadata.isClassObject()) {
+                    container.buffer.privateData.writePointer(arg.handle);
+                } else {
+                    const box = typeMetadata.allocateBoxForExistentialIn(
+                            container.buffer);
+                    (<ValueType>type).copyRaw(box, arg.handle);
+                }
+            } else {
+                container = ClassExistentialContainer
+                        .alloc(composition.numProtocols);
+                container.value = arg.handle;
+            }
+
+            const base = container.getWitnessTables();
+            for (const [i, proto] of composition.protocols.entries()) {
+                const vwt = type.conformances[proto.name].witnessTable;
+
+                base.add(i * Process.pointerSize).writePointer(vwt);
+            }
+
+            actualArgs.push(lowerPhysically(container));
         }
 
         const retval = swiftcallWrapper(...actualArgs);
 
-        if (retType instanceof Protocol) {
-            const buf = makeBufferFromValue(retval);
-
-            if (!retType.isClassOnly) {
-                const container = TargetOpaqueExistentialContainer.makeFromRaw(buf);
-                const typeMetadata = container.type;
-                const runtimeTypeName = typeMetadata.getDescription().name;
-                const runtimeType = Registry.shared().typeByName(runtimeTypeName);
-
-                if (typeMetadata.isClassObject()) {
-                    return new ObjectInstance(
-                            container.buffer.privateData.readPointer());
-                } else {
-                    const valueType = runtimeType as ValueType;
-                    const handle = container.projectValue();
-                    return valueType.intializeWithCopyRaw(handle);
-                }
-            } else {
-                const container = ClassExistentialContainer.makeFromRaw(buf);
-                return new ObjectInstance(container.value);
+        if (retType instanceof Type) {
+            switch (retType.kind) {
+                case "Struct":
+                case "Enum":
+                    const buffer = makeBufferFromValue(retval);
+                    return makeValueInstance(retType as ValueType, buffer);
+                case "Class":
+                    return new ObjectInstance(retval as NativePointer);
+                default:
+                    throw new Error("Unimplemented kind: " + retType.kind);
             }
         }
 
-        switch (retType.kind) {
-            case "Struct":
-            case "Enum":
-                const buffer = makeBufferFromValue(retval);
-                return makeValueInstance(retType as ValueType, buffer);
-            case "Class":
-                return new ObjectInstance(retval as NativePointer);
-            default:
-                throw new Error("Unimplemented kind: " + retType.kind);
+        const buf = makeBufferFromValue(retval);
+        const composition = (retType instanceof Protocol) ?
+                            new ProtocolComposition([retType]) :
+                            retType;
+
+        if (!retType.isClassOnly) {
+            const container = TargetOpaqueExistentialContainer
+                    .makeFromRaw(buf, composition.numProtocols);
+            const typeMetadata = container.type;
+            const runtimeTypeName = typeMetadata.getDescription().name;
+            const runtimeType = Registry.shared().typeByName(runtimeTypeName);
+
+            if (typeMetadata.isClassObject()) {
+                return new ObjectInstance(
+                        container.buffer.privateData.readPointer());
+            } else {
+                const valueType = runtimeType as ValueType;
+                const handle = container.projectValue();
+                return valueType.intializeWithCopyRaw(handle);
+            }
+        } else {
+            const container = ClassExistentialContainer
+                    .makeFromRaw(buf, composition.numProtocols);
+            return new ObjectInstance(container.value);
         }
     }
 
     return wrapper;
 }
 
+/* FIXME: terrible argument / type naming */
 function lowerSemantically(type: SwiftType): NativeType {
-    if (type instanceof Protocol) {
-        return  type.isClassOnly ?
-                ["pointer", "pointer"] :
-                ["uint64", "uint64", "uint64", "pointer", "pointer"];
+    if (!(type instanceof Type)) {
+        const augmented = (type instanceof Protocol) ?
+                          ["pointer"] :
+                          Array(type.numProtocols).fill("pointer");
+
+        if (type.isClassOnly) {
+            return ["pointer", ...augmented];
+        } else {
+            return ["pointer", "pointer", "pointer", "pointer", ...augmented];
+        }
     }
 
     /* FIXME: ugly */
@@ -209,12 +231,15 @@ function lowerPhysically(
     if (value instanceof ObjectInstance) {
         return value.handle;
     } else if (value instanceof TargetOpaqueExistentialContainer) {
-        return makeValueFromBuffer(value.handle,
-                   TargetOpaqueExistentialContainer.SIZEOF);
+        return makeValueFromBuffer(value.handle, value.sizeof);
     } else if (value instanceof ClassExistentialContainer) {
         /* FIXME: use a generic, type-aware buffer-to-value transformer */
         const container = value as ClassExistentialContainer;
-        return [container.value, container.getWitnessTables()];
+        const lowered: NativePointer[] = [];
+        for (let i = 0; i != container.sizeof; i += 8) {
+            lowered.push(container.handle.add(i).readPointer());
+        }
+        return lowered;
     }
 
     if (shouldPassIndirectly(value.typeMetadata as TargetValueMetadata)) {

@@ -485,6 +485,23 @@ export class Protocol {
     }
 }
 
+export class ProtocolComposition {
+    readonly numProtocols: number;
+    readonly isClassOnly: boolean;
+
+    constructor(readonly protocols: Protocol[]) {
+        this.numProtocols = protocols.length;
+        this.isClassOnly = false;
+
+        for (const proto of protocols) {
+            if (proto.isClassOnly) {
+                this.isClassOnly = true;
+                break;
+            }
+        }
+    }
+}
+
 interface MachOSection {
     vmAddress: NativePointer,
     size: number,

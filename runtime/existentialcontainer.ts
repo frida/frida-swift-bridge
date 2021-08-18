@@ -6,9 +6,9 @@ import { OpaqueValue,
 import { HeapObject } from "./heapobject";
 
 export class TargetOpaqueExistentialContainer {
-    static readonly SIZEOF = 5 * Process.pointerSize;
+    static readonly INITIAL_SIZE = 4 * Process.pointerSize;
     static readonly OFFSETOF = {
-        buffer: 0x0,
+        buffer: 0,
         type: Process.pointerSize * 3,
         wintessTable: Process.pointerSize * 4
     };
@@ -16,19 +16,23 @@ export class TargetOpaqueExistentialContainer {
     #buffer: TargetValueBuffer;
     #type: TargetMetadata;
 
-    private constructor(readonly handle: NativePointer) {
+    private constructor(readonly handle: NativePointer, private numWitnessTables) {
     }
 
-    static alloc(): TargetOpaqueExistentialContainer {
-        const buf = Memory.alloc(TargetOpaqueExistentialContainer.SIZEOF);
-        return new TargetOpaqueExistentialContainer(buf)
+    static alloc(numWitnessTables: number): TargetOpaqueExistentialContainer {
+        const size = TargetOpaqueExistentialContainer.INITIAL_SIZE +
+                     numWitnessTables * Process.pointerSize;
+        const buf = Memory.alloc(size);
+        return new TargetOpaqueExistentialContainer(buf, numWitnessTables);
     }
 
-    static makeFromRaw(handle: NativePointer): TargetOpaqueExistentialContainer {
-        const container = new TargetOpaqueExistentialContainer(handle);
+    static makeFromRaw(handle: NativePointer, numWitnessTables: number):
+            TargetOpaqueExistentialContainer {
+        const container = new TargetOpaqueExistentialContainer(handle,
+                numWitnessTables);
 
         const metadataPtr = handle.add(
-                    TargetOpaqueExistentialContainer.OFFSETOF.type).readPointer();
+                TargetOpaqueExistentialContainer.OFFSETOF.type).readPointer();
         const tmpMetadata = new TargetValueMetadata(metadataPtr);
         container.#type = tmpMetadata.isClassObject() ?
                           new TargetClassMetadata(metadataPtr) :
@@ -55,14 +59,9 @@ export class TargetOpaqueExistentialContainer {
         return this.#type;
     }
 
-    /* TODO: What if it's multiple witness tables? */
     getWitnessTables(): NativePointer {
-        return this.handle.add(Process.pointerSize * 2);
-    }
-
-    setWitnessTable(handle: NativePointer) {
-        this.handle.add(TargetOpaqueExistentialContainer.OFFSETOF.wintessTable)
-                .writePointer(handle);
+        return this.handle.add(
+                TargetOpaqueExistentialContainer.OFFSETOF.wintessTable);
     }
 
     isValueInline(): boolean {
@@ -81,10 +80,16 @@ export class TargetOpaqueExistentialContainer {
         const byteOffset = (HeapObject.SIZEOF + alignMask) & ~alignMask;
         return heapObject.add(byteOffset);
     }
+
+    get sizeof() {
+        return TargetOpaqueExistentialContainer.INITIAL_SIZE +
+               this.numWitnessTables * Process.pointerSize;
+    }
 }
 
+/* FIXME: prefix name with 'Target' */
 export class ClassExistentialContainer {
-    static readonly SIZEOF = Process.pointerSize * 2;
+    static readonly INITIAL_SIZE = Process.pointerSize;
     static readonly OFFSETOF = {
         value: 0,
         witnessTables: Process.pointerSize
@@ -92,16 +97,19 @@ export class ClassExistentialContainer {
 
     #value: NativePointer;
 
-    constructor(readonly handle: NativePointer) {
+    constructor(readonly handle: NativePointer, private numWitnessTables:number) {
     }
 
-    static alloc(): ClassExistentialContainer {
-        const buf = Memory.alloc(ClassExistentialContainer.SIZEOF);
-        return new ClassExistentialContainer(buf);
+    static alloc(numWitnessTables: number): ClassExistentialContainer {
+        const size = ClassExistentialContainer.INITIAL_SIZE +
+                     numWitnessTables * Process.pointerSize;
+        const buf = Memory.alloc(size);
+        return new ClassExistentialContainer(buf, numWitnessTables);
     }
 
-    static makeFromRaw(handle: NativePointer) {
-        const container = new ClassExistentialContainer(handle);
+    static makeFromRaw(handle: NativePointer, numWitnessTables: number) {
+        const container = new ClassExistentialContainer(handle,
+                numWitnessTables);
         container.#value = handle.add(ClassExistentialContainer.OFFSETOF.value)
                 .readPointer();
 
@@ -119,12 +127,11 @@ export class ClassExistentialContainer {
     }
 
     getWitnessTables(): NativePointer {
-        return this.handle.add(ClassExistentialContainer.OFFSETOF.witnessTables)
-                .readPointer();
+        return this.handle.add(ClassExistentialContainer.OFFSETOF.witnessTables);
     }
 
-    setWitnessTable(witnessTablePointer: NativePointer) {
-        this.handle.add(ClassExistentialContainer.OFFSETOF.witnessTables)
-                .writePointer(witnessTablePointer);
+    get sizeof() {
+        return ClassExistentialContainer.INITIAL_SIZE +
+               this.numWitnessTables * Process.pointerSize;
     }
 }

@@ -9,7 +9,8 @@
  */
 
 import { getApi, API } from "./lib/api";
-import { SwiftModule, Type, Class, Struct, Enum, Protocol } from "./lib/types";
+import { SwiftModule, Type, Class, Struct, Enum, Protocol,
+         ProtocolComposition } from "./lib/types";
 import { enumerateDemangledSymbols } from "./lib/symbols";
 import { makeSwiftNativeFunction, SwiftType } from "./lib/callingconvention";
 import { Registry } from "./lib/registry";
@@ -83,6 +84,11 @@ class Runtime {
                    argTypes: SwiftType[], context?: NativePointer,
                    throws?: boolean) {
         return makeSwiftNativeFunction(address, retType, argTypes, context, throws);
+    }
+
+    /* TODO: namespace it */
+    ComposeProtocol(...protocols: Protocol[]) {
+        return new ProtocolComposition(protocols);
     }
 }
 
