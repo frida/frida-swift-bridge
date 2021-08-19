@@ -8,21 +8,17 @@ import { TargetClassDescriptor,
          TargetClassMetadata,
          TargetEnumDescriptor,
          TargetEnumMetadata,
-         TargetProtocolConformanceDescriptor,
          TargetProtocolDescriptor,
          TargetStructDescriptor,
          TargetStructMetadata,
          TargetTypeContextDescriptor,
          TargetValueMetadata,
          TypeLayout, } from "../abi/metadata";
-import { ContextDescriptorKind,
-         MethodDescriptorKind,
+import { MethodDescriptorKind,
          ProtocolClassConstraint } from "../abi/metadatavalues";
 import { resolveSymbolicReferences } from "../lib/symbols";
 import { FieldDescriptor } from "../reflection/records";
-import { RelativeDirectPointer } from "../basic/relativepointer";
 import { getSymbolAtAddress } from "./symbols";
-import { getPrivateAPI } from "./api";
 import { EnumValue,
          ValueInstance,
          StructValue,
@@ -36,173 +32,20 @@ interface FieldDetails {
     name: string;
     typeName?: string;
     isVar?: boolean;
-};
+}
 
 interface MethodDetails {
     address: NativePointer;
     name: string;
     type: MethodType;
-};
+}
 
 interface TypeProtocolConformance {
     protocol: TargetProtocolDescriptor,
     witnessTable: NativePointer,
-};
-
-export class SwiftModule {
-    readonly $name: string;
-    readonly $allTypes: Type[] = [];
-    readonly $classes: Class[] = [];
-    readonly $structs: Struct[] = [];
-    readonly $enums: Enum[] = [];
-    readonly $protocols: Protocol[] = [];
-
-    constructor(readonly $native: Module) {
-        this.cacheTypes();
-        this.cacheProtocols();
-
-        if (this.$allTypes.length > 0) {
-            this.$name = this.$allTypes[0].$moduleName;
-        }
-    }
-
-    private cacheTypes() {
-        const section = this.getSwif5TypesSection();
-        const nTypes = section.size / RelativeDirectPointer.sizeOf;
-
-        for (let i = 0; i < nTypes; i++) {
-            const record = section.vmAddress.add(i * RelativeDirectPointer.sizeOf);
-            const ctxDescPtr = RelativeDirectPointer.From(record).get();
-            const ctxDesc = new TargetTypeContextDescriptor(ctxDescPtr);
-
-            if (ctxDesc.isGeneric()) {
-                continue;
-            }
-
-            const kind = ctxDesc.getKind();
-            let type: Type;
-
-            switch (kind) {
-                case ContextDescriptorKind.Class:
-                    type = new Class(this.$native, ctxDescPtr);
-                    this.$classes.push(type as Class);
-                    break;
-                case ContextDescriptorKind.Enum:
-                    type = new Enum(this.$native, ctxDescPtr);
-                    this.$enums.push(type as Enum)
-                    break;
-                case ContextDescriptorKind.Struct:
-                    type = new Struct(this.$native, ctxDescPtr);
-                    this.$structs.push(type as Struct);
-                    break;
-                default:
-                    throw new Error(`Unhandled context descriptor kind: ${kind}`);
-            }
-
-            this.$allTypes.push(type);
-
-            Object.defineProperty(this, type.$name, {
-                configurable: true,
-                enumerable: true,
-                writable: false,
-                value: type
-            })
-        }
-    }
-
-    private cacheProtocols() {
-        const section = this.getSwift5ProtocolsSection();
-        const numProtos = section.size / RelativeDirectPointer.sizeOf;
-
-        for (let i = 0; i < numProtos; i++) {
-            const record = section.vmAddress.add(i * RelativeDirectPointer.sizeOf);
-            const ctxDescPtr = RelativeDirectPointer.From(record).get();
-            const ctxDesc = new TargetProtocolDescriptor(ctxDescPtr);
-            const protocol = new Protocol(ctxDesc);
-
-            this.$protocols.push(protocol);
-
-            Object.defineProperty(this, protocol.name, {
-                configurable: true,
-                enumerable: true,
-                writable: false,
-                value: protocol
-            });
-        }
-    }
-
-    bindProtocolConformances(cachedTypes: Record<string, Type>) {
-        const section = this.getSwift5ProtocolConformanceSection();
-        const numRecords = section.size / RelativeDirectPointer.sizeOf;
-
-        for (let i = 0; i < numRecords; i++) {
-            const recordPtr = section.vmAddress.add(i * RelativeDirectPointer.sizeOf);
-            const descPtr = RelativeDirectPointer.From(recordPtr).get();
-            const conformanceDesc = new TargetProtocolConformanceDescriptor(
-                    descPtr);
-            const typeDescPtr = conformanceDesc.getTypeDescriptor();
-            const typeDesc = new TargetTypeContextDescriptor(typeDescPtr);
-
-            /* TODO: handle generics */
-            /* typeDescPtr is null when it's an ObjC class */
-            if (typeDescPtr === null || typeDesc.isGeneric()) {
-                continue;
-            }
-
-            const protocolDesc = new TargetProtocolDescriptor(
-                        conformanceDesc.protocol);
-            const cachedType = this[typeDesc.name] ||
-                               cachedTypes[typeDesc.name];
-
-            if (cachedType instanceof Type) {
-                const conformance = {
-                    protocol: protocolDesc,
-                    witnessTable: conformanceDesc.witnessTablePattern,
-                };
-
-                cachedType.$conformances[protocolDesc.name] = conformance;
-            }
-        }
-    }
-
-    private getSwif5TypesSection(): MachOSection {
-        return this.getMachoSection("__swift5_types");
-    }
-
-    private getSwift5ProtocolsSection(): MachOSection {
-        return this.getMachoSection("__swift5_protos");
-    }
-
-    private getSwift5ProtocolConformanceSection(): MachOSection {
-        return this.getMachoSection("__swift5_proto");
-    }
-
-    private getMachoSection(sectionName: string, segmentName: string = "__TEXT"): MachOSection {
-        const machHeader = this.$native.base;
-        const segName = Memory.allocUtf8String(segmentName);
-        const sectName = Memory.allocUtf8String(sectionName);
-        const sizeOut = Memory.alloc(Process.pointerSize);
-        const privAPI = getPrivateAPI();
-
-        const vmAddress = privAPI.getsectiondata(machHeader, segName, sectName,
-            sizeOut) as NativePointer;
-        const size = sizeOut.readU32() as number;
-
-        return { vmAddress, size };
-    }
-
-    toJSON() {
-        return {
-            classes: this.$classes.length,
-            structs: this.$structs.length,
-            enums: this.$enums.length,
-            protocols: this.$protocols.length,
-        };
-    }
 }
 
-/* TODO: make this an abstract class */
-export class Type {
+export abstract class Type {
     readonly $name: string;
     readonly $fields?: FieldDetails[];
     readonly $moduleName: string;
@@ -377,6 +220,7 @@ enum EnumKind {
     MutliPayload
 }
 
+/* TODO: handle "default" protocol witnesses? See OnOffSwitch for an example */
 export class Enum extends ValueType {
     readonly metadata: TargetEnumMetadata;
     private readonly enumKind: EnumKind;
@@ -472,12 +316,14 @@ export class Protocol {
     readonly name: string;
     readonly numRequirements: number;
     readonly isClassOnly: boolean;
+    readonly moduleName: string;
 
     constructor(readonly descriptor: TargetProtocolDescriptor) {
         this.name = descriptor.name;
         this.numRequirements = descriptor.numRequirements;
         this.isClassOnly = descriptor.getProtocolContextDescriptorFlags()
                 .getClassConstraint() == ProtocolClassConstraint.Class;
+        this.moduleName = descriptor.getModuleContext().name;
     }
 
     toJSON() {
@@ -505,7 +351,3 @@ export class ProtocolComposition {
     }
 }
 
-interface MachOSection {
-    vmAddress: NativePointer,
-    size: number,
-};

@@ -9,15 +9,12 @@
  */
 
 import { getApi, API } from "./lib/api";
-import { SwiftModule, Type, Class, Struct, Enum, Protocol,
+import { Class, Struct, Enum, Protocol,
          ProtocolComposition } from "./lib/types";
 import { enumerateDemangledSymbols } from "./lib/symbols";
 import { makeSwiftNativeFunction, SwiftType } from "./lib/callingconvention";
 import { Registry } from "./lib/registry";
-
-interface TypeEnumerationOptions {
-    ownedBy: Module;
-}
+import { SwiftModule } from "./lib/macho";
 
 class Runtime {
     #api: API = null;
@@ -36,17 +33,6 @@ class Runtime {
 
     get api(): API {
         return this.#api;
-    }
-
-    enumerateTypes(options?: TypeEnumerationOptions): Type[] {
-        let result: Type[] = [];
-        let module = options && options.ownedBy;
-
-        if (module !== undefined) {
-            return Registry.shared().typesForModule(module.name);
-        } else {
-            return Object.values(Registry.shared().types).flat();
-        }
     }
 
     get modules(): Record<string, SwiftModule> {

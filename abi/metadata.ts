@@ -336,7 +336,8 @@ export class TargetTypeContextDescriptor extends TargetContextDescriptor {
 
         const namePtr = RelativeDirectPointer.From(this.handle.add(
             TargetTypeContextDescriptor.OFFSETOF_NAME)).get();
-        return namePtr.readUtf8String();
+        this.#name = namePtr.readUtf8String();
+        return this.#name;
     }
 
     get accessFunctionPointer(): NativePointer {
