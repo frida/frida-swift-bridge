@@ -8,6 +8,10 @@ let cachedApi: API = null;
 let cachedPrivateAPI: API = null;
 
 export function getApi(): API {
+    if (Process.arch !== "arm64") {
+        throw new Error("Only arm64 is currently supported");
+    }
+
     if (cachedApi !== null) {
         return cachedApi;
     }

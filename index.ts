@@ -24,7 +24,10 @@ class Runtime {
     #apiError: Error = null;
 
     constructor() {
-        this.tryInitialize();
+        try {
+            this.tryInitialize();
+        } catch (e) {
+        }
     }
 
     get available(): boolean {
@@ -32,7 +35,7 @@ class Runtime {
     }
 
     get api(): API {
-        return getApi();
+        return this.#api;
     }
 
     enumerateTypes(options?: TypeEnumerationOptions): Type[] {
@@ -78,6 +81,15 @@ class Runtime {
         if (this.#apiError !== null) {
             throw this.#apiError;
         }
+
+        try {
+            this.#api = getApi();
+        } catch (e) {
+            this.#apiError = e;
+            throw e;
+        }
+
+        return this.#api !== null;
     }
 
     NativeFunction(address: NativePointer, retType: SwiftType,
