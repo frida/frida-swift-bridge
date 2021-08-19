@@ -36,17 +36,17 @@ export class Registry {
             this.modules[swiftyName] = swiftModule;
 
             for (const type of swiftModule.$allTypes) {
-                this.types[type.name] = type;
+                this.types[type.$name] = type;
 
                 switch (type.kind) {
                     case "Class":
-                        this.classes[type.name] = type as Class;
+                        this.classes[type.$name] = type as Class;
                         break;
                     case "Struct":
-                        this.structs[type.name] = type as Struct;
+                        this.structs[type.$name] = type as Struct;
                         break;
                     case "Enum":
-                        this.enums[type.name] = type as Enum;
+                        this.enums[type.$name] = type as Enum;
                         break;
                     default:
                         throw new Error(`Unknown type kind: ${type.kind}`);

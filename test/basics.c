@@ -92,7 +92,7 @@ TESTCASE (swiftcall_with_context)
     "var i2 = Int.makeValueFromRaw(buf2);"
     "var SimpleClass = Swift.classes.SimpleClass;"
     "var initPtr = SimpleClass.$methods[SimpleClass.$methods.length - 1].address;" // TODO parse initializers
-    "var init = Swift.NativeFunction(initPtr, SimpleClass, [Int, Int], SimpleClass.metadataPointer);"
+    "var init = Swift.NativeFunction(initPtr, SimpleClass, [Int, Int], SimpleClass.$metadataPointer);"
     "var instance = init(i1, i2);"
     "send(instance.handle.equals(ptr(0x0)));"
   );
@@ -186,7 +186,7 @@ TESTCASE (swiftcall_with_direct_typed_result)
 {
   COMPILE_AND_LOAD_SCRIPT(
     "var LoadableStruct = Swift.structs.LoadableStruct;"
-    "var box = Swift.api.swift_allocBox(LoadableStruct.metadataPointer);"
+    "var box = Swift.api.swift_allocBox(LoadableStruct.$metadataPointer);"
     "send(box[0] instanceof NativePointer);"
     "send(box[1] instanceof NativePointer);"
   );
@@ -201,13 +201,13 @@ TESTCASE (class_instance_can_be_passed_to_and_returned_from_function)
     "var SimpleClass = Swift.classes.SimpleClass;"
     "var target = SimpleClass.$methods[SimpleClass.$methods.length - 1].address;"
     "var Int = Swift.structs.Int;"
-    "var simpleClassInit = Swift.NativeFunction(target, SimpleClass, [Int, Int], SimpleClass.metadataPointer);"
+    "var simpleClassInit = Swift.NativeFunction(target, SimpleClass, [Int, Int], SimpleClass.$metadataPointer);"
     "var i1 = Int.makeEmptyValue();"
     "i1.handle.writeU64(0x1337);"
     "var i2 = Int.makeEmptyValue();"
     "i2.handle.writeU64(0xaaaa);"
     "var simple = simpleClassInit(i1, i2);"
-    "send(simple.typeMetadata.handle.equals(SimpleClass.metadataPointer));"
+    "send(simple.typeMetadata.handle.equals(SimpleClass.$metadataPointer));"
     "send(simple.handle.add(2 * Process.pointerSize).readU64() == 0x1337);"
     "send(simple.handle.add(3 * Process.pointerSize).readU64() == 0xaaaa);"
   );
@@ -299,7 +299,7 @@ TESTCASE (opaque_existential_inline_can_be_returned_from_function)
     "inline.handle.writeU64(0xCAFE);"
     "inline.handle.add(8).writeU64(0xBABE);"
     "var result = passThroughExistential(inline);"
-    "send(result.type.name === 'InlineExistentialStruct');"
+    "send(result.type.$name === 'InlineExistentialStruct');"
     "send(result.handle.readU64().toNumber() == 0xCAFE);"
     "send(result.handle.add(8).readU64().toNumber() == 0xBABE);"
   );
@@ -342,7 +342,7 @@ TESTCASE (opaque_existential_outofline_can_be_returned_from_function)
     "outOfLine.handle.writeU64(0xDEAD);"
     "outOfLine.handle.add(8).writeU64(0xBEEF);"
     "var result = passThroughExistential(outOfLine);"
-    "send(result.type.name === 'OutOfLineExistentialStruct');"
+    "send(result.type.$name === 'OutOfLineExistentialStruct');"
     "send(result.handle.readU64().toNumber() == 0xDEAD);"
     "send(result.handle.add(8).readU64().toNumber() == 0xBEEF);"
   );
@@ -401,7 +401,7 @@ TESTCASE (class_existential_can_be_passed_to_and_returned_from_function)
   COMPILE_AND_LOAD_SCRIPT(
     "var ClassOnlyExistentialClass = Swift.classes.ClassOnlyExistentialClass;"
     "var initPtr = ClassOnlyExistentialClass.$methods[ClassOnlyExistentialClass.$methods.length - 1].address;"
-    "var init = Swift.NativeFunction(initPtr, ClassOnlyExistentialClass, [], ClassOnlyExistentialClass.metadataPointer);"
+    "var init = Swift.NativeFunction(initPtr, ClassOnlyExistentialClass, [], ClassOnlyExistentialClass.$metadataPointer);"
     "var instance = init();"
     "var dummy = Process.getModuleByName('dummy.o');"
     "var symbols = dummy.enumerateSymbols();"
@@ -410,7 +410,7 @@ TESTCASE (class_existential_can_be_passed_to_and_returned_from_function)
     "var ClassBoundExistential = Swift.protocols.ClassBoundExistential;"
     "var passClassBoundExistentialThrough = Swift.NativeFunction(target, ClassBoundExistential, [ClassBoundExistential]);"
     "var e = passClassBoundExistentialThrough(instance);"
-    "send(ClassOnlyExistentialClass.metadataPointer.equals(e.typeMetadata.handle));"
+    "send(ClassOnlyExistentialClass.$metadataPointer.equals(e.typeMetadata.handle));"
     "send(e.handle.add(0x10).readU64() == 0xAAAAAAAA);"
   );
   EXPECT_SEND_MESSAGE_WITH ("true");
@@ -422,7 +422,7 @@ TESTCASE (class_existential_multiple_conformances_can_be_passed_to_and_rerturned
   COMPILE_AND_LOAD_SCRIPT(
     "var CompositeClassBoundExistentialClass = Swift.classes.CompositeClassBoundExistentialClass;"
     "var initPtr = CompositeClassBoundExistentialClass.$methods[CompositeClassBoundExistentialClass.$methods.length - 1].address;"
-    "var init = Swift.NativeFunction(initPtr, CompositeClassBoundExistentialClass, [], CompositeClassBoundExistentialClass.metadataPointer);"
+    "var init = Swift.NativeFunction(initPtr, CompositeClassBoundExistentialClass, [], CompositeClassBoundExistentialClass.$metadataPointer);"
     "var instance = init();"
     "var dummy = Process.getModuleByName('dummy.o');"
     "var symbols = dummy.enumerateSymbols();"
@@ -433,7 +433,7 @@ TESTCASE (class_existential_multiple_conformances_can_be_passed_to_and_rerturned
     "var ClassBoundExistentialAndTogglable = Swift.ComposeProtocol(ClassBoundExistential, Togglable);"
     "var passCompositeClassBoundExistentialThrough = Swift.NativeFunction(target, ClassBoundExistentialAndTogglable, [ClassBoundExistentialAndTogglable]);"
     "var result = passCompositeClassBoundExistentialThrough(instance);"
-    "send(result.typeMetadata.handle.equals(CompositeClassBoundExistentialClass.metadataPointer));"
+    "send(result.typeMetadata.handle.equals(CompositeClassBoundExistentialClass.$metadataPointer));"
     "send(result.handle.add(2 * Process.pointerSize).readU64() == 0x0B00B135);"
     "send(result.handle.add(3 * Process.pointerSize).readU64() == 0xB16B00B5);"
   );
@@ -651,10 +651,10 @@ TESTCASE (protocol_conformance_can_be_gotten)
 {
   COMPILE_AND_LOAD_SCRIPT(
     "var URL = Swift.structs.URL;"
-    "var hasHashable = 'Hashable' in URL.conformances;"
+    "var hasHashable = 'Hashable' in URL.$conformances;"
     "send(hasHashable);"
     "var OnOffSwitch = Swift.enums.OnOffSwitch;"
-    "var hasTogglable = 'Togglable' in OnOffSwitch.conformances;"
+    "var hasTogglable = 'Togglable' in OnOffSwitch.$conformances;"
     "send(hasTogglable);"
   );
   EXPECT_SEND_MESSAGE_WITH ("true");

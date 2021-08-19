@@ -16,9 +16,8 @@ import { TargetClassDescriptor,
          TargetValueMetadata,
          TypeLayout, } from "../abi/metadata";
 import { ContextDescriptorKind,
-         MethodDescriptorKind, 
-         ProtocolClassConstraint, 
-         ProtocolContextDescriptorFlags} from "../abi/metadatavalues";
+         MethodDescriptorKind,
+         ProtocolClassConstraint } from "../abi/metadatavalues";
 import { resolveSymbolicReferences } from "../lib/symbols";
 import { FieldDescriptor } from "../reflection/records";
 import { RelativeDirectPointer } from "../basic/relativepointer";
@@ -63,7 +62,7 @@ export class SwiftModule {
         this.cacheProtocols();
 
         if (this.$allTypes.length > 0) {
-            this.$name = this.$allTypes[0].moduleName;
+            this.$name = this.$allTypes[0].$moduleName;
         }
     }
 
@@ -102,7 +101,7 @@ export class SwiftModule {
 
             this.$allTypes.push(type);
 
-            Object.defineProperty(this, type.name, {
+            Object.defineProperty(this, type.$name, {
                 configurable: true,
                 enumerable: true,
                 writable: false,
@@ -161,7 +160,7 @@ export class SwiftModule {
                     witnessTable: conformanceDesc.witnessTablePattern,
                 };
 
-                cachedType.conformances[protocolDesc.name] = conformance;
+                cachedType.$conformances[protocolDesc.name] = conformance;
             }
         }
     }
@@ -204,23 +203,21 @@ export class SwiftModule {
 
 /* TODO: make this an abstract class */
 export class Type {
-    readonly name: string;
-    readonly flags: number;
-    readonly fields?: FieldDetails[];
-    readonly moduleName: string;
-    readonly metadataPointer: NativePointer;
-    readonly conformances: Record<string, TypeProtocolConformance>;
+    readonly $name: string;
+    readonly $fields?: FieldDetails[];
+    readonly $moduleName: string;
+    readonly $metadataPointer: NativePointer;
+    readonly $conformances: Record<string, TypeProtocolConformance>;
 
     constructor (readonly module: Module,
                  readonly kind: SwiftTypeKind,
                  readonly descriptor: TargetTypeContextDescriptor) {
-        this.name = descriptor.name;
-        this.flags = descriptor.flags.value;
-        this.fields = Type.getFieldsDetails(descriptor);
-        this.moduleName = descriptor.getModuleContext().name;
-        this.metadataPointer = descriptor.getAccessFunction()
+        this.$name = descriptor.name;
+        this.$fields = Type.getFieldsDetails(descriptor);
+        this.$moduleName = descriptor.getModuleContext().name;
+        this.$metadataPointer = descriptor.getAccessFunction()
                 .call() as NativePointer;
-        this.conformances = {};
+        this.$conformances = {};
     }
 
     static getFieldsDetails(descriptor: TargetTypeContextDescriptor):
@@ -252,9 +249,8 @@ export class Type {
 
     toJSON() {
         return {
-            name: this.name,
-            fields: this.fields,
-            conformances: Object.keys(this.conformances),
+            fields: this.$fields,
+            conformances: Object.keys(this.$conformances),
         }
     }
 }
@@ -267,7 +263,7 @@ export class Class extends Type {
         const descriptor = new TargetClassDescriptor(descriptorPtr);
         super(module, "Class", descriptor);
 
-        this.$metadata = new TargetClassMetadata(this.metadataPointer);
+        this.$metadata = new TargetClassMetadata(this.$metadataPointer);
         this.$methods = this.getMethodsDetails();
     }
 
@@ -313,6 +309,13 @@ export class Class extends Type {
 
         return result;
     }
+
+    toJSON() {
+        const base = super.toJSON();
+        return Object.assign(base, {
+            methods: this.$methods
+        });
+    }
 }
 
 export abstract class ValueType extends Type {
@@ -323,7 +326,7 @@ export abstract class ValueType extends Type {
                 descriptor: TargetTypeContextDescriptor) {
         super(module, kind, descriptor);
 
-        this.metadata = new TargetValueMetadata(this.metadataPointer);
+        this.metadata = new TargetValueMetadata(this.$metadataPointer);
 
         if (!this.descriptor.flags.isGeneric()) {
            this.typeLayout = this.metadata.getTypeLayout();
@@ -355,7 +358,7 @@ export class Struct extends ValueType {
         const descriptor = new TargetStructDescriptor(descriptorPtr);
         super(module, "Struct", descriptor);
 
-        this.metadata = new TargetStructMetadata(this.metadataPointer);
+        this.metadata = new TargetStructMetadata(this.$metadataPointer);
     }
 
     makeValueFromRaw(buffer: NativePointer): StructValue {
@@ -384,9 +387,9 @@ export class Enum extends ValueType {
         const descriptor = new TargetEnumDescriptor(descriptroPtr);
         super(module, "Enum", descriptor);
 
-        this.metadata = new TargetEnumMetadata(this.metadataPointer);
+        this.metadata = new TargetEnumMetadata(this.$metadataPointer);
 
-        if (this.fields === undefined) {
+        if (this.$fields === undefined) {
             return;
         }
 
@@ -394,7 +397,7 @@ export class Enum extends ValueType {
         this.payloadCases = [];
         this.enumKind = EnumKind.NoPayload;
 
-        for (const field of this.fields) {
+        for (const field of this.$fields) {
             if (field.typeName === undefined) {
                 this.emptyCases.push(field);
             } else {

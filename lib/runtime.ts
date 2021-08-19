@@ -96,7 +96,7 @@ export class EnumValue implements ValueInstance {
             const typeName = this.type.payloadCases[tag].typeName;
             const type = Registry.shared().typeByName(typeName);
 
-            if (payload.typeMetadata.getDescription().name !== type.name) {
+            if (payload.typeMetadata.getDescription().name !== type.$name) {
                 throw new Error("Payload must be of type " + typeName);
             }
 

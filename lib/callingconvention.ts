@@ -140,7 +140,7 @@ export function makeSwiftNativeFunction(address: NativePointer,
 
             const base = container.getWitnessTables();
             for (const [i, proto] of composition.protocols.entries()) {
-                const vwt = type.conformances[proto.name].witnessTable;
+                const vwt = type.$conformances[proto.name].witnessTable;
 
                 base.add(i * Process.pointerSize).writePointer(vwt);
             }
@@ -372,7 +372,7 @@ export class SwiftcallNativeFunction {
     }
 
     wrapper = (...args: NativeArgumentValue[]) => {
-        /* TODO: Type-check args? */
+        /* TODO: Type-check args */
 
         args = args.map(arg => {
             if (Array.isArray(arg) && arg.length > 4) {
