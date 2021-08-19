@@ -22,8 +22,7 @@ TESTLIST_BEGIN (basics)
     TESTENTRY (swiftcall_with_direct_result)
     TESTENTRY (swiftcall_with_indirect_result_and_stack_arguments)
     TESTENTRY (swiftcall_with_direct_typed_result)
-    TESTENTRY (swiftcall_class_can_be_passed_to_function)
-    TESTENTRY (swiftcall_class_can_be_returned_from_function)
+    TESTENTRY (class_instance_can_be_passed_to_and_returned_from_function)
     TESTENTRY (swiftcall_multipayload_enum_can_be_passed_to_function)
     TESTENTRY (swiftcall_multipayload_enum_can_be_returned_from_function)
     TESTENTRY (opaque_existential_inline_can_be_passed_to_function)
@@ -31,9 +30,9 @@ TESTLIST_BEGIN (basics)
     TESTENTRY (opaque_existential_outofline_can_be_passed_to_function)
     TESTENTRY (opaque_existential_outofline_can_be_returned_from_function)
     TESTENTRY (opaque_existential_class_can_be_passed_to_and_returned_from_function)
-    TESTENTRY (opaque_existential_inline_multiple_conformances_can_be_passed_to_and_returned_from_function) // WIP
+    TESTENTRY (opaque_existential_inline_multiple_conformances_can_be_passed_to_and_returned_from_function)
     TESTENTRY (class_existential_can_be_passed_to_and_returned_from_function)
-    TESTENTRY (class_existential_multiple_conformances_can_be_passed_to_and_rerturned_from_function) // WIP
+    TESTENTRY (class_existential_multiple_conformances_can_be_passed_to_and_rerturned_from_function)
     TESTENTRY (c_style_enum_can_be_made_from_raw)
     TESTENTRY (c_style_enum_cases_can_be_gotten)
     TESTENTRY (c_style_enum_equals_works)
@@ -195,29 +194,26 @@ TESTCASE (swiftcall_with_direct_typed_result)
   EXPECT_SEND_MESSAGE_WITH ("true");
 }
 
-TESTCASE (swiftcall_class_can_be_passed_to_function)
+TESTCASE (class_instance_can_be_passed_to_and_returned_from_function)
 {
-  /* TODO:
   COMPILE_AND_LOAD_SCRIPT(
     "var dummy = Process.getModuleByName('dummy.o');"
-    "var symbols = dummy.enumerateSymbols();"
-    "symbols = symbols.filter(s => s.name == '$s5dummy11SimpleClassC5first6secondACSi_Sitcfc');"
-    "var target = symbols[0].address;"
     "var SimpleClass = Swift.classes.SimpleClass;"
+    "var target = SimpleClass.$methods[SimpleClass.$methods.length - 1].address;"
     "var Int = Swift.structs.Int;"
-    "var simpleClassInit = Swift.NativeFunction(target, SimpleClass, [Int, Int]);"
-    "var i1 = Int.makeFromRaw(Memory.alloc(8).writeU64(0x1337));"
-    "var i2 = Int.makeFromRaw(Memory.alloc(8).writeU64(0xaaaa));"
+    "var simpleClassInit = Swift.NativeFunction(target, SimpleClass, [Int, Int], SimpleClass.metadataPointer);"
+    "var i1 = Int.makeEmptyValue();"
+    "i1.handle.writeU64(0x1337);"
+    "var i2 = Int.makeEmptyValue();"
+    "i2.handle.writeU64(0xaaaa);"
     "var simple = simpleClassInit(i1, i2);"
-    "send(simple.handle.add(8).readU64() == 0x1337);"
+    "send(simple.typeMetadata.handle.equals(SimpleClass.metadataPointer));"
+    "send(simple.handle.add(2 * Process.pointerSize).readU64() == 0x1337);"
+    "send(simple.handle.add(3 * Process.pointerSize).readU64() == 0xaaaa);"
   );
   EXPECT_SEND_MESSAGE_WITH ("true");
-  */
-}
-
-TESTCASE (swiftcall_class_can_be_returned_from_function)
-{
-  /* TODO */
+  EXPECT_SEND_MESSAGE_WITH ("true");
+  EXPECT_SEND_MESSAGE_WITH ("true");
 }
 
 TESTCASE (swiftcall_multipayload_enum_can_be_passed_to_function)
