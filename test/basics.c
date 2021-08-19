@@ -53,10 +53,22 @@ TESTLIST_END ()
 TESTCASE (modules_can_be_enumerated)
 {
   COMPILE_AND_LOAD_SCRIPT(
-    "send(Object.keys(Swift.modules).length > 3);"
-    "send(Swift.modules.Swift.$allTypes.length > 100);"
-    "send(Swift.modules.dummy.$allTypes.length > 8);"
+    "send(Object.keys(Swift.modules).length > 5);"
+    "send(Object.keys(Swift.modules.Swift.classes).length > 20);"
+    "send(Object.keys(Swift.modules.Swift.enums).length > 20);"
+    "send(Object.keys(Swift.modules.Swift.protocols).length > 100);"
+    "send(Object.keys(Swift.modules.Swift.structs).length > 90);"
+    "send(Object.keys(Swift.modules.dummy.classes).length > 4);"
+    "send(Object.keys(Swift.modules.Swift.enums).length > 4);"
+    "send(Object.keys(Swift.modules.Swift.protocols).length > 2);"
+    "send(Object.keys(Swift.modules.Swift.structs).length > 4);"
   );
+  EXPECT_SEND_MESSAGE_WITH ("true");
+  EXPECT_SEND_MESSAGE_WITH ("true");
+  EXPECT_SEND_MESSAGE_WITH ("true");
+  EXPECT_SEND_MESSAGE_WITH ("true");
+  EXPECT_SEND_MESSAGE_WITH ("true");
+  EXPECT_SEND_MESSAGE_WITH ("true");
   EXPECT_SEND_MESSAGE_WITH ("true");
   EXPECT_SEND_MESSAGE_WITH ("true");
   EXPECT_SEND_MESSAGE_WITH ("true");
