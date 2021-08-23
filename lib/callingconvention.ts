@@ -131,7 +131,7 @@ export function makeSwiftNativeFunction(address: NativePointer,
                 } else {
                     const box = typeMetadata.allocateBoxForExistentialIn(
                             container.buffer);
-                    (<ValueType>type).copyRaw(box, arg.handle);
+                    (<ValueType>type).$copyRaw(box, arg.handle);
                 }
             } else {
                 container = ClassExistentialContainer
@@ -182,7 +182,7 @@ export function makeSwiftNativeFunction(address: NativePointer,
             } else {
                 const valueType = runtimeType as ValueType;
                 const handle = container.projectValue();
-                return valueType.intializeWithCopyRaw(handle);
+                return valueType.$intializeWithCopyRaw(handle);
             }
         } else {
             const container = ClassExistentialContainer
@@ -209,7 +209,8 @@ function lowerSemantically(type: SwiftType): NativeType {
     }
 
     /* FIXME: ugly */
-    if (type.kind === "Class" || shouldPassIndirectly((<ValueType>type).metadata)) {
+    if (type.kind === "Class" ||
+        shouldPassIndirectly((<ValueType>type).$metadata)) {
         return "pointer";
     }
 
@@ -218,7 +219,7 @@ function lowerSemantically(type: SwiftType): NativeType {
      * - Make it arch-agnostic
      * - Unsigned ints?
      */
-    let sizeInQWords = valueType.typeLayout.stride / 8;
+    let sizeInQWords = valueType.$typeLayout.stride / 8;
     sizeInQWords = sizeInQWords > 1 ? sizeInQWords : 1;
     return Array(sizeInQWords).fill("uint64");
 }

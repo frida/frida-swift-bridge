@@ -162,31 +162,27 @@ export class Class extends Type {
 }
 
 export abstract class ValueType extends Type {
-    readonly metadata: TargetValueMetadata;
-    readonly typeLayout: TypeLayout;
+    readonly $metadata: TargetValueMetadata;
+    readonly $typeLayout: TypeLayout;
 
     constructor(module: Module, kind: SwiftTypeKind,
                 descriptor: TargetTypeContextDescriptor) {
         super(module, kind, descriptor);
 
-        this.metadata = new TargetValueMetadata(this.$metadataPointer);
+        this.$metadata = new TargetValueMetadata(this.$metadataPointer);
 
         if (!this.descriptor.flags.isGeneric()) {
-           this.typeLayout = this.metadata.getTypeLayout();
+           this.$typeLayout = this.$metadata.getTypeLayout();
         }
     }
 
-    copy(dest: ValueInstance, src: ValueInstance) {
-        this.metadata.vw_initializeWithCopy(dest.handle, src.handle);
+    $copyRaw(dest: NativePointer, src: NativePointer) {
+        this.$metadata.vw_initializeWithCopy(dest, src);
     }
 
-    copyRaw(dest: NativePointer, src: NativePointer) {
-        this.metadata.vw_initializeWithCopy(dest, src);
-    }
-
-    intializeWithCopyRaw(src: NativePointer): RuntimeInstance{
+    $intializeWithCopyRaw(src: NativePointer): RuntimeInstance{
         const dest = this.makeEmptyValue();
-        this.metadata.vw_initializeWithCopy(dest.handle, src);
+        this.$metadata.vw_initializeWithCopy(dest.handle, src);
         return dest;
     }
 
@@ -209,7 +205,7 @@ export class Struct extends ValueType {
     }
 
     makeEmptyValue(): StructValue {
-        const buffer = Memory.alloc(this.typeLayout.stride);
+        const buffer = Memory.alloc(this.$typeLayout.stride);
         return new StructValue(this, buffer);
     }
 }
@@ -307,7 +303,7 @@ export class Enum extends ValueType {
     }
 
     makeEmptyValue(): EnumValue {
-        const buffer = Memory.alloc(this.typeLayout.stride);
+        const buffer = Memory.alloc(this.$typeLayout.stride);
         return new EnumValue(this, buffer);
     }
 }

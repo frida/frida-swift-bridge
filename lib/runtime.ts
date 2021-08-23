@@ -106,8 +106,7 @@ export class EnumValue implements ValueInstance {
             } else {
                 const valueType = type as ValueType;
                 this.#payload = valueType.makeValueFromRaw(this.handle);
-                valueType.copy(<ValueInstance>this.#payload,
-                            <ValueInstance>payload);
+                valueType.$copyRaw(this.#payload.handle, payload.handle);
             }
         }
 
