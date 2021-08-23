@@ -15,7 +15,7 @@ import { ClassExistentialContainer,
          TargetOpaqueExistentialContainer } from "../runtime/existentialcontainer";
 import { Registry } from "./registry";
 
-export type SwiftType = Type | Protocol | ProtocolComposition;
+export type SwiftNativeType = Type | Protocol | ProtocolComposition | NativeType;
 
 class TrampolinePool {
     private static pages: NativePointer[];
@@ -91,9 +91,13 @@ function makeValueFromBuffer(buffer: NativePointer, lengthInBytes: number): UInt
     return result;
 }
 
+/**
+ * TODO:
+ *  - Re-cook this spaghetti
+ */
 export function makeSwiftNativeFunction(address: NativePointer,
-                                        retType: SwiftType,
-                                        argTypes: SwiftType[],
+                                        retType: SwiftNativeType,
+                                        argTypes: SwiftNativeType[],
                                         context?: NativePointer,
                                         throws?: boolean): Function {
     const loweredArgType = argTypes.map(ty => lowerSemantically(ty));
@@ -108,6 +112,11 @@ export function makeSwiftNativeFunction(address: NativePointer,
         for (const [i, arg] of args.entries()) {
             const argType = argTypes[i];
 
+            if (typeof(argType) === "string") {
+                actualArgs.push(arg);
+                continue;
+            }
+
             if (argType instanceof Type) {
                 actualArgs.push(lowerPhysically(arg));
                 continue;
@@ -115,7 +124,7 @@ export function makeSwiftNativeFunction(address: NativePointer,
 
             const composition = (argType instanceof Protocol) ?
                                 new ProtocolComposition(argType) :
-                                argType;
+                                argType as ProtocolComposition;
             const typeMetadata = arg.typeMetadata;
             const type = Registry.shared()
                     .typeByName(typeMetadata.getDescription().name);
@@ -150,6 +159,10 @@ export function makeSwiftNativeFunction(address: NativePointer,
         }
 
         const retval = swiftcallWrapper(...actualArgs);
+
+        if (typeof(retType) === "string" || Array.isArray(retType)) {
+            return retval;
+        }
 
         if (retType instanceof Type) {
             switch (retType.kind) {
@@ -195,7 +208,11 @@ export function makeSwiftNativeFunction(address: NativePointer,
 }
 
 /* FIXME: terrible argument / type naming */
-function lowerSemantically(type: SwiftType): NativeType {
+function lowerSemantically(type: SwiftNativeType): NativeType {
+    if (typeof(type) === "string" || Array.isArray(type)) {
+        return type;
+    }
+
     if (!(type instanceof Type)) {
         const augmented = (type instanceof Protocol) ?
                           ["pointer"] :
@@ -319,6 +336,8 @@ export class SwiftcallNativeFunction {
             if (resultType.length > 4) {
                 indirectResult = this.#returnBuffer;
             }
+        } else if (resultType === "void") {
+            this.#returnBufferSize = 0;
         } else {
             this.#returnBufferSize = Process.pointerSize;
             this.#returnBuffer = Memory.alloc(this.#returnBufferSize);

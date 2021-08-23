@@ -259,3 +259,7 @@ func passCompositeClassBoundExistentialThrough(
 ) -> ClassBoundExistential & Existential {
     return c
 }
+
+func change(number: inout Int) {
+    number += 1337
+}

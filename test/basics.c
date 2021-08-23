@@ -22,6 +22,7 @@ TESTLIST_BEGIN (basics)
     TESTENTRY (swiftcall_with_direct_result)
     TESTENTRY (swiftcall_with_indirect_result_and_stack_arguments)
     TESTENTRY (swiftcall_with_direct_typed_result)
+    TESTENTRY (swiftcall_with_void_return_type)
     TESTENTRY (class_instance_can_be_passed_to_and_returned_from_function)
     TESTENTRY (swiftcall_multipayload_enum_can_be_passed_to_function)
     TESTENTRY (swiftcall_multipayload_enum_can_be_returned_from_function)
@@ -203,6 +204,21 @@ TESTCASE (swiftcall_with_direct_typed_result)
     "send(box[1] instanceof NativePointer);"
   );
   EXPECT_SEND_MESSAGE_WITH ("true");
+  EXPECT_SEND_MESSAGE_WITH ("true");
+}
+
+TESTCASE (swiftcall_with_void_return_type)
+{
+  COMPILE_AND_LOAD_SCRIPT(
+      "var dummy = Process.getModuleByName('dummy.o');"
+      "var symbols = dummy.enumerateSymbols();"
+      "symbols = symbols.filter(s => s.name == '$s5dummy6change6numberySiz_tF');"
+      "var target = symbols[0].address;"
+      "var change = Swift.NativeFunction(target, 'void', ['pointer']);"
+      "var i = Memory.alloc(Process.pointerSize).writeU64(0);"
+      "change(i);"
+      "send(i.readU64() == 1337);"
+  );
   EXPECT_SEND_MESSAGE_WITH ("true");
 }
 

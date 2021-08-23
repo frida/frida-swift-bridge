@@ -6,13 +6,14 @@
  *  - Register for notification when a new module is added
  *  - Add demangled symbol look-up
  *  - Add parsing of function names
+ *  - inout params
  */
 
 import { getApi, API } from "./lib/api";
 import { Class, Struct, Enum, Protocol,
          ProtocolComposition } from "./lib/types";
 import { enumerateDemangledSymbols } from "./lib/symbols";
-import { makeSwiftNativeFunction, SwiftType } from "./lib/callingconvention";
+import { makeSwiftNativeFunction, SwiftNativeType} from "./lib/callingconvention";
 import { Registry } from "./lib/registry";
 import { SwiftModule } from "./lib/macho";
 import { ObjectInstance, StructValue } from "./lib/runtime";
@@ -60,8 +61,8 @@ class Runtime {
     readonly Struct = StructValue;
     readonly ProtocolComposition = ProtocolComposition;
 
-    NativeFunction(address: NativePointer, retType: SwiftType,
-                   argTypes: SwiftType[], context?: NativePointer,
+    NativeFunction(address: NativePointer, retType: SwiftNativeType,
+                   argTypes: SwiftNativeType[], context?: NativePointer,
                    throws?: boolean) {
         return makeSwiftNativeFunction(address, retType, argTypes, context, throws);
     }
