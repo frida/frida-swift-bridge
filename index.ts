@@ -58,16 +58,12 @@ class Runtime {
 
     readonly Object = ObjectInstance;
     readonly Struct = StructValue;
+    readonly ProtocolComposition = ProtocolComposition;
 
     NativeFunction(address: NativePointer, retType: SwiftType,
                    argTypes: SwiftType[], context?: NativePointer,
                    throws?: boolean) {
         return makeSwiftNativeFunction(address, retType, argTypes, context, throws);
-    }
-
-    /* TODO: namespace it */
-    ComposeProtocol(...protocols: Protocol[]) {
-        return new ProtocolComposition(protocols);
     }
 
     enumerateDemangledSymbols(module: Module): ModuleSymbolDetails[] {

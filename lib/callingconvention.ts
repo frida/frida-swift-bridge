@@ -114,7 +114,7 @@ export function makeSwiftNativeFunction(address: NativePointer,
             }
 
             const composition = (argType instanceof Protocol) ?
-                                new ProtocolComposition([argType]) :
+                                new ProtocolComposition(argType) :
                                 argType;
             const typeMetadata = arg.typeMetadata;
             const type = Registry.shared()
@@ -166,7 +166,7 @@ export function makeSwiftNativeFunction(address: NativePointer,
 
         const buf = makeBufferFromValue(retval);
         const composition = (retType instanceof Protocol) ?
-                            new ProtocolComposition([retType]) :
+                            new ProtocolComposition(retType) :
                             retType;
 
         if (!retType.isClassOnly) {

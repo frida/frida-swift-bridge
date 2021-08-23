@@ -331,10 +331,12 @@ export class Protocol {
 }
 
 export class ProtocolComposition {
+    readonly protocols: Protocol[];
     readonly numProtocols: number;
     readonly isClassOnly: boolean;
 
-    constructor(readonly protocols: Protocol[]) {
+    constructor(...protocols: Protocol[]) {
+        this.protocols = [...protocols];
         this.numProtocols = protocols.length;
         this.isClassOnly = false;
 
