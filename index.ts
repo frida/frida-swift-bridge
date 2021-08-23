@@ -56,7 +56,7 @@ class Runtime {
         return Registry.shared().protocols;
     }
 
-    readonly Class = ObjectInstance;
+    readonly Object = ObjectInstance;
     readonly Struct = StructValue;
 
     NativeFunction(address: NativePointer, retType: SwiftType,
