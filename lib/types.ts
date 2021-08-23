@@ -190,7 +190,7 @@ export abstract class ValueType extends Type {
         return dest;
     }
 
-    abstract makeValueFromRaw(buffer: NativePointer): RuntimeInstance;
+    abstract makeValueFromRaw(buffer: NativePointer): ValueInstance;
     abstract makeEmptyValue(): RuntimeInstance;
 }
 

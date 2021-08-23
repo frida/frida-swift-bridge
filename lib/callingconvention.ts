@@ -5,10 +5,11 @@
  * 	- Can we tell whether a function throws via its metadata?
  */
 
-import { Protocol, ProtocolComposition, Type, ValueType } from "./types";
+import { Enum, Protocol, ProtocolComposition, Struct, Type, ValueType } from "./types";
 import { ObjectInstance,
          RuntimeInstance,
-         makeValueInstance} from "./runtime";
+         StructValue,
+         EnumValue} from "./runtime";
 import { TargetValueMetadata } from "../abi/metadata";
 import { ClassExistentialContainer,
          TargetOpaqueExistentialContainer } from "../runtime/existentialcontainer";
@@ -153,9 +154,9 @@ export function makeSwiftNativeFunction(address: NativePointer,
         if (retType instanceof Type) {
             switch (retType.kind) {
                 case "Struct":
+                    return new StructValue(retType as Struct, retval);
                 case "Enum":
-                    const buffer = makeBufferFromValue(retval);
-                    return makeValueInstance(retType as ValueType, buffer);
+                    return new EnumValue(retType as Enum, retval);
                 case "Class":
                     return new ObjectInstance(retval as NativePointer);
                 default:

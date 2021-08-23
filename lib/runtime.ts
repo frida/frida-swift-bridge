@@ -9,6 +9,7 @@ import { TargetClassMetadata,
          TargetStructMetadata,
          TargetValueMetadata } from "../abi/metadata";
 import { HeapObject } from "../runtime/heapobject";
+import { makeBufferFromValue, RawFields } from "./buffer";
 import { Registry } from "./registry";
 import { Enum, Struct, ValueType } from "./types";
 
@@ -32,22 +33,15 @@ export abstract class ValueInstance extends RuntimeInstance {
     readonly typeMetadata: TargetValueMetadata;
 }
 
-export function makeValueInstance(type: ValueType, handle: NativePointer):
-            ValueInstance {
-    if (type.kind === "Struct") {
-        return new StructValue(type as Struct, handle);
-    } else if (type.kind === "Enum") {
-        return new EnumValue(type as Enum, handle);
-    } else {
-        throw new Error("Not a value type");
-    }
-}
-
 export class StructValue implements ValueInstance {
     readonly typeMetadata: TargetStructMetadata;
+    readonly handle: NativePointer;
 
-    constructor(readonly type: Struct, readonly handle: NativePointer) {
+    constructor(readonly type: Struct, storage: RawFields | NativePointer) {
         this.typeMetadata = type.metadata;
+        this.handle = (storage instanceof NativePointer) ?
+                      storage :
+                      makeBufferFromValue(storage);
     }
 
      equals(other: StructValue) {
@@ -63,15 +57,19 @@ export class StructValue implements ValueInstance {
 
 export class EnumValue implements ValueInstance {
     readonly typeMetadata: TargetEnumMetadata;
+    readonly handle: NativePointer;
 
     #tag: number;
     #payload: RuntimeInstance;
 
-    constructor(readonly type: Enum, readonly handle: NativePointer) {
+    constructor(readonly type: Enum, storage: RawFields | NativePointer) {
         this.typeMetadata = type.metadata;
+        this.handle = (storage instanceof NativePointer) ?
+                      storage :
+                      makeBufferFromValue(storage);
 
-        const tag = this.type.metadata.vw_getEnumTag(handle);
-        let payload: ValueInstance;
+        const tag = this.type.metadata.vw_getEnumTag(this.handle);
+        let payload: RuntimeInstance;
 
         if (tag - this.type.payloadCases.length >= this.type.emptyCases.length) {
             throw new Error("Invalid pointer for an enum of this type");
@@ -80,7 +78,9 @@ export class EnumValue implements ValueInstance {
         if (this.isPayloadTag(tag)) {
             const typeName = this.type.payloadCases[tag].typeName;
             const type = Registry.shared().typeByName(typeName);
-            payload = makeValueInstance(type as ValueType, handle);
+            payload = (type instanceof ValueType) ?
+                      type.makeValueFromRaw(this.handle) :
+                      new ObjectInstance(this.handle);
         }
 
         this.#tag = tag;

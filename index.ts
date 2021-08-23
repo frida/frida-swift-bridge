@@ -15,6 +15,7 @@ import { enumerateDemangledSymbols } from "./lib/symbols";
 import { makeSwiftNativeFunction, SwiftType } from "./lib/callingconvention";
 import { Registry } from "./lib/registry";
 import { SwiftModule } from "./lib/macho";
+import { ObjectInstance, StructValue } from "./lib/runtime";
 
 class Runtime {
     #api: API = null;
@@ -55,6 +56,20 @@ class Runtime {
         return Registry.shared().protocols;
     }
 
+    readonly Class = ObjectInstance;
+    readonly Struct = StructValue;
+
+    NativeFunction(address: NativePointer, retType: SwiftType,
+                   argTypes: SwiftType[], context?: NativePointer,
+                   throws?: boolean) {
+        return makeSwiftNativeFunction(address, retType, argTypes, context, throws);
+    }
+
+    /* TODO: namespace it */
+    ComposeProtocol(...protocols: Protocol[]) {
+        return new ProtocolComposition(protocols);
+    }
+
     enumerateDemangledSymbols(module: Module): ModuleSymbolDetails[] {
         return enumerateDemangledSymbols(module);
     }
@@ -76,17 +91,6 @@ class Runtime {
         }
 
         return this.#api !== null;
-    }
-
-    NativeFunction(address: NativePointer, retType: SwiftType,
-                   argTypes: SwiftType[], context?: NativePointer,
-                   throws?: boolean) {
-        return makeSwiftNativeFunction(address, retType, argTypes, context, throws);
-    }
-
-    /* TODO: namespace it */
-    ComposeProtocol(...protocols: Protocol[]) {
-        return new ProtocolComposition(protocols);
     }
 }
 
