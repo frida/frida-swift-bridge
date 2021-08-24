@@ -23,6 +23,9 @@ TESTLIST_BEGIN (basics)
     TESTENTRY (swiftcall_with_indirect_result_and_stack_arguments)
     TESTENTRY (swiftcall_with_direct_typed_result)
     TESTENTRY (swiftcall_with_void_return_type)
+    TESTENTRY (class_can_be_initialized)
+    TESTENTRY (class_instance_methods_can_be_called)
+    TESTENTRY (class_instance_properties_can_be_gotten_and_set)
     TESTENTRY (class_instance_can_be_passed_to_and_returned_from_function)
     TESTENTRY (swiftcall_multipayload_enum_can_be_passed_to_function)
     TESTENTRY (swiftcall_multipayload_enum_can_be_returned_from_function)
@@ -104,7 +107,7 @@ TESTCASE (swiftcall_with_context)
     "buf2.writeU64(0xBABE);"
     "var i2 = Int.makeValueFromRaw(buf2);"
     "var SimpleClass = Swift.classes.SimpleClass;"
-    "var initPtr = SimpleClass.$methods[SimpleClass.$methods.length - 1].address;" // TODO parse initializers
+    "var initPtr = SimpleClass.$methods.filter(m => m.type === 'Init')[0].address;"
     "var init = Swift.NativeFunction(initPtr, SimpleClass, [Int, Int], SimpleClass.$metadataPointer);"
     "var instance = init(i1, i2);"
     "send(instance.handle.equals(ptr(0x0)));"
@@ -222,19 +225,64 @@ TESTCASE (swiftcall_with_void_return_type)
   EXPECT_SEND_MESSAGE_WITH ("true");
 }
 
+TESTCASE (class_can_be_initialized)
+{
+  COMPILE_AND_LOAD_SCRIPT (
+    "var { Int } = Swift.structs;"
+    "var i2 = new Swift.Struct(Int, [2]);"
+    "var i3 = new Swift.Struct(Int, [3]);"
+    "var SimpleClass = Swift.classes.SimpleClass;"
+    "var instance = SimpleClass.__allocating_init(i2, i3);"
+    "send(instance.handle.add(Process.pointerSize * 2).readU64() == 2);"
+    "send(instance.handle.add(Process.pointerSize * 3).readU64() == 3);"
+  );
+  EXPECT_SEND_MESSAGE_WITH ("true");
+  EXPECT_SEND_MESSAGE_WITH ("true");
+}
+
+TESTCASE (class_instance_methods_can_be_called)
+{
+   COMPILE_AND_LOAD_SCRIPT (
+    "var { Int } = Swift.structs;"
+    "var i2 = new Swift.Struct(Int, [2]);"
+    "var i3 = new Swift.Struct(Int, [3]);"
+    "var SimpleClass = Swift.classes.SimpleClass;"
+    "var instance = SimpleClass.__allocating_init(i2, i3);"
+    "send(instance.multiply().handle.readU64() == 6);"
+    "var i4 = new Swift.Struct(Int, [4]);"
+    "send(instance.multiply_with_(i4).handle.readU64() == 24);"
+  );
+  EXPECT_SEND_MESSAGE_WITH ("true");
+  EXPECT_SEND_MESSAGE_WITH ("true");
+}
+
+TESTCASE (class_instance_properties_can_be_gotten_and_set)
+{
+   COMPILE_AND_LOAD_SCRIPT (
+    "var { Int } = Swift.structs;"
+    "var i2 = new Swift.Struct(Int, [2]);"
+    "var i3 = new Swift.Struct(Int, [3]);"
+    "var SimpleClass = Swift.classes.SimpleClass;"
+    "var instance = SimpleClass.__allocating_init(i2, i3);"
+    "send(instance.x.handle.readU64() == 2);"
+    "instance.x = new Swift.Struct(Int, [9]);"
+    "send(instance.x.handle.readU64() == 9)"
+  );
+  EXPECT_SEND_MESSAGE_WITH ("true");
+  EXPECT_SEND_MESSAGE_WITH ("true");
+}
+
 TESTCASE (class_instance_can_be_passed_to_and_returned_from_function)
 {
   COMPILE_AND_LOAD_SCRIPT(
     "var dummy = Process.getModuleByName('dummy.o');"
     "var SimpleClass = Swift.classes.SimpleClass;"
-    "var target = SimpleClass.$methods[SimpleClass.$methods.length - 1].address;"
     "var Int = Swift.structs.Int;"
-    "var simpleClassInit = Swift.NativeFunction(target, SimpleClass, [Int, Int], SimpleClass.$metadataPointer);"
     "var i1 = Int.makeEmptyValue();"
     "i1.handle.writeU64(0x1337);"
     "var i2 = Int.makeEmptyValue();"
     "i2.handle.writeU64(0xaaaa);"
-    "var simple = simpleClassInit(i1, i2);"
+    "var simple = SimpleClass.__allocating_init(i1, i2);"
     "send(simple.typeMetadata.handle.equals(SimpleClass.$metadataPointer));"
     "send(simple.handle.add(2 * Process.pointerSize).readU64() == 0x1337);"
     "send(simple.handle.add(3 * Process.pointerSize).readU64() == 0xaaaa);"

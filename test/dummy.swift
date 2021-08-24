@@ -16,6 +16,14 @@ class SimpleClass {
         self.x = first
         self.y = second
     }
+
+    func multiply() -> Int {
+        return self.x * self.y
+    }
+
+    func multiply(with z: Int) -> Int {
+        return self.multiply() * z
+    }
 }
 
 func takeSimpleClass(klass: SimpleClass) -> Int {
