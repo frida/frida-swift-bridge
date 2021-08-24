@@ -23,7 +23,7 @@ TESTLIST_BEGIN (basics)
     TESTENTRY (swiftcall_with_indirect_result_and_stack_arguments)
     TESTENTRY (swiftcall_with_direct_typed_result)
     TESTENTRY (swiftcall_with_void_return_type)
-    TESTENTRY (class_can_be_initialized)
+    TESTENTRY (class_instance_can_be_initialized)
     TESTENTRY (class_instance_methods_can_be_called)
     TESTENTRY (class_instance_properties_can_be_gotten_and_set)
     TESTENTRY (class_instance_can_be_passed_to_and_returned_from_function)
@@ -225,7 +225,7 @@ TESTCASE (swiftcall_with_void_return_type)
   EXPECT_SEND_MESSAGE_WITH ("true");
 }
 
-TESTCASE (class_can_be_initialized)
+TESTCASE (class_instance_can_be_initialized)
 {
   COMPILE_AND_LOAD_SCRIPT (
     "var { Int } = Swift.structs;"
