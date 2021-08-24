@@ -116,24 +116,24 @@ export class EnumValue implements ValueInstance {
         this.#tag = tag;
     }
 
-    get tag(): number {
+    get $tag(): number {
         return this.#tag;
     }
 
-    get payload(): RuntimeInstance {
+    get $payload(): RuntimeInstance {
         return this.#payload;
     }
 
     equals(e: EnumValue) {
         let result = false;
 
-        if (this.tag !== undefined && e.tag !== undefined) {
-            result = this.tag === e.tag;
+        if (this.$tag !== undefined && e.$tag !== undefined) {
+            result = this.$tag === e.$tag;
         }
 
-        if (this.payload !== undefined && e.payload !== undefined) {
+        if (this.$payload !== undefined && e.$payload !== undefined) {
             /* TODO: handle value type equality properly */
-            result &&= this.payload.handle.equals(e.payload.handle);
+            result &&= this.$payload.handle.equals(e.$payload.handle);
         }
 
         return result;
