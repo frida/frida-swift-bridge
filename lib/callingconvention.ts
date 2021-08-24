@@ -127,7 +127,7 @@ export function makeSwiftNativeFunction(address: NativePointer,
                                 argType as ProtocolComposition;
             const typeMetadata = arg.typeMetadata;
             const type = Registry.shared()
-                    .typeByName(typeMetadata.getDescription().name);
+                    .typeByName(typeMetadata.getFullTypeName());
             let container: TargetOpaqueExistentialContainer | ClassExistentialContainer;
 
             if (!composition.isClassOnly) {
@@ -186,8 +186,8 @@ export function makeSwiftNativeFunction(address: NativePointer,
             const container = TargetOpaqueExistentialContainer
                     .makeFromRaw(buf, composition.numProtocols);
             const typeMetadata = container.type;
-            const runtimeTypeName = typeMetadata.getDescription().name;
-            const runtimeType = Registry.shared().typeByName(runtimeTypeName);
+            const runtimeType = Registry.shared()
+                    .typeByName(typeMetadata.getFullTypeName());
 
             if (typeMetadata.isClassObject()) {
                 return new ObjectInstance(

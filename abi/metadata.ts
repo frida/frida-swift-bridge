@@ -101,6 +101,10 @@ export abstract class TargetMetadata {
         buffer.privateData.writePointer(refAndValue.object.handle);
         return refAndValue.buffer;
     }
+
+    getFullTypeName(): string {
+        return this.getDescription().getFullTypeName();
+    }
 }
 
 export class TargetValueMetadata extends TargetMetadata {
@@ -364,6 +368,10 @@ export class TargetTypeContextDescriptor extends TargetContextDescriptor {
 
     getAccessFunction(): NativeFunction {
         return new NativeFunction(this.accessFunctionPointer, "pointer", []);
+    }
+
+    getFullTypeName(): string {
+        return `${this.getModuleContext().name}.${this.name}`;
     }
 }
 

@@ -96,7 +96,7 @@ export function bindProtocolConformances(module: Module,
             continue;
         }
 
-        const cachedType = typeFinder(typeDesc.name);
+        const cachedType = typeFinder(typeDesc.getFullTypeName());
         const conformance = {
             protocol: protocolDesc,
             witnessTable: conformanceDesc.witnessTablePattern,
