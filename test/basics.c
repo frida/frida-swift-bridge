@@ -328,12 +328,12 @@ TESTCASE (swiftcall_multipayload_enum_can_be_returned_from_function)
     "var MultiPayloadEnum = Swift.enums.MultiPayloadEnum;"
     "var makeMultiPayloadEnumCase = Swift.NativeFunction(target, MultiPayloadEnum, [Int]);"
     "var a = makeMultiPayloadEnumCase(tag0);"
-    "send(a.tag === 0);"
-    "send(a.payload.handle.readU64() == 0x1337);"
+    "send(a.$tag === 0);"
+    "send(a.$payload.handle.readU64() == 0x1337);"
     "var tag1 = Int.makeValueFromRaw(Memory.alloc(8).writeU64(0x1));"
     "var b = makeMultiPayloadEnumCase(tag1);"
-    "send(b.tag === 1);"
-    "send(b.payload.handle.readCString() == 'Octagon');"
+    "send(b.$tag === 1);"
+    "send(b.$payload.handle.readCString() == 'Octagon');"
   );
   EXPECT_SEND_MESSAGE_WITH ("true");
   EXPECT_SEND_MESSAGE_WITH ("true");
@@ -525,7 +525,7 @@ TESTCASE (c_style_enum_can_be_made_from_raw)
     "var tmp = CStyle.makeEmptyValue();"
     "tmp.handle.writeU8(1);"
     "var b = CStyle.makeValueFromRaw(tmp.handle);"
-    "send(b.tag === 1);"
+    "send(b.$tag === 1);"
   );
   EXPECT_SEND_MESSAGE_WITH ("true");
 }
@@ -535,7 +535,7 @@ TESTCASE (c_style_enum_cases_can_be_gotten)
   COMPILE_AND_LOAD_SCRIPT(
     "var CStyle = Swift.enums.CStyle;"
     "var b = CStyle.b;"
-    "send(b.tag === 1);"
+    "send(b.$tag === 1);"
   );
   EXPECT_SEND_MESSAGE_WITH ("true");
 }
@@ -561,11 +561,11 @@ TESTCASE (singlepayload_enum_empty_case_can_be_made_from_raw)
     "rawA.add(8).writeU8(1);"
     "var SinglePayloadEnumWithNoExtraInhabitants = Swift.enums.SinglePayloadEnumWithNoExtraInhabitants;"
     "var a = SinglePayloadEnumWithNoExtraInhabitants.makeValueFromRaw(rawA);"
-    "send(a.tag === 1);"
+    "send(a.$tag === 1);"
     "rawA = Memory.alloc(16);"
     "var SinglePayloadEnumWithExtraInhabitants = Swift.enums.SinglePayloadEnumWithExtraInhabitants;"
     "a = SinglePayloadEnumWithExtraInhabitants.makeValueFromRaw(rawA);"
-    "send(a.tag === 1);"
+    "send(a.$tag === 1);"
   );
   EXPECT_SEND_MESSAGE_WITH ("true");
   EXPECT_SEND_MESSAGE_WITH ("true");
@@ -576,10 +576,10 @@ TESTCASE (singlepayload_enum_empty_case_can_be_gotten)
   COMPILE_AND_LOAD_SCRIPT(
     "var SinglePayloadEnumWithNoExtraInhabitants = Swift.enums.SinglePayloadEnumWithNoExtraInhabitants;"
     "var d = SinglePayloadEnumWithNoExtraInhabitants.d;"
-    "send(d.tag === 4);"
+    "send(d.$tag === 4);"
     "var SinglePayloadEnumWithExtraInhabitants = Swift.enums.SinglePayloadEnumWithExtraInhabitants;"
     "var c = SinglePayloadEnumWithExtraInhabitants.c;"
-    "send(c.tag === 3);"
+    "send(c.$tag === 3);"
   );
   EXPECT_SEND_MESSAGE_WITH ("true");
   EXPECT_SEND_MESSAGE_WITH ("true");
@@ -592,12 +592,12 @@ TESTCASE (singlepayload_enum_data_case_can_be_made_from_raw)
     "rawSome.writeU64(0x1337);"
     "var SinglePayloadEnumWithNoExtraInhabitants = Swift.enums.SinglePayloadEnumWithNoExtraInhabitants;"
     "var some = SinglePayloadEnumWithNoExtraInhabitants.makeValueFromRaw(rawSome);"
-    "send(some.tag === 0);"
+    "send(some.$tag === 0);"
     "var SinglePayloadEnumWithExtraInhabitants = Swift.enums.SinglePayloadEnumWithExtraInhabitants;"
     "rawSome = Memory.alloc(16);"
     "rawSome.writeByteArray([0x48, 0x65, 0x6c, 0x6c, 0x6f, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xe5]);"
     "some = SinglePayloadEnumWithExtraInhabitants.makeValueFromRaw(rawSome);"
-    "send(some.tag === 0);"
+    "send(some.$tag === 0);"
   );
   EXPECT_SEND_MESSAGE_WITH ("true");
   EXPECT_SEND_MESSAGE_WITH ("true");
@@ -610,7 +610,7 @@ TESTCASE (singlepayload_enum_data_case_can_be_made_ad_hoc)
     "var zero = Int.makeEmptyValue();"
     "var SinglePayloadEnumWithNoExtraInhabitants = Swift.enums.SinglePayloadEnumWithNoExtraInhabitants;"
     "var i = SinglePayloadEnumWithNoExtraInhabitants.Some(zero);"
-    "send(i.payload.handle.readU64().toNumber() == zero.handle.readU64().toNumber());"
+    "send(i.$payload.handle.readU64().toNumber() == zero.handle.readU64().toNumber());"
   );
   EXPECT_SEND_MESSAGE_WITH ("true");
 }
@@ -645,7 +645,7 @@ TESTCASE (multipayload_enum_empty_case_can_be_made_from_raw)
     "rawF.add(0x10).writeU8(4);"
     "var MultiPayloadEnum = Swift.enums.MultiPayloadEnum;"
     "var f = MultiPayloadEnum.makeValueFromRaw(rawF);"
-    "send(f.tag === 5);"
+    "send(f.$tag === 5);"
   );
   EXPECT_SEND_MESSAGE_WITH ("true");
 }
@@ -654,8 +654,8 @@ TESTCASE (multipayload_enum_empty_case_can_be_gotten)
 {
   COMPILE_AND_LOAD_SCRIPT (
     "var MultiPayloadEnum = Swift.enums.MultiPayloadEnum;"
-    "send(MultiPayloadEnum.e.tag === 4);"
-    "send(MultiPayloadEnum.f.tag === 5);"
+    "send(MultiPayloadEnum.e.$tag === 4);"
+    "send(MultiPayloadEnum.f.$tag === 5);"
   );
   EXPECT_SEND_MESSAGE_WITH ("true");
   EXPECT_SEND_MESSAGE_WITH ("true");
@@ -669,7 +669,7 @@ TESTCASE (multipayload_enum_data_case_can_be_made_from_raw)
     "rawB.add(0x10).writeU8(1);"
     "var MultiPayloadEnum = Swift.enums.MultiPayloadEnum;"
     "var b = MultiPayloadEnum.makeValueFromRaw(rawB);"
-    "send(b.tag === 1);"
+    "send(b.$tag === 1);"
   );
   EXPECT_SEND_MESSAGE_WITH ("true");
 }
@@ -683,8 +683,8 @@ TESTCASE (multipayload_enum_data_case_can_be_made_ad_hoc)
     "var i = Int.makeValueFromRaw(buf);"
     "var MultiPayloadEnum = Swift.enums.MultiPayloadEnum;"
     "var a = MultiPayloadEnum.a(i);"
-    "send(a.tag === 0);"
-    "send(a.payload.handle.readU64() == 0xCAFE);"
+    "send(a.$tag === 0);"
+    "send(a.$payload.handle.readU64() == 0xCAFE);"
   );
   EXPECT_SEND_MESSAGE_WITH ("true");
   EXPECT_SEND_MESSAGE_WITH ("true");
