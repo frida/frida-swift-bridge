@@ -16,13 +16,16 @@ import { TargetClassDescriptor,
          TypeLayout, } from "../abi/metadata";
 import { MethodDescriptorKind,
          ProtocolClassConstraint } from "../abi/metadatavalues";
-import { resolveSymbolicReferences } from "../lib/symbols";
+import { parseSwiftMethodSignature,
+         resolveSymbolicReferences } from "../lib/symbols";
 import { FieldDescriptor } from "../reflection/records";
 import { getSymbolAtAddress } from "./symbols";
 import { EnumValue,
          ValueInstance,
          StructValue,
          RuntimeInstance } from "./runtime";
+import { Registry } from "./registry";
+import { makeSwiftNativeFunction } from "./callingconvention";
 
 type SwiftTypeKind = "Class" | "Enum" | "Struct";
 type MethodType = "Init" | "Getter" | "Setter" | "ModifyCoroutine" |
@@ -121,9 +124,29 @@ export class Class extends Type {
             let type: MethodType;
 
             switch (kind) {
-                case MethodDescriptorKind.Init:
+                case MethodDescriptorKind.Init: {
                     type = "Init";
+                    const parsed = parseSwiftMethodSignature(name);
+                    if (parsed === undefined) {
+                        break;
+                    }
+
+                    Object.defineProperty(this, parsed.methodName, {
+                        configurable: true,
+                        get() {
+                            const argTypes = parsed.argTypeNames.map(ty =>
+                                    Registry.shared().typeByName(ty));
+                            const fn = makeSwiftNativeFunction(address, this,
+                                    argTypes, this.$metadataPointer);
+
+                            Object.defineProperty(this, parsed.methodName, {
+                                value: fn,
+                            });
+                            return fn;
+                        }
+                    });
                     break;
+                }
                 case MethodDescriptorKind.Getter:
                     type = "Getter";
                     break;

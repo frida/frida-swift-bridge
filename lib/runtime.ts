@@ -10,8 +10,10 @@ import { TargetClassMetadata,
          TargetValueMetadata } from "../abi/metadata";
 import { HeapObject } from "../runtime/heapobject";
 import { makeBufferFromValue, RawFields } from "./buffer";
+import { makeSwiftNativeFunction } from "./callingconvention";
 import { Registry } from "./registry";
-import { Enum, Struct, ValueType } from "./types";
+import { parseSwiftAccessorSignature, parseSwiftMethodSignature } from "./symbols";
+import { Class, Enum, Struct, ValueType } from "./types";
 
 /* XXX: If you think this is bad, please suggest a better name */
 export abstract class RuntimeInstance {
@@ -159,5 +161,69 @@ export class ObjectInstance extends RuntimeInstance {
         super();
         this.#heapObject = new HeapObject(handle);
         this.typeMetadata = this.#heapObject.getMetadata(TargetClassMetadata);
+        const klass = Registry.shared()
+                .typeByName(this.typeMetadata.getFullTypeName()) as Class;
+
+        for (const method of klass.$methods) {
+            switch (method.type) {
+                case "Getter": {
+                    const parsed = parseSwiftAccessorSignature(method.name);
+                    if (parsed === undefined) {
+                        break;
+                    }
+
+                    const memberType = Registry.shared()
+                            .typeByName(parsed.memberTypeName);
+                    const getter = makeSwiftNativeFunction(method.address,
+                                memberType, [], this.handle);
+
+                    Object.defineProperty(this, parsed.memberName, {
+                        configurable: true,
+                        enumerable: true,
+                        get: getter as () => any,
+                    });
+                    break;
+                }
+                case "Setter": {
+                    const parsed = parseSwiftAccessorSignature(method.name);
+                    if(parsed === undefined) {
+                        break;
+                    }
+
+                    const memberType = Registry.shared()
+                            .typeByName(parsed.memberTypeName);
+                    const setter = makeSwiftNativeFunction(method.address,
+                                "void", [memberType], this.handle);
+
+                    Object.defineProperty(this, parsed.memberName, {
+                        configurable: true,
+                        enumerable: true,
+                        set: setter as (any) => void,
+                    });
+                    break;
+                }
+                case "Method": {
+                    const parsed = parseSwiftMethodSignature(method.name);
+                    if (parsed === undefined) {
+                        break;
+                    }
+
+                    const retType = parsed.retTypeName === "void" ?
+                                    "void" :
+                                    Registry.shared().typeByName(parsed.retTypeName);
+                    const argTypes = parsed.argTypeNames.map(ty =>
+                                Registry.shared().typeByName(ty));
+                    const fn = makeSwiftNativeFunction(method.address, retType,
+                            argTypes, this.handle);
+
+                    Object.defineProperty(this, parsed.jsSignature, {
+                        configurable: true,
+                        enumerable: true,
+                        value: fn,
+                    });
+                    break;
+                }
+            }
+        }
     }
 }
