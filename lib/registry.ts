@@ -73,27 +73,27 @@ export class Registry {
     }
 
     typeByName(name: string) {
-        if (name.startsWith("Swift.")) {
-            name = name.substring(6);
-        }
-
         if (name in this.cachedTypes) {
             return this.cachedTypes[name];
         }
 
-        let type: Type;
-        for (const module of Object.values(this.modules)) {
-            type = module.classes[name] ||
-                   module.structs[name] ||
-                   module.enums[name];
-
-            if (type !== undefined) {
-                break;
-            }
+        const moduleName = name.split(".")[0];
+        const typeName = name.split(".")[1];
+        if (moduleName === undefined || typeName === undefined) {
+            throw new Error("Bad type name: " + name);
         }
 
+        const module = this.modules[moduleName];
+        if (module === undefined) {
+            throw new Error("Module not found: " + moduleName);
+        }
+
+        const type = module.classes[typeName] ||
+                     module.structs[typeName] ||
+                     module.enums[typeName];
+
         if (type === undefined) {
-            throw new Error(`Type not found: ${name}`);
+            throw new Error("Type not found: " + name);
         }
 
         this.cachedTypes[name] = type;

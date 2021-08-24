@@ -11,7 +11,7 @@ type ModuleName = string;
 
 interface CachedSymbolEntry {
     [address: string]: string;
-};
+}
 
 export interface SimpleSymbolDetails {
     address: string,
@@ -133,4 +133,88 @@ function isSwiftSmybol(name: string): boolean {
     }
 
     return false;
+}
+
+interface MethodSignatureParseResult {
+    methodName: string,
+    argNames: string[],
+    argTypeNames: string[],
+    retTypeName: string,
+    jsSignature: string,
+}
+
+export function parseSwiftMethodSignature(signature: string):
+        MethodSignatureParseResult {
+    const methNameAndRetTypeExp = /([a-zA-Z_]\w+)(<.+>)*\(.*\) -> ([\w.]+)$/g;
+    const argsExp = /(\w+): ([\w.]+)(?:, )*/g;
+
+    const methNameAndTypeMatch = methNameAndRetTypeExp.exec(signature);
+
+    if (methNameAndTypeMatch === null) {
+        return undefined;
+    }
+
+    const methodName = methNameAndTypeMatch[1];
+    const retTypeName = methNameAndTypeMatch[3] || "void";
+
+    if (methodName === undefined) {
+        return undefined;
+    }
+
+    const argNames: string[] = [];
+    const argTypeNames: string[] = [];
+    let match;
+
+    while ((match = argsExp.exec(signature)) !== null) {
+        argNames.push(match[1]);
+        argTypeNames.push(match[2]);
+    }
+
+    if (argNames.length !== argTypeNames.length) {
+        return undefined;
+    }
+
+    let jsSignature = methodName;
+    jsSignature += argNames.length > 0 ? "_" : "";
+    jsSignature += argNames.join("_");
+    jsSignature += argNames.length > 0 ? "_" : "";
+
+    return {
+        methodName,
+        argNames,
+        argTypeNames,
+        retTypeName,
+        jsSignature,
+    }
+}
+
+interface AccessorSignatureParseResult {
+    accessorType: "getter" | "setter",
+    memberName: string,
+    memberTypeName: string,
+}
+
+export function parseSwiftAccessorSignature(signature: string):
+        AccessorSignatureParseResult {
+    const exp = /(\w+).(getter|setter) : ([\w.]+)$/g;
+    const match = exp.exec(signature);
+
+    if (match === null) {
+        return undefined;
+    }
+
+    const accessorType = match[2];
+
+    if (accessorType !== "getter" && accessorType !== "setter") {
+        return undefined;
+    }
+
+    const memberName = match[1];
+    const memberTypeName = match[3];
+
+    return {
+        accessorType,
+        memberName,
+        memberTypeName,
+    }
 }
