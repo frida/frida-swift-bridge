@@ -1,5 +1,3 @@
-import { SwiftcallNativeFunction } from "../lib/callingconvention";
-
 export interface API {
     [func: string]: Function,
 }
@@ -40,7 +38,7 @@ export function getApi(): API {
         }
     }];
 
-    const swiftAPI = makeAPI(pendingSwift, true);
+    const swiftAPI = makeAPI(pendingSwift);
     cachedApi = Object.assign(cachedApi, swiftAPI);
 
     return cachedApi;
@@ -65,7 +63,7 @@ export function getPrivateAPI(): API {
     return cachedPrivateAPI;
 }
 
-function makeAPI(exports: any, swiftcall = false): API {
+function makeAPI(exports: any): API {
     const result: API = {};
 
     exports.forEach(api => {
@@ -84,9 +82,7 @@ function makeAPI(exports: any, swiftcall = false): API {
 
             const returnType = functions[name][0];
             const argumentTypes = functions[name][1];
-            const native = swiftcall ?
-                           new SwiftcallNativeFunction(exp, returnType, argumentTypes).wrapper:
-                           new NativeFunction(exp, returnType, argumentTypes);
+            const native = new NativeFunction(exp, returnType, argumentTypes);
 
             result[name] = native;
         });
