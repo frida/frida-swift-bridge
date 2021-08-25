@@ -100,12 +100,8 @@ TESTCASE (swiftcall_with_context)
 {
   COMPILE_AND_LOAD_SCRIPT(
     "var Int = Swift.structs.Int;"
-    "var buf1 = Memory.alloc(8);"
-    "buf1.writeU64(0xDEAD);"
-    "var i1 = Int.makeValueFromRaw(buf1);"
-    "var buf2 = Memory.alloc(8);"
-    "buf2.writeU64(0xBABE);"
-    "var i2 = Int.makeValueFromRaw(buf2);"
+    "var i1 = new Swift.Struct(Int, { raw: [0xDEAD] });"
+    "var i2 = new Swift.Struct(Int, { raw: [0xBABE] });"
     "var SimpleClass = Swift.classes.SimpleClass;"
     "var initPtr = SimpleClass.$methods.filter(m => m.type === 'Init')[0].address;"
     "var init = Swift.NativeFunction(initPtr, SimpleClass, [Int, Int], SimpleClass.$metadataPointer);"
@@ -184,9 +180,7 @@ TESTCASE(swiftcall_with_indirect_result_and_stack_arguments)
       "symbols = dummy.enumerateSymbols().filter(s => s.name === '$s5dummy18makeLoadableStruct1a1b1c1dAA0cD0VSi_S3itF');"
       "target = symbols[0].address;"
       "var makeLoadableStruct = Swift.NativeFunction(target, LoadableStruct, [Int, Int, Int, Int]);"
-      "var buf1 = Memory.alloc(8);"
-      "buf1.writeU64(0x1);"
-      "var i1 = Int.makeValueFromRaw(buf1);"
+      "var i1 = new Swift.Struct(Int, { raw: [1] });"
       "var loadable = makeLoadableStruct(i1, i1, i1, i1);"
       "var big = makeBigStructWithManyArguments(loadable, loadable, i1, i1, i1, i1, i1);"
       "send(!big.handle.equals(ptr(0x0)));"
@@ -278,12 +272,10 @@ TESTCASE (class_instance_can_be_passed_to_and_returned_from_function)
     "var dummy = Process.getModuleByName('dummy.o');"
     "var SimpleClass = Swift.classes.SimpleClass;"
     "var Int = Swift.structs.Int;"
-    "var i1 = Int.makeEmptyValue();"
-    "i1.handle.writeU64(0x1337);"
-    "var i2 = Int.makeEmptyValue();"
-    "i2.handle.writeU64(0xaaaa);"
+    "var i1 = new Swift.Struct(Int, { raw: [0x1337] });"
+    "var i2 = new Swift.Struct(Int, { raw: [0xaaaa] });"
     "var simple = SimpleClass.__allocating_init(i1, i2);"
-    "send(simple.typeMetadata.handle.equals(SimpleClass.$metadataPointer));"
+    "send(simple.$metadata.handle.equals(SimpleClass.$metadataPointer));"
     "send(simple.handle.add(2 * Process.pointerSize).readU64() == 0x1337);"
     "send(simple.handle.add(3 * Process.pointerSize).readU64() == 0xaaaa);"
   );
@@ -302,13 +294,11 @@ TESTCASE (swiftcall_multipayload_enum_can_be_passed_to_function)
     "var Int = Swift.structs.Int;"
     "var MultiPayloadEnum = Swift.enums.MultiPayloadEnum;"
     "var takeMultiPayloadEnumCase = Swift.NativeFunction(target, Int, [MultiPayloadEnum]);"
-    "var buf = Memory.alloc(8);"
-    "buf.writeU64(0xCAFE);"
-    "var i = Int.makeValueFromRaw(buf);"
+    "var i = new Swift.Struct(Int, { raw: [0xCAFE] });"
     "var a = MultiPayloadEnum.a(i);"
     "send(takeMultiPayloadEnumCase(a).handle.readU64() == 0);"
     "var Bool = Swift.structs.Bool;"
-    "var truthy = Bool.makeValueFromRaw(Memory.alloc(1).writeU8(1));"
+    "var truthy = new Swift.Struct(Bool, { raw: [1] });"
     "var d = MultiPayloadEnum.d(truthy);"
     "send(takeMultiPayloadEnumCase(d).handle.readU64() == 3);"
   );
@@ -320,7 +310,7 @@ TESTCASE (swiftcall_multipayload_enum_can_be_returned_from_function)
 {
     COMPILE_AND_LOAD_SCRIPT(
     "var Int = Swift.structs.Int;"
-    "var tag0 = Int.makeValueFromRaw(Memory.alloc(8).writeU64(0x0));"
+    "var tag0 = new Swift.Struct(Int, { raw: [0] });"
     "var dummy = Process.getModuleByName('dummy.o');"
     "var symbols = dummy.enumerateSymbols();"
     "symbols = symbols.filter(s => s.name == '$s5dummy24makeMultiPayloadEnumCase4withAA0cdE0OSi_tF');"
@@ -330,7 +320,7 @@ TESTCASE (swiftcall_multipayload_enum_can_be_returned_from_function)
     "var a = makeMultiPayloadEnumCase(tag0);"
     "send(a.$tag === 0);"
     "send(a.$payload.handle.readU64() == 0x1337);"
-    "var tag1 = Int.makeValueFromRaw(Memory.alloc(8).writeU64(0x1));"
+    "var tag1 = new Swift.Struct(Int, { raw: [1] });"
     "var b = makeMultiPayloadEnumCase(tag1);"
     "send(b.$tag === 1);"
     "send(b.$payload.handle.readCString() == 'Octagon');"
@@ -352,9 +342,7 @@ TESTCASE (opaque_existential_inline_can_be_passed_to_function)
     "var Bool = Swift.structs.Bool;"
     "var takeInlineExistentialStruct = Swift.NativeFunction(target, Bool, [Existential]);"
     "var InlineExistentialStruct = Swift.structs.InlineExistentialStruct;"
-    "var inline = InlineExistentialStruct.makeEmptyValue();"
-    "inline.handle.writeU64(0xCAFE);"
-    "inline.handle.add(8).writeU64(0xBABE);"
+    "var inline = new Swift.Struct(InlineExistentialStruct, { raw: [0xCAFE, 0xBABE] });"
     "var result = takeInlineExistentialStruct(inline);"
     "send(result.handle.readU8() == 1);"
   );
@@ -371,11 +359,9 @@ TESTCASE (opaque_existential_inline_can_be_returned_from_function)
     "var Existential = Swift.protocols.Existential;"
     "var passThroughExistential = Swift.NativeFunction(target, Existential, [Existential]);"
     "var InlineExistentialStruct = Swift.structs.InlineExistentialStruct;"
-    "var inline = InlineExistentialStruct.makeEmptyValue();"
-    "inline.handle.writeU64(0xCAFE);"
-    "inline.handle.add(8).writeU64(0xBABE);"
+    "var inline = new Swift.Struct(InlineExistentialStruct, { raw: [0xCAFE, 0xBABE] });"
     "var result = passThroughExistential(inline);"
-    "send(result.type.$name === 'InlineExistentialStruct');"
+    "send(result.$metadata.handle.equals(InlineExistentialStruct.$metadata.handle));"
     "send(result.handle.readU64().toNumber() == 0xCAFE);"
     "send(result.handle.add(8).readU64().toNumber() == 0xBABE);"
   );
@@ -395,9 +381,7 @@ TESTCASE (opaque_existential_outofline_can_be_passed_to_function)
     "var Bool = Swift.structs.Bool;"
     "var takeOutOfLineExistentialStruct = Swift.NativeFunction(target, Bool, [Existential]);"
     "var OutOfLineExistentialStruct = Swift.structs.OutOfLineExistentialStruct;"
-    "var outOfLine = OutOfLineExistentialStruct.makeEmptyValue();"
-    "outOfLine.handle.writeU64(0xDEAD);"
-    "outOfLine.handle.add(8).writeU64(0xBEEF);"
+    "var outOfLine = new Swift.Struct(OutOfLineExistentialStruct, { raw: [0xDEAD, 0xBEEF] });"
     "var result = takeOutOfLineExistentialStruct(outOfLine);"
     "send(result.handle.readU8() == 1);"
   );
@@ -414,11 +398,9 @@ TESTCASE (opaque_existential_outofline_can_be_returned_from_function)
     "var Existential = Swift.protocols.Existential;"
     "var passThroughExistential = Swift.NativeFunction(target, Existential, [Existential]);"
     "var OutOfLineExistentialStruct = Swift.structs.OutOfLineExistentialStruct;"
-    "var outOfLine = OutOfLineExistentialStruct.makeEmptyValue();"
-    "outOfLine.handle.writeU64(0xDEAD);"
-    "outOfLine.handle.add(8).writeU64(0xBEEF);"
+    "var outOfLine = new Swift.Struct(OutOfLineExistentialStruct, { raw: [0xDEAD, 0xBEEF] });"
     "var result = passThroughExistential(outOfLine);"
-    "send(result.type.$name === 'OutOfLineExistentialStruct');"
+    "send(result.$metadata.handle.equals(OutOfLineExistentialStruct.$metadata.handle));"
     "send(result.handle.readU64().toNumber() == 0xDEAD);"
     "send(result.handle.add(8).readU64().toNumber() == 0xBEEF);"
   );
@@ -461,10 +443,8 @@ TESTCASE (opaque_existential_inline_multiple_conformances_can_be_passed_to_and_r
     "var Togglable = Swift.protocols.Togglable;"
     "var ExistentialAndTogglable = new Swift.ProtocolComposition(Existential, Togglable);"
     "var passCompositeExistentialThrough = Swift.NativeFunction(target, ExistentialAndTogglable, [ExistentialAndTogglable]);"
-    "var inlineExistential = Swift.structs.InlineCompositeExistentialStruct;"
-    "var i = inlineExistential.makeEmptyValue();"
-    "i.handle.writeU64(0xDEAD);"
-    "i.handle.add(Process.pointerSize).writeU64(0xBEEF);"
+    "var InlineCompositeExistentialStruct = Swift.structs.InlineCompositeExistentialStruct;"
+    "var i = new Swift.Struct(InlineCompositeExistentialStruct, { raw: [0xDEAD, 0xBEEF] });"
     "var result = passCompositeExistentialThrough(i);"
     "send(result.handle.readU64(0xDEAD) == 0xDEAD);"
     "send(result.handle.add(8).readU64(0xBEEF) == 0xBEEF);"
@@ -486,7 +466,7 @@ TESTCASE (class_existential_can_be_passed_to_and_returned_from_function)
     "var ClassBoundExistential = Swift.protocols.ClassBoundExistential;"
     "var passClassBoundExistentialThrough = Swift.NativeFunction(target, ClassBoundExistential, [ClassBoundExistential]);"
     "var e = passClassBoundExistentialThrough(instance);"
-    "send(ClassOnlyExistentialClass.$metadataPointer.equals(e.typeMetadata.handle));"
+    "send(ClassOnlyExistentialClass.$metadataPointer.equals(e.$metadata.handle));"
     "send(e.handle.add(0x10).readU64() == 0xAAAAAAAA);"
   );
   EXPECT_SEND_MESSAGE_WITH ("true");
@@ -509,7 +489,7 @@ TESTCASE (class_existential_multiple_conformances_can_be_passed_to_and_rerturned
     "var ClassBoundExistentialAndTogglable = new Swift.ProtocolComposition(ClassBoundExistential, Togglable);"
     "var passCompositeClassBoundExistentialThrough = Swift.NativeFunction(target, ClassBoundExistentialAndTogglable, [ClassBoundExistentialAndTogglable]);"
     "var result = passCompositeClassBoundExistentialThrough(instance);"
-    "send(result.typeMetadata.handle.equals(CompositeClassBoundExistentialClass.$metadataPointer));"
+    "send(result.$metadata.handle.equals(CompositeClassBoundExistentialClass.$metadataPointer));"
     "send(result.handle.add(2 * Process.pointerSize).readU64() == 0x0B00B135);"
     "send(result.handle.add(3 * Process.pointerSize).readU64() == 0xB16B00B5);"
   );
@@ -522,9 +502,7 @@ TESTCASE (c_style_enum_can_be_made_from_raw)
 {
   COMPILE_AND_LOAD_SCRIPT(
     "var CStyle = Swift.enums.CStyle;"
-    "var buf = Memory.alloc(CStyle.$typeLayout.stride);"
-    "buf.writeU8(1);"
-    "var b = CStyle.makeValueFromRaw(buf);"
+    "var b = new Swift.Enum(CStyle, { raw: [1] });"
     "send(b.$tag === 1);"
   );
   EXPECT_SEND_MESSAGE_WITH ("true");
@@ -560,11 +538,11 @@ TESTCASE (singlepayload_enum_empty_case_can_be_made_from_raw)
     "var rawA = Memory.alloc(16);"
     "rawA.add(8).writeU8(1);"
     "var SinglePayloadEnumWithNoExtraInhabitants = Swift.enums.SinglePayloadEnumWithNoExtraInhabitants;"
-    "var a = SinglePayloadEnumWithNoExtraInhabitants.makeValueFromRaw(rawA);"
+    "var a = new Swift.Enum(SinglePayloadEnumWithNoExtraInhabitants, { handle: rawA });"
     "send(a.$tag === 1);"
     "rawA = Memory.alloc(16);"
     "var SinglePayloadEnumWithExtraInhabitants = Swift.enums.SinglePayloadEnumWithExtraInhabitants;"
-    "a = SinglePayloadEnumWithExtraInhabitants.makeValueFromRaw(rawA);"
+    "a = new Swift.Enum(SinglePayloadEnumWithExtraInhabitants, { handle: rawA });"
     "send(a.$tag === 1);"
   );
   EXPECT_SEND_MESSAGE_WITH ("true");
@@ -591,12 +569,12 @@ TESTCASE (singlepayload_enum_data_case_can_be_made_from_raw)
     "var rawSome = Memory.alloc(16);"
     "rawSome.writeU64(0x1337);"
     "var SinglePayloadEnumWithNoExtraInhabitants = Swift.enums.SinglePayloadEnumWithNoExtraInhabitants;"
-    "var some = SinglePayloadEnumWithNoExtraInhabitants.makeValueFromRaw(rawSome);"
+    "var some = new Swift.Enum(SinglePayloadEnumWithNoExtraInhabitants, { handle: rawSome });"
     "send(some.$tag === 0);"
     "var SinglePayloadEnumWithExtraInhabitants = Swift.enums.SinglePayloadEnumWithExtraInhabitants;"
     "rawSome = Memory.alloc(16);"
     "rawSome.writeByteArray([0x48, 0x65, 0x6c, 0x6c, 0x6f, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xe5]);"
-    "some = SinglePayloadEnumWithExtraInhabitants.makeValueFromRaw(rawSome);"
+    "some = new Swift.Enum(SinglePayloadEnumWithExtraInhabitants, { handle: rawSome });"
     "send(some.$tag === 0);"
   );
   EXPECT_SEND_MESSAGE_WITH ("true");
@@ -607,7 +585,7 @@ TESTCASE (singlepayload_enum_data_case_can_be_made_ad_hoc)
 {
   COMPILE_AND_LOAD_SCRIPT(
     "var Int = Swift.structs.Int;"
-    "var zero = Int.makeEmptyValue();"
+    "var zero = new Swift.Struct(Int, { raw: [0] });"
     "var SinglePayloadEnumWithNoExtraInhabitants = Swift.enums.SinglePayloadEnumWithNoExtraInhabitants;"
     "var i = SinglePayloadEnumWithNoExtraInhabitants.Some(zero);"
     "send(i.$payload.handle.readU64().toNumber() == zero.handle.readU64().toNumber());"
@@ -644,7 +622,7 @@ TESTCASE (multipayload_enum_empty_case_can_be_made_from_raw)
     "rawF.writeU8(1);"
     "rawF.add(0x10).writeU8(4);"
     "var MultiPayloadEnum = Swift.enums.MultiPayloadEnum;"
-    "var f = MultiPayloadEnum.makeValueFromRaw(rawF);"
+    "var f = new Swift.Enum(MultiPayloadEnum, { handle: rawF });"
     "send(f.$tag === 5);"
   );
   EXPECT_SEND_MESSAGE_WITH ("true");
@@ -668,7 +646,7 @@ TESTCASE (multipayload_enum_data_case_can_be_made_from_raw)
     "rawB.writeByteArray([0x57, 0x6f, 0x72, 0x6c, 0x64, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xe5]);"
     "rawB.add(0x10).writeU8(1);"
     "var MultiPayloadEnum = Swift.enums.MultiPayloadEnum;"
-    "var b = MultiPayloadEnum.makeValueFromRaw(rawB);"
+    "var b = new Swift.Enum(MultiPayloadEnum, { handle: rawB });"
     "send(b.$tag === 1);"
   );
   EXPECT_SEND_MESSAGE_WITH ("true");
@@ -680,7 +658,7 @@ TESTCASE (multipayload_enum_data_case_can_be_made_ad_hoc)
     "var buf = Memory.alloc(8);"
     "buf.writeU64(0xCAFE);"
     "var Int = Swift.structs.Int;"
-    "var i = Int.makeValueFromRaw(buf);"
+    "var i = new Swift.Struct(Int, { handle: buf });"
     "var MultiPayloadEnum = Swift.enums.MultiPayloadEnum;"
     "var a = MultiPayloadEnum.a(i);"
     "send(a.$tag === 0);"
@@ -695,15 +673,11 @@ TESTCASE (multipayload_enum_equals_works)
   COMPILE_AND_LOAD_SCRIPT(
     "var MultiPayloadEnum = Swift.enums.MultiPayloadEnum;"
     "send(MultiPayloadEnum.e.equals(MultiPayloadEnum.f));"
-    "var buf1 = Memory.alloc(8);"
-    "buf1.writeU64(0xCAFE);"
     "var Int = Swift.structs.Int;"
-    "var i1 = Int.makeValueFromRaw(buf1);"
+    "var i1 = new Swift.Struct(Int, { raw: [0xCAFE] });"
     "var MultiPayloadEnum = Swift.enums.MultiPayloadEnum;"
     "var a1 = MultiPayloadEnum.a(i1);"
-    "var buf2 = Memory.alloc(8);"
-    "buf2.writeU64(0xBABE);"
-    "var i2 = Int.makeValueFromRaw(buf2);"
+    "var i2 = new Swift.Struct(Int, { raw: [0xBABE] });"
     "var a2 = MultiPayloadEnum.a(i2);"
     "send(a1.equals(a2));"
   );
