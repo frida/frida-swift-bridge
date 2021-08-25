@@ -13,7 +13,7 @@ import { ContextDescriptorKind,
          TypeReferenceKind,
          ConformanceFlags,
          getEnumeratedMetadataKind,
-         ProtocolContextDescriptorFlags} from "./metadatavalues";
+         ProtocolContextDescriptorFlags } from "./metadatavalues";
 import { RelativeDirectPointer,
          RelativeIndirectablePointer } from "../basic/relativepointer";
 import { BoxPair } from "../runtime/heapobject";
@@ -104,6 +104,21 @@ export abstract class TargetMetadata {
 
     getFullTypeName(): string {
         return this.getDescription().getFullTypeName();
+    }
+
+    static from(handle: NativePointer): TargetMetadata {
+        const tmp = new TargetValueMetadata(handle);
+
+        switch (tmp.getKind()) {
+            case MetadataKind.Class:
+                return new TargetClassMetadata(handle);
+            case MetadataKind.Struct:
+                return new TargetStructMetadata(handle);
+            case MetadataKind.Enum:
+                return new TargetEnumMetadata(handle);
+            default:
+                throw new Error("Unknown metadata kind");
+        }
     }
 }
 
@@ -681,12 +696,6 @@ export class TargetProtocolConformanceDescriptor {
     getTypeDescriptor(): NativePointer {
         return this.typeRef.getTypeDescriptor(this.getTypeKind());
     }
-}
-
-export interface FieldDetails {
-    name: string;
-    type?: string;
-    isVar?: boolean;
 }
 
 class ContextDescriptorFlags {

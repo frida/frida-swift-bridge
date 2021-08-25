@@ -1,23 +1,109 @@
-import { TargetProtocolConformanceDescriptor, TargetTypeContextDescriptor,
-         TargetProtocolDescriptor } from "../abi/metadata";
+import {
+    TargetTypeContextDescriptor, TargetProtocolDescriptor, TargetClassDescriptor,
+    TargetStructDescriptor, TargetEnumDescriptor, TargetMetadata, TargetProtocolConformanceDescriptor, TargetStructMetadata
+} from "../abi/metadata";
 import { ContextDescriptorKind } from "../abi/metadatavalues";
 import { RelativeDirectPointer } from "../basic/relativepointer";
-import { getPrivateAPI } from "./api";
-import { Type, Class, Struct, Enum, Protocol } from "./types";
-
-export type TypeMap = Record<string, Type>;
-export type ClassMap = Record<string, Class>;
-export type StructMap = Record<string, Struct>;
-export type EnumMap = Record<string, Enum>;
-export type ProtocolMap = Record<string, Protocol>;
+import { demangleSwiftSymbol } from "./symbols";
 
 interface MachOSection {
     vmAddress: NativePointer,
     size: number,
 }
 
-export function enumerateTypes(module: Module): Type[] {
-    const result: Type[] = [];
+interface ProtocolDescriptorMap {
+    [protoName: string]: TargetProtocolDescriptor
+}
+
+export interface ProtocolConformance {
+    protocol: TargetProtocolDescriptor,
+    witnessTable: NativePointer,
+}
+
+export interface ProtocolConformanceMap {
+    [protoName: string]: ProtocolConformance
+}
+
+interface FullTypeData {
+    descriptor: TargetTypeContextDescriptor,
+    metadata?: TargetMetadata,
+    conformances: ProtocolConformanceMap,
+}
+
+interface FullTypeDataMap {
+    [fullTypeName: string]: FullTypeData
+}
+
+interface TypeDataConstructor<T> {
+    new(handle: NativePointer): T;
+}
+
+const allModules = new ModuleMap();
+export const protocolDescriptorMap: ProtocolDescriptorMap = {};
+export const fullTypeDataMap: FullTypeDataMap = {};
+
+for (const module of allModules.values()) {
+    for (const descriptor of enumerateTypeDescriptors(module)) {
+
+        /* TODO: figure out why multiple descriptors could have the same name */
+        fullTypeDataMap[descriptor.getFullTypeName()] = { descriptor, conformances: {} };
+    }
+
+    for (const descriptor of enumerateProtocolDescriptors(module)) {
+        protocolDescriptorMap[descriptor.name] = descriptor;
+    }
+}
+
+for (const module of allModules.values()) {
+    bindProtocolConformances(module);
+}
+
+export function untypedMetadataFor(typeName: string): TargetMetadata {
+    const fullTypeData = fullTypeDataMap[typeName];
+
+    if (fullTypeData === undefined) {
+        throw new Error("Type not found: " + typeName);
+    }
+
+    if (fullTypeData.metadata !== undefined) {
+        return fullTypeDataMap[typeName].metadata;
+    }
+
+    const metadataPtr = fullTypeData.descriptor.getAccessFunction().call() as NativePointer;
+    const metadata = TargetMetadata.from(metadataPtr);
+    fullTypeDataMap[typeName].metadata = metadata;
+    return metadata;
+}
+
+export function metadataFor<T extends TargetMetadata>(typeName: string, c: TypeDataConstructor<T>): T {
+    const fullTypeData = fullTypeDataMap[typeName];
+
+    if (fullTypeData === undefined) {
+        throw new Error("Type not found: " + typeName);
+    }
+
+    if (fullTypeData.metadata !== undefined) {
+        return fullTypeDataMap[typeName].metadata as T;
+    }
+
+    const metadataPtr = fullTypeData.descriptor.getAccessFunction().call() as NativePointer;
+    const metadata = TargetMetadata.from(metadataPtr);
+    fullTypeDataMap[typeName].metadata = metadata;
+    return metadata as T;
+}
+
+export function protocolConformancesFor(typeName: string): ProtocolConformanceMap {
+    const fullTypeData = fullTypeDataMap[typeName];
+
+    if (fullTypeData === undefined) {
+        throw new Error("Type not found: " + typeName);
+    }
+
+    return fullTypeData.conformances;
+}
+
+function enumerateTypeDescriptors(module: Module): TargetTypeContextDescriptor[] {
+    const result: TargetTypeContextDescriptor[] = [];
     const section = getSwif5TypesSection(module);
     const nTypes = section.size / RelativeDirectPointer.sizeOf;
 
@@ -31,30 +117,30 @@ export function enumerateTypes(module: Module): Type[] {
         }
 
         const kind = ctxDesc.getKind();
-        let type: Type;
+        let descriptor: TargetTypeContextDescriptor;
 
         switch (kind) {
             case ContextDescriptorKind.Class:
-                type = new Class(module, ctxDescPtr);
+                descriptor = new TargetClassDescriptor(ctxDescPtr);
                 break;
             case ContextDescriptorKind.Struct:
-                type = new Struct(module, ctxDescPtr);
+                descriptor = new TargetStructDescriptor(ctxDescPtr);
                 break;
             case ContextDescriptorKind.Enum:
-                type = new Enum(module, ctxDescPtr);
+                descriptor = new TargetEnumDescriptor(ctxDescPtr);
                 break;
             default:
                 throw new Error(`Unhandled context descriptor kind: ${kind}`);
         }
 
-        result.push(type);
+        result.push(descriptor);
     }
 
     return result;
 }
 
-export function enumerateProtocols(module: Module) {
-    const result: Protocol[] = [];
+function enumerateProtocolDescriptors(module: Module): TargetProtocolDescriptor[] {
+    const result: TargetProtocolDescriptor[] = [];
     const section = getSwift5ProtocolsSection(module);
     const numProtos = section.size / RelativeDirectPointer.sizeOf;
 
@@ -62,16 +148,14 @@ export function enumerateProtocols(module: Module) {
         const record = section.vmAddress.add(i * RelativeDirectPointer.sizeOf);
         const ctxDescPtr = RelativeDirectPointer.From(record).get();
         const ctxDesc = new TargetProtocolDescriptor(ctxDescPtr);
-        const protocol = new Protocol(ctxDesc);
 
-        result.push(protocol);
+        result.push(ctxDesc);
     }
 
     return result;
 }
 
-export function bindProtocolConformances(module: Module,
-                                         typeFinder: (name: string) => Type) {
+function bindProtocolConformances(module: Module) {
     const section = getSwift5ProtocolConformanceSection(module);
     const numRecords = section.size / RelativeDirectPointer.sizeOf;
 
@@ -79,29 +163,29 @@ export function bindProtocolConformances(module: Module,
         const recordPtr = section.vmAddress.add(i * RelativeDirectPointer.sizeOf);
         const descPtr = RelativeDirectPointer.From(recordPtr).get();
         const conformanceDesc = new TargetProtocolConformanceDescriptor(
-                descPtr);
+            descPtr);
         const typeDescPtr = conformanceDesc.getTypeDescriptor();
         const typeDesc = new TargetTypeContextDescriptor(typeDescPtr);
         const protocolDesc = new TargetProtocolDescriptor(
-                    conformanceDesc.protocol);
+            conformanceDesc.protocol);
 
-        /**
-         * TODO:
+        /** TODO:
          *  - Handle ObjC case explicitly
          *  - Implement protocol inheritance
          *  - Implement generics
-        */
+         */
         if (typeDescPtr === null || typeDesc.isGeneric() ||
             typeDesc.getKind() === ContextDescriptorKind.Protocol) {
             continue;
         }
 
-        const cachedType = typeFinder(typeDesc.getFullTypeName());
+        const type = fullTypeDataMap[typeDesc.getFullTypeName()];
         const conformance = {
             protocol: protocolDesc,
             witnessTable: conformanceDesc.witnessTablePattern,
         };
-        cachedType.$conformances[protocolDesc.name] = conformance;
+
+        type.conformances[protocolDesc.name] = conformance;
     }
 }
 
@@ -118,52 +202,68 @@ function getSwift5ProtocolConformanceSection(module: Module): MachOSection {
 }
 
 function getMachoSection(module: Module,
-                            sectionName: string,
-                            segmentName: string = "__TEXT"): MachOSection {
+    sectionName: string,
+    segmentName: string = "__TEXT"): MachOSection {
+    Module.ensureInitialized("libmacho.dylib");
+    const addr = Module.getExportByName("libmacho.dylib", "getsectiondata");
+    const getsectiondata = new NativeFunction(addr, "pointer", ["pointer",
+        "pointer", "pointer", "pointer"]);
+
     const machHeader = module.base;
     const segName = Memory.allocUtf8String(segmentName);
     const sectName = Memory.allocUtf8String(sectionName);
     const sizeOut = Memory.alloc(Process.pointerSize);
-    const privAPI = getPrivateAPI();
 
-    const vmAddress = privAPI.getsectiondata(machHeader, segName, sectName,
+    const vmAddress = getsectiondata(machHeader, segName, sectName,
         sizeOut) as NativePointer;
     const size = sizeOut.readU32() as number;
 
     return { vmAddress, size };
 }
 
-export class SwiftModule {
-    readonly classes: ClassMap = {};
-    readonly structs: StructMap = {};
-    readonly enums: EnumMap = {};
-    readonly protocols: ProtocolMap = {};
+interface SymbolCache {
+    [moduleName: string]: {
+        [address: number]: string;
+    }
+}
 
-    constructor(readonly name: string) {
+const cachedSymbols: SymbolCache = {};
+
+export function enumerateDemangledSymbols(module: Module): ModuleSymbolDetails[] {
+    let result: ModuleSymbolDetails[];
+    const symbols = module.enumerateSymbols();
+
+    result = symbols.flatMap(s => {
+        const demangled = demangleSwiftSymbol(s.name);
+        if (demangled) {
+            s.name = demangled;
+            return [s];
+        } else {
+            return [];
+        }
+    });
+
+    return result;
+}
+
+export function findDemangledSymbol(address: NativePointer): string {
+    const module = allModules.find(address)
+    if (module === null) {
+        return undefined;
     }
 
-    addClass(klass: Class) {
-        this.classes[klass.$name] = klass;
+    const rawAddr = address.toUInt32();
+    const cachedModule = cachedSymbols[module.name];
+    if (cachedModule !== undefined) {
+        return cachedModule[rawAddr];
     }
 
-    addStruct(struct: Struct) {
-        this.structs[struct.$name] = struct;
+    const symbols = enumerateDemangledSymbols(module);
+    cachedSymbols[module.name] = {};
+
+    for (const s of symbols) {
+        cachedSymbols[module.name][s.address.toUInt32()] = s.name;
     }
 
-    addEnum(anEnum: Enum) {
-        this.enums[anEnum.$name] = anEnum;
-    }
-
-    addProtocol(protocol: Protocol) {
-        this.protocols[protocol.name] = protocol;
-    }
-
-    toJSON() {
-        return {
-            classes: Object.keys(this.classes).length,
-            structs: Object.keys(this.structs).length,
-            enums: Object.keys(this.enums).length,
-            protocols: Object.keys(this.protocols).length,
-        };
-    }
+    return cachedSymbols[module.name][rawAddr];
 }
