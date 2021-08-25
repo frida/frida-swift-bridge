@@ -229,8 +229,8 @@ TESTCASE (class_instance_can_be_initialized)
 {
   COMPILE_AND_LOAD_SCRIPT (
     "var { Int } = Swift.structs;"
-    "var i2 = new Swift.Struct(Int, [2]);"
-    "var i3 = new Swift.Struct(Int, [3]);"
+    "var i2 = new Swift.Struct(Int, { raw: [2] });"
+    "var i3 = new Swift.Struct(Int, { raw: [3] });"
     "var SimpleClass = Swift.classes.SimpleClass;"
     "var instance = SimpleClass.__allocating_init(i2, i3);"
     "send(instance.handle.add(Process.pointerSize * 2).readU64() == 2);"
@@ -244,12 +244,12 @@ TESTCASE (class_instance_methods_can_be_called)
 {
    COMPILE_AND_LOAD_SCRIPT (
     "var { Int } = Swift.structs;"
-    "var i2 = new Swift.Struct(Int, [2]);"
-    "var i3 = new Swift.Struct(Int, [3]);"
+    "var i2 = new Swift.Struct(Int, { raw: [2] });"
+    "var i3 = new Swift.Struct(Int, { raw: [3] });"
     "var SimpleClass = Swift.classes.SimpleClass;"
     "var instance = SimpleClass.__allocating_init(i2, i3);"
     "send(instance.multiply().handle.readU64() == 6);"
-    "var i4 = new Swift.Struct(Int, [4]);"
+    "var i4 = new Swift.Struct(Int, { raw: [4] });"
     "send(instance.multiply_with_(i4).handle.readU64() == 24);"
   );
   EXPECT_SEND_MESSAGE_WITH ("true");
@@ -260,12 +260,12 @@ TESTCASE (class_instance_properties_can_be_gotten_and_set)
 {
    COMPILE_AND_LOAD_SCRIPT (
     "var { Int } = Swift.structs;"
-    "var i2 = new Swift.Struct(Int, [2]);"
-    "var i3 = new Swift.Struct(Int, [3]);"
+    "var i2 = new Swift.Struct(Int, { raw: [2] });"
+    "var i3 = new Swift.Struct(Int, { raw: [3] });"
     "var SimpleClass = Swift.classes.SimpleClass;"
     "var instance = SimpleClass.__allocating_init(i2, i3);"
     "send(instance.x.handle.readU64() == 2);"
-    "instance.x = new Swift.Struct(Int, [9]);"
+    "instance.x = new Swift.Struct(Int, { raw: [9] });"
     "send(instance.x.handle.readU64() == 9)"
   );
   EXPECT_SEND_MESSAGE_WITH ("true");

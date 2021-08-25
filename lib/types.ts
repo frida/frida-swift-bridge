@@ -197,12 +197,12 @@ export class Struct extends ValueType {
     }
 
     makeValueFromRaw(buffer: NativePointer): StructValue {
-        return new StructValue(this, buffer);
+        return new StructValue(this, { handle: buffer });
     }
 
     makeEmptyValue(): StructValue {
         const buffer = Memory.alloc(this.$typeLayout.stride);
-        return new StructValue(this, buffer);
+        return new StructValue(this, { handle: buffer });
     }
 }
 

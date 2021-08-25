@@ -36,15 +36,26 @@ export abstract class ValueInstance extends RuntimeInstance {
     readonly typeMetadata: TargetValueMetadata;
 }
 
+interface StructValueConstructionOptions {
+    raw?: RawFields,
+    handle?: NativePointer,
+}
+
+interface StructValueConstructor {
+    new (metadata: TargetStructMetadata, options: StructValueConstructionOptions): StructValue;
+}
+
 export class StructValue implements ValueInstance {
     readonly typeMetadata: TargetStructMetadata;
     readonly handle: NativePointer;
 
-    constructor(readonly type: Struct, storage: RawFields | NativePointer) {
+    constructor(readonly type: Struct, options: StructValueConstructionOptions) {
+        if (options.handle === undefined && options.raw === undefined) {
+            throw new Error("Either a handle or raw fields must be provided");
+        }
+
         this.typeMetadata = type.metadata;
-        this.handle = (storage instanceof NativePointer) ?
-                      storage :
-                      makeBufferFromValue(storage);
+        this.handle = options.handle || makeBufferFromValue(options.raw);
     }
 
      equals(other: StructValue) {
@@ -58,11 +69,15 @@ export class StructValue implements ValueInstance {
     }
 }
 
-interface EnumValueInitializationOptions {
+interface EnumValueConstructionOptions {
     handle?: NativePointer,
     tag?: number,
     payload?: RuntimeInstance,
     raw?: RawFields,
+}
+
+interface EnumValueConstructor {
+    new (metadata: TargetEnumMetadata, options: EnumValueConstructionOptions): EnumValue;
 }
 
 export class EnumValue implements ValueInstance {
@@ -73,7 +88,7 @@ export class EnumValue implements ValueInstance {
     #tag: number;
     #payload: RuntimeInstance;
 
-    constructor(readonly type: Enum, options: EnumValueInitializationOptions) {
+    constructor(readonly type: Enum, options: EnumValueConstructionOptions) {
         this.descriptor = type.descriptor as TargetEnumDescriptor;
         this.typeMetadata = type.$metadata as TargetEnumMetadata;
 

@@ -167,7 +167,7 @@ export function makeSwiftNativeFunction(address: NativePointer,
         if (retType instanceof Type) {
             switch (retType.kind) {
                 case "Struct":
-                    return new StructValue(retType as Struct, retval);
+                    return new StructValue(retType as Struct, { raw: retval });
                 case "Enum":
                     return new EnumValue(retType as Enum, { raw: retval });
                 case "Class":
