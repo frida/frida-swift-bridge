@@ -5,17 +5,15 @@
  * 	- Can we tell whether a function throws via its metadata?
  */
 
-import { Enum, Protocol, ProtocolComposition, Struct, Type, ValueType } from "./types";
-import { ObjectInstance,
-         RuntimeInstance,
-         StructValue,
-         EnumValue} from "./runtime";
-import { TargetValueMetadata } from "../abi/metadata";
+import { EnumValue, ObjectInstance, ProtocolComposition,
+         RuntimeInstance, StructValue, ValueInstance } from "./types";
+import { TargetEnumMetadata, TargetMetadata, TargetStructMetadata, TargetValueMetadata } from "../abi/metadata";
 import { ClassExistentialContainer,
          TargetOpaqueExistentialContainer } from "../runtime/existentialcontainer";
-import { Registry } from "./registry";
+import { protocolConformancesFor } from "./macho";
+import { MetadataKind } from "../abi/metadatavalues";
 
-export type SwiftNativeType = Type | Protocol | ProtocolComposition | NativeType;
+export type NativeSwiftType = TargetMetadata | ProtocolComposition | NativeType;
 
 class TrampolinePool {
     private static pages: NativePointer[];
@@ -96,8 +94,8 @@ function makeValueFromBuffer(buffer: NativePointer, lengthInBytes: number): UInt
  *  - Re-cook this spaghetti
  */
 export function makeSwiftNativeFunction(address: NativePointer,
-                                        retType: SwiftNativeType,
-                                        argTypes: SwiftNativeType[],
+                                        retType: NativeSwiftType,
+                                        argTypes: NativeSwiftType[],
                                         context?: NativePointer,
                                         throws?: boolean): Function {
     const loweredArgType = argTypes.map(ty => lowerSemantically(ty));
@@ -112,22 +110,19 @@ export function makeSwiftNativeFunction(address: NativePointer,
         for (const [i, arg] of args.entries()) {
             const argType = argTypes[i];
 
-            if (typeof(argType) === "string") {
+            /* NativeType: e.g. 'uint64', 'pointer', 'bool' */
+            if (typeof(argType) === "string" || Array.isArray(argType)) {
                 actualArgs.push(arg);
                 continue;
             }
 
-            if (argType instanceof Type) {
+            if (argType instanceof TargetMetadata) {
                 actualArgs.push(lowerPhysically(arg));
                 continue;
             }
 
-            const composition = (argType instanceof Protocol) ?
-                                new ProtocolComposition(argType) :
-                                argType as ProtocolComposition;
-            const typeMetadata = arg.typeMetadata;
-            const type = Registry.shared()
-                    .typeByName(typeMetadata.getFullTypeName());
+            const composition = argType;
+            const typeMetadata = arg.$metadata;
             let container: TargetOpaqueExistentialContainer | ClassExistentialContainer;
 
             if (!composition.isClassOnly) {
@@ -140,7 +135,7 @@ export function makeSwiftNativeFunction(address: NativePointer,
                 } else {
                     const box = typeMetadata.allocateBoxForExistentialIn(
                             container.buffer);
-                    (<ValueType>type).$copyRaw(box, arg.handle);
+                    typeMetadata.vw_initializeWithCopy(box, arg.handle);
                 }
             } else {
                 container = ClassExistentialContainer
@@ -150,7 +145,8 @@ export function makeSwiftNativeFunction(address: NativePointer,
 
             const base = container.getWitnessTables();
             for (const [i, proto] of composition.protocols.entries()) {
-                const vwt = type.$conformances[proto.name].witnessTable;
+                const typeName = typeMetadata.getFullTypeName();
+                const vwt = protocolConformancesFor(typeName)[proto.name].witnessTable;
 
                 base.add(i * Process.pointerSize).writePointer(vwt);
             }
@@ -164,38 +160,34 @@ export function makeSwiftNativeFunction(address: NativePointer,
             return retval;
         }
 
-        if (retType instanceof Type) {
-            switch (retType.kind) {
-                case "Struct":
-                    return new StructValue(retType as Struct, { raw: retval });
-                case "Enum":
-                    return new EnumValue(retType as Enum, { raw: retval });
-                case "Class":
+        if (retType instanceof TargetMetadata) {
+            switch (retType.getKind()) {
+                case MetadataKind.Struct:
+                    return new StructValue(retType as TargetStructMetadata, { raw: retval });
+                case MetadataKind.Enum:
+                    return new EnumValue(retType as TargetEnumMetadata, { raw: retval });
+                case MetadataKind.Class:
                     return new ObjectInstance(retval as NativePointer);
                 default:
-                    throw new Error("Unimplemented kind: " + retType.kind);
+                    throw new Error("Unimplemented kind: " + retType.getKind());
             }
         }
 
         const buf = makeBufferFromValue(retval);
-        const composition = (retType instanceof Protocol) ?
-                            new ProtocolComposition(retType) :
-                            retType;
+        const composition = retType;
 
         if (!retType.isClassOnly) {
             const container = TargetOpaqueExistentialContainer
                     .makeFromRaw(buf, composition.numProtocols);
             const typeMetadata = container.type;
-            const runtimeType = Registry.shared()
-                    .typeByName(typeMetadata.getFullTypeName());
 
             if (typeMetadata.isClassObject()) {
                 return new ObjectInstance(
                         container.buffer.privateData.readPointer());
             } else {
-                const valueType = runtimeType as ValueType;
                 const handle = container.projectValue();
-                return valueType.$intializeWithCopyRaw(handle);
+                return ValueInstance.fromCopy(handle,
+                        typeMetadata as TargetValueMetadata);
             }
         } else {
             const container = ClassExistentialContainer
@@ -207,16 +199,13 @@ export function makeSwiftNativeFunction(address: NativePointer,
     return wrapper;
 }
 
-/* FIXME: terrible argument / type naming */
-function lowerSemantically(type: SwiftNativeType): NativeType {
+function lowerSemantically(type: NativeSwiftType): NativeType {
     if (typeof(type) === "string" || Array.isArray(type)) {
         return type;
     }
 
-    if (!(type instanceof Type)) {
-        const augmented = (type instanceof Protocol) ?
-                          ["pointer"] :
-                          Array(type.numProtocols).fill("pointer");
+    if (type instanceof ProtocolComposition) {
+        const augmented = Array(type.numProtocols).fill("pointer");
 
         if (type.isClassOnly) {
             return ["pointer", ...augmented];
@@ -226,17 +215,17 @@ function lowerSemantically(type: SwiftNativeType): NativeType {
     }
 
     /* FIXME: ugly */
-    if (type.kind === "Class" ||
-        shouldPassIndirectly((<ValueType>type).$metadata)) {
+    if (type.getKind() === MetadataKind.Class ||
+        shouldPassIndirectly(type as TargetValueMetadata)) {
         return "pointer";
     }
 
-    const valueType = type as ValueType;
+    const layout = (<TargetValueMetadata>type).getTypeLayout();
     /**TODO:
      * - Make it arch-agnostic
      * - Unsigned ints?
      */
-    let sizeInQWords = valueType.$typeLayout.stride / 8;
+    let sizeInQWords = layout.stride / 8;
     sizeInQWords = sizeInQWords > 1 ? sizeInQWords : 1;
     return Array(sizeInQWords).fill("uint64");
 }
@@ -261,12 +250,12 @@ function lowerPhysically(
         return lowered;
     }
 
-    if (shouldPassIndirectly(value.typeMetadata as TargetValueMetadata)) {
+    if (shouldPassIndirectly(value.$metadata as TargetValueMetadata)) {
         return value.handle;
     }
 
     return makeValueFromBuffer(value.handle,
-                value.typeMetadata.getTypeLayout().stride);
+                value.$metadata.getTypeLayout().stride);
 }
 
 function shouldPassIndirectly(typeMetadata: TargetValueMetadata) {

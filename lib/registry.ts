@@ -1,6 +1,13 @@
-import { bindProtocolConformances, ClassMap, enumerateProtocols, enumerateTypes, EnumMap, ProtocolMap, StructMap,
-         SwiftModule, TypeMap } from "./macho";
-import { Class, Enum, Struct, Type } from "./types";
+import { TargetClassDescriptor, TargetClassMetadata, TargetEnumDescriptor, TargetStructDescriptor } from "../abi/metadata";
+import { ContextDescriptorKind } from "../abi/metadatavalues";
+import { fullTypeDataMap, protocolDescriptorMap } from "./macho";
+import { Class, Enum, Protocol, Struct, StructValue, Type } from "./types";
+
+export type TypeMap = Record<string, Type>;
+export type ClassMap = Record<string, Class>;
+export type StructMap = Record<string, Struct>;
+export type EnumMap = Record<string, Enum>;
+export type ProtocolMap = Record<string, Protocol>;
 
 export class Registry {
     private static sharedInstance: Registry;
@@ -12,8 +19,6 @@ export class Registry {
     readonly protocols: ProtocolMap  = {};
     readonly cachedTypes: TypeMap = {};
 
-    private readonly swiftyNameMap: Record<string, string> = {};
-
     static shared() {
         if (Registry.sharedInstance === undefined) {
             Registry.sharedInstance = new Registry();
@@ -23,81 +28,37 @@ export class Registry {
     }
 
     private constructor() {
-        const allModules = new ModuleMap().values();
+        for (const fullTypeData of Object.values(fullTypeDataMap)) {
+            const descriptor = fullTypeData.descriptor;
+            const conformances = fullTypeData.conformances;
 
-        for (const module of allModules) {
-            for (const type of enumerateTypes(module)) {
-                const moduleName = type.$moduleName;
-
-                switch (type.kind) {
-                    case "Class":
-                        const klass = type as Class;
-                        this.getModule(moduleName).addClass(klass);
-                        this.classes[klass.$name] = klass;
-                        break;
-                    case "Struct":
-                        const struct = type as Struct;
-                        this.getModule(moduleName).addStruct(struct);
-                        this.structs[type.$name] = type as Struct;
-                        break;
-                    case "Enum":
-                        const anEnum = type as Enum;
-                        this.getModule(moduleName).addEnum(anEnum);
-                        this.enums[type.$name] = anEnum;
-                        break;
-                }
-            }
-
-            for (const proto of enumerateProtocols(module)) {
-                this.getModule(proto.moduleName).addProtocol(proto);
-                this.protocols[proto.name] = proto;
+            switch (fullTypeData.descriptor.getKind()) {
+                case ContextDescriptorKind.Class:
+                    const klass = new Class(descriptor as TargetClassDescriptor,
+                                            conformances);
+                    this.classes[klass.$name] = klass;
+                    this.getModule(klass.$moduleName).addClass(klass);
+                    break;
+                case ContextDescriptorKind.Struct:
+                    const struct = new Struct(descriptor as TargetStructDescriptor,
+                                              conformances);
+                    this.structs[struct.$name] = struct;
+                    this.getModule(struct.$moduleName).addStruct(struct);
+                    break;
+                case ContextDescriptorKind.Enum:
+                    const anEnum = new Enum(descriptor as TargetEnumDescriptor,
+                                            conformances);
+                    this.enums[anEnum.$name] = anEnum;
+                    this.getModule(anEnum.$moduleName).addEnum(anEnum);
+                    break;
             }
         }
 
-        for (const module of allModules) {
-            bindProtocolConformances(module, this.typeByName.bind(this));
+        for (const protoDesc of Object.values(protocolDescriptorMap)) {
+            const proto = new Protocol(protoDesc);
+            this.protocols[protoDesc.name] = proto;
+            this.getModule(proto.moduleName).addProtocol(proto);
         }
-    }
-
-    typesForModule(nativeName: string): Type[] {
-        const swiftyName = this.swiftyNameMap[nativeName];
-        const module = this.modules[swiftyName];
-
-        if (module === undefined) {
-            return [];
-        }
-
-        return [...Object.values(module.classes),
-                ...Object.values(module.structs),
-                ...Object.values(module.enums)];
-    }
-
-    typeByName(name: string) {
-        if (name in this.cachedTypes) {
-            return this.cachedTypes[name];
-        }
-
-        const moduleName = name.split(".")[0];
-        const typeName = name.split(".")[1];
-        if (moduleName === undefined || typeName === undefined) {
-            throw new Error("Bad type name: " + name);
-        }
-
-        const module = this.modules[moduleName];
-        if (module === undefined) {
-            throw new Error("Module not found: " + moduleName);
-        }
-
-        const type = module.classes[typeName] ||
-                     module.structs[typeName] ||
-                     module.enums[typeName];
-
-        if (type === undefined) {
-            throw new Error("Type not found: " + name);
-        }
-
-        this.cachedTypes[name] = type;
-        return type;
     }
 
     private getModule(name: string) {
@@ -108,5 +69,40 @@ export class Registry {
         const module = new SwiftModule(name);
         this.modules[name] = module;
         return module;
+    }
+}
+
+export class SwiftModule {
+    readonly classes: ClassMap = {};
+    readonly structs: StructMap = {};
+    readonly enums: EnumMap = {};
+    readonly protocols: ProtocolMap = {};
+
+    constructor(readonly name: string) {
+    }
+
+    addClass(klass: Class) {
+        this.classes[klass.$name] = klass;
+    }
+
+    addStruct(struct: Struct) {
+        this.structs[struct.$name] = struct;
+    }
+
+    addEnum(anEnum: Enum) {
+        this.enums[anEnum.$name] = anEnum;
+    }
+
+    addProtocol(protocol: Protocol) {
+        this.protocols[protocol.name] = protocol;
+    }
+
+    toJSON() {
+        return {
+            classes: Object.keys(this.classes).length,
+            structs: Object.keys(this.structs).length,
+            enums: Object.keys(this.enums).length,
+            protocols: Object.keys(this.protocols).length,
+        };
     }
 }

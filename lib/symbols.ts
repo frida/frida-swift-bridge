@@ -3,102 +3,14 @@
  *  - Move to registry.ts
  */
 
-import { TargetTypeContextDescriptor } from "../abi/metadata";
-import { RelativeDirectPointer } from "../basic/relativepointer";
 import { getApi } from "../lib/api";
-
-type ModuleName = string;
-
-interface CachedSymbolEntry {
-    [address: string]: string;
-}
 
 export interface SimpleSymbolDetails {
     address: string,
     name?: string,
 }
 
-const cachedSymbols: Record<ModuleName, CachedSymbolEntry> = {};
-
-export function resolveSymbols(module: Module, ptrs: NativePointer[]): SimpleSymbolDetails[] {
-    const result: SimpleSymbolDetails[] = [];
-
-    for (const ptr of ptrs) {
-        let name = getSymbolAtAddress(module, ptr);
-        result.push({
-            address: ptr.toString(),
-            name: name
-        });
-     }
-
-    return result;
-}
-
-export function resolveSymbolicReferences(symbol: NativePointer): string {
-    const base = symbol;
-    let end = base;
-    let endValue = end.readU8();
-    let contextDescriptor: TargetTypeContextDescriptor = null;
-
-    while (endValue !== 0) {
-        if (endValue >= 0x01 && endValue <= 0x17) {
-            end = end.add(1);
-
-            if (endValue === 0x01) {
-                contextDescriptor = new TargetTypeContextDescriptor(
-                    RelativeDirectPointer.From(end).get());
-            } else if (endValue === 0x02) {
-                let p = RelativeDirectPointer.From(end).get().readPointer();
-                p = p.and(0x7FFFFFFFFFF); // TODO: strip PAC
-
-                contextDescriptor = new TargetTypeContextDescriptor(p);
-            }
-            break;
-        } else if (endValue >= 0x18 && endValue <= 0x1F) {
-            throw new Error("UNIMPLEMENTED 0x18 - 0x1F");
-        }
-
-        end = end.add(1);
-        endValue = end.readU8();
-    }
-
-    if (contextDescriptor !== null) {
-        return contextDescriptor.name;
-    }
-
-    return tryDemangleSwiftSymbol("_$s" + symbol.readCString());
-}
-
-export function getSymbolAtAddress(module: Module, address: NativePointer): string {
-   const strAddr = address.toString();
-
-    if (module.name in cachedSymbols) {
-        return cachedSymbols[module.name][strAddr];
-    }
-
-    const swiftSymbols: ModuleSymbolDetails[] = enumerateDemangledSymbols(module);
-    cachedSymbols[module.name] = {};
-
-    swiftSymbols.forEach(s => {
-        cachedSymbols[module.name][s.address.toString()] = s.name;
-    });
-
-    return cachedSymbols[module.name][strAddr];
-}
-
-export function enumerateDemangledSymbols(module: Module): ModuleSymbolDetails[] {
-    let result: ModuleSymbolDetails[];
-    const symbols = module.enumerateSymbols();
-
-    result = symbols.map(s => {
-        s.name = tryDemangleSwiftSymbol(s.name);
-        return s;
-    });
-
-    return result;
-}
-
-function tryDemangleSwiftSymbol(name: string): string {
+export function demangleSwiftSymbol(name: string): string {
     if (!isSwiftSmybol(name)) {
         return name;
     }
@@ -111,7 +23,7 @@ function tryDemangleSwiftSymbol(name: string): string {
 
         return demangledNamePtr.readUtf8String();
     } catch (e) {
-        return name;
+        return undefined;
     }
 }
 
@@ -143,6 +55,9 @@ interface MethodSignatureParseResult {
     jsSignature: string,
 }
 
+/**
+ * @returns undefined for methods it (willingly, for now) fails to parse, e.g. (extension in Foundation):__C.NSTimer.TimerPublisher.__allocating_init(interval: Swift.Double, tolerance: Swift.Optional<Swift.Double>, runLoop: __C.NSRunLoop, mode: __C.NSRunLoopMode, options: Swift.Optional<(extension in Foundation):__C.NSRunLoop.SchedulerOptions>) -> (extension in Foundation):__C.NSTimer.TimerPublisher
+ */
 export function parseSwiftMethodSignature(signature: string):
         MethodSignatureParseResult {
     const methNameAndRetTypeExp = /([a-zA-Z_]\w+)(<.+>)*\(.*\) -> ([\w.]+)$/g;
