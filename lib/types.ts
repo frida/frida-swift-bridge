@@ -59,38 +59,11 @@ export abstract class Type {
                  readonly kind: SwiftTypeKind,
                  readonly descriptor: TargetTypeContextDescriptor) {
         this.$name = descriptor.name;
-        this.$fields = Type.getFieldsDetails(descriptor);
+        this.$fields = getFieldsDetails(descriptor);
         this.$moduleName = descriptor.getModuleContext().name;
         this.$metadataPointer = descriptor.getAccessFunction()
                 .call() as NativePointer;
         this.$conformances = {};
-    }
-
-    static getFieldsDetails(descriptor: TargetTypeContextDescriptor):
-        FieldDetails[] {
-        const result: FieldDetails[] = [];
-
-        if (!descriptor.isReflectable()) {
-            return undefined;
-        }
-
-       const fieldsDescriptor = new FieldDescriptor(descriptor.fields.get());
-       if (fieldsDescriptor.numFields === 0) {
-           return undefined; /* TODO: return undefined bad? */
-       }
-
-       const fields = fieldsDescriptor.getFields();
-       for (const f of fields) {
-           result.push({
-               name: f.fieldName,
-               typeName: f.mangledTypeName === null ?
-                         undefined :
-                         resolveSymbolicReferences(f.mangledTypeName.get()),
-               isVar: f.isVar,
-           });
-       }
-
-       return result;
     }
 
     toJSON() {
@@ -233,18 +206,9 @@ export class Struct extends ValueType {
     }
 }
 
-enum EnumKind {
-    NoPayload,
-    SinglePayload,
-    MutliPayload
-}
-
 /* TODO: handle "default" protocol witnesses? See OnOffSwitch for an example */
 export class Enum extends ValueType {
     readonly metadata: TargetEnumMetadata;
-    private readonly enumKind: EnumKind;
-    readonly emptyCases: FieldDetails[];
-    readonly payloadCases: FieldDetails[];
 
     constructor(module: Module, descriptroPtr: NativePointer) {
         const descriptor = new TargetEnumDescriptor(descriptroPtr);
@@ -256,78 +220,50 @@ export class Enum extends ValueType {
             return;
         }
 
-        this.emptyCases = [];
-        this.payloadCases = [];
-        this.enumKind = EnumKind.NoPayload;
+        for (const [i, kase] of this.$fields.entries()) {
+            const caseTag = i;
 
-        for (const field of this.$fields) {
-            if (field.typeName === undefined) {
-                this.emptyCases.push(field);
+            if (descriptor.isPayloadTag(caseTag)) {
+                const associatedValueWrapper = (payload: RuntimeInstance) => {
+                    if (payload === undefined) {
+                        throw new Error("Case requires an associated value");
+                    }
+
+                    /* TODO: type-check argument */
+                    const enumValue = new EnumValue(this, {
+                        tag: caseTag,
+                        payload
+                    });
+
+                    return enumValue;
+                }
+
+                Object.defineProperty(this, kase.name, {
+                    configurable: false,
+                    enumerable: true,
+                    value: associatedValueWrapper,
+                    writable: false
+                });
             } else {
-                this.payloadCases.push(field);
-
-                if (this.enumKind === EnumKind.NoPayload) {
-                    this.enumKind = EnumKind.SinglePayload;
-                } else if (this.enumKind === EnumKind.SinglePayload) {
-                    this.enumKind = EnumKind.MutliPayload;
-                }
+                Object.defineProperty(this, kase.name, {
+                    configurable: true,
+                    enumerable: true,
+                    get: () => {
+                        const enumVal = new EnumValue(this, { tag: caseTag });
+                        Object.defineProperty(this, kase.name, { value: enumVal });
+                        return enumVal;
+                    }
+                });
             }
-        }
-
-        let tagIndex = 0;
-
-        for (const kase of this.payloadCases) { //test this
-            const caseTag = tagIndex++;
-
-            const associatedValueWrapper = (payload: RuntimeInstance) => {
-                if (payload === undefined) {
-                    throw new Error("Case requires an associated value");
-                }
-
-                /* TODO: check type here
-                if (value.type !== caseType) {
-                    throw new Error(`Case ${kase.name} requires an associated value of type: ${caseType.name}`);
-                }
-                */
-
-                const enumValue = this.makeEmptyValue();
-                enumValue.setContent(caseTag, payload);
-
-                return enumValue;
-            }
-
-            Object.defineProperty(this, kase.name, {
-                configurable: false,
-                enumerable: true,
-                value: associatedValueWrapper,
-                writable: false
-            });
-        }
-
-        for (const [i, kase] of this.emptyCases.entries()) {
-            const caseTag = tagIndex++;
-
-            Object.defineProperty(this, kase.name, {
-                configurable: true,
-                enumerable: true,
-                get: () => {
-                    const enumVal = this.makeEmptyValue();
-                    enumVal.setContent(caseTag);
-
-                    Object.defineProperty(this, kase.name, { value: enumVal });
-                    return enumVal;
-                }
-            });
         }
     }
 
     makeValueFromRaw(buffer: NativePointer): EnumValue {
-        return new EnumValue(this, buffer);
+        return new EnumValue(this, { handle: buffer });
     }
 
     makeEmptyValue(): EnumValue {
-        const buffer = Memory.alloc(this.$typeLayout.stride);
-        return new EnumValue(this, buffer);
+        throw new Error("You're doing something wrong");
     }
 }
 
@@ -372,3 +308,28 @@ export class ProtocolComposition {
     }
 }
 
+function getFieldsDetails(descriptor: TargetTypeContextDescriptor): FieldDetails[] {
+    const result: FieldDetails[] = [];
+
+    if (!descriptor.isReflectable()) {
+        return undefined;
+    }
+
+    const fieldsDescriptor = new FieldDescriptor(descriptor.fields.get());
+    if (fieldsDescriptor.numFields === 0) {
+        return undefined; 
+    }
+
+    const fields = fieldsDescriptor.getFields();
+    for (const f of fields) {
+        result.push({
+            name: f.fieldName,
+            typeName: f.mangledTypeName === null ?
+                        undefined :
+                        resolveSymbolicReferences(f.mangledTypeName.get()),
+            isVar: f.isVar,
+        });
+    }
+
+    return result;
+}

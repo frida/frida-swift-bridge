@@ -302,7 +302,7 @@ TESTCASE (swiftcall_multipayload_enum_can_be_passed_to_function)
     "var Int = Swift.structs.Int;"
     "var MultiPayloadEnum = Swift.enums.MultiPayloadEnum;"
     "var takeMultiPayloadEnumCase = Swift.NativeFunction(target, Int, [MultiPayloadEnum]);"
-     "var buf = Memory.alloc(8);"
+    "var buf = Memory.alloc(8);"
     "buf.writeU64(0xCAFE);"
     "var i = Int.makeValueFromRaw(buf);"
     "var a = MultiPayloadEnum.a(i);"
@@ -522,9 +522,9 @@ TESTCASE (c_style_enum_can_be_made_from_raw)
 {
   COMPILE_AND_LOAD_SCRIPT(
     "var CStyle = Swift.enums.CStyle;"
-    "var tmp = CStyle.makeEmptyValue();"
-    "tmp.handle.writeU8(1);"
-    "var b = CStyle.makeValueFromRaw(tmp.handle);"
+    "var buf = Memory.alloc(CStyle.$typeLayout.stride);"
+    "buf.writeU8(1);"
+    "var b = CStyle.makeValueFromRaw(buf);"
     "send(b.$tag === 1);"
   );
   EXPECT_SEND_MESSAGE_WITH ("true");

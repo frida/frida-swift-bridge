@@ -4,6 +4,7 @@
  */
 
 import { TargetClassMetadata,
+         TargetEnumDescriptor,
          TargetEnumMetadata,
          TargetMetadata,
          TargetStructMetadata,
@@ -57,63 +58,85 @@ export class StructValue implements ValueInstance {
     }
 }
 
+interface EnumValueInitializationOptions {
+    handle?: NativePointer,
+    tag?: number,
+    payload?: RuntimeInstance,
+    raw?: RawFields,
+}
+
 export class EnumValue implements ValueInstance {
+    readonly descriptor: TargetEnumDescriptor;
     readonly typeMetadata: TargetEnumMetadata;
     readonly handle: NativePointer;
 
     #tag: number;
     #payload: RuntimeInstance;
 
-    constructor(readonly type: Enum, storage: RawFields | NativePointer) {
-        this.typeMetadata = type.metadata;
-        this.handle = (storage instanceof NativePointer) ?
-                      storage :
-                      makeBufferFromValue(storage);
+    constructor(readonly type: Enum, options: EnumValueInitializationOptions) {
+        this.descriptor = type.descriptor as TargetEnumDescriptor;
+        this.typeMetadata = type.$metadata as TargetEnumMetadata;
 
-        const tag = this.type.metadata.vw_getEnumTag(this.handle);
-        let payload: RuntimeInstance;
-
-        if (tag - this.type.payloadCases.length >= this.type.emptyCases.length) {
-            throw new Error("Invalid pointer for an enum of this type");
+        if (options.tag === undefined &&
+            options.handle === undefined &&
+            options.raw === undefined) {
+            throw new Error("Either a tag, handle or raw fields must be provided");
         }
 
-        if (this.isPayloadTag(tag)) {
-            const typeName = this.type.payloadCases[tag].typeName;
-            const type = Registry.shared().typeByName(typeName);
-            payload = (type instanceof ValueType) ?
-                      type.makeValueFromRaw(this.handle) :
-                      new ObjectInstance(this.handle);
-        }
+        if (options.tag !== undefined) {
+            const tag = options.tag;
+            this.handle = Memory.alloc(this.typeMetadata.getTypeLayout().stride);
+            const payload = options.payload;
 
-        this.#tag = tag;
-        this.#payload = payload;
-    }
-
-    setContent(tag: number, payload?: RuntimeInstance) {
-        if (tag - this.type.payloadCases.length >= this.type.emptyCases.length) {
-            throw new Error("Invalid tag for an enum of this type");
-        }
-
-        if (this.isPayloadTag(tag)) {
-            const typeName = this.type.payloadCases[tag].typeName;
-            const type = Registry.shared().typeByName(typeName);
-
-            if (payload.typeMetadata.getDescription().name !== type.$name) {
-                throw new Error("Payload must be of type " + typeName);
+            if (tag === undefined || tag >= this.descriptor.getNumCases()) {
+                throw new Error("Invalid tag for an enum of this type");
             }
 
-            if (payload instanceof ObjectInstance) {
-                this.handle.writePointer(payload.handle);
-                this.#payload = payload;
-            } else {
-                const valueType = type as ValueType;
-                this.#payload = valueType.makeValueFromRaw(this.handle);
-                valueType.$copyRaw(this.#payload.handle, payload.handle);
-            }
-        }
+            if (this.descriptor.isPayloadTag(tag)) {
+                if (payload === undefined) {
+                    throw new Error("Payload must be provided for this tag");
+                }
 
-        this.type.metadata.vw_destructiveInjectEnumTag(this.handle, tag);
-        this.#tag = tag;
+                const typeName = this.type.$fields[tag].typeName;
+                const type = Registry.shared().typeByName(typeName);
+
+                if (payload.typeMetadata.getDescription().name !== type.$name) {
+                    throw new Error("Payload must be of type " + typeName);
+                }
+
+                if (payload instanceof ObjectInstance) {
+                    this.handle.writePointer(payload.handle);
+                    this.#payload = payload;
+                } else {
+                    const valueType = type as ValueType;
+                    this.#payload = valueType.makeValueFromRaw(this.handle);
+                    valueType.$copyRaw(this.#payload.handle, payload.handle);
+                }
+            }
+
+            this.type.metadata.vw_destructiveInjectEnumTag(this.handle, tag);
+            this.#tag = tag;
+        } else {
+            this.handle = options.handle || makeBufferFromValue(options.raw);
+            const tag = this.type.metadata.vw_getEnumTag(this.handle);
+            let payload: RuntimeInstance;
+
+            if (tag >= this.descriptor.getNumCases()) {
+                throw new Error("Invalid pointer for an enum of this type");
+            }
+
+            if (this.descriptor.isPayloadTag(tag)) {
+                const typeName = this.type.$fields[tag].typeName;
+                const type = Registry.shared().typeByName(typeName);
+                payload = (type instanceof ValueType) ?
+                          type.makeValueFromRaw(this.handle) :
+                          new ObjectInstance(this.handle);
+            }
+
+            this.#tag = tag;
+            this.#payload = payload;
+
+        }
     }
 
     get $tag(): number {
@@ -145,10 +168,6 @@ export class EnumValue implements ValueInstance {
             tag: this.#tag,
             payload: this.#payload,
         }
-    }
-
-    private isPayloadTag(tag: number) {
-        return tag < this.type.payloadCases.length;
     }
 }
 

@@ -169,7 +169,7 @@ export function makeSwiftNativeFunction(address: NativePointer,
                 case "Struct":
                     return new StructValue(retType as Struct, retval);
                 case "Enum":
-                    return new EnumValue(retType as Enum, retval);
+                    return new EnumValue(retType as Enum, { raw: retval });
                 case "Class":
                     return new ObjectInstance(retval as NativePointer);
                 default:
