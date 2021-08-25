@@ -370,6 +370,7 @@ export class TargetTypeContextDescriptor extends TargetContextDescriptor {
         return new NativeFunction(this.accessFunctionPointer, "pointer", []);
     }
 
+    /* XXX: not in the original source */
     getFullTypeName(): string {
         return `${this.getModuleContext().name}.${this.name}`;
     }
@@ -513,6 +514,49 @@ export class TargetStructDescriptor extends TargetTypeContextDescriptor {
 }
 
 export class TargetEnumDescriptor extends TargetTypeContextDescriptor {
+    static readonly OFFSETOF_NUM_PAYLOAD_CASES_AND_PAYLOAD_SIZE_OFFSET = 0x14;
+    static readonly OFFSETOF_NUM_EMPTY_CASES = 0x18;
+
+    #numPayloadCasesAndPayloadSizeOffset: number;
+    #numEmptyCases: number;
+
+    get numPayloadCasesAndPayloaadSizeOffset(): number {
+        if (this.#numPayloadCasesAndPayloadSizeOffset === undefined) {
+            const num = this.handle
+                .add(TargetEnumDescriptor.OFFSETOF_NUM_PAYLOAD_CASES_AND_PAYLOAD_SIZE_OFFSET)
+                .readU32();
+            this.#numPayloadCasesAndPayloadSizeOffset = num;
+        }
+
+        return this.#numPayloadCasesAndPayloadSizeOffset;
+    }
+
+    get numEmptyCases(): number {
+        if (this.#numEmptyCases === undefined) {
+            this.#numEmptyCases = this.handle
+                    .add(TargetEnumDescriptor.OFFSETOF_NUM_EMPTY_CASES)
+                    .readU32();
+        }
+
+        return this.#numEmptyCases;
+    }
+
+    getNumPayloadCases(): number {
+        return this.numPayloadCasesAndPayloaadSizeOffset & 0x00FFFFFF;
+    }
+
+    getNumEmptyCases(): number {
+        return this.numEmptyCases;
+    }
+
+    getNumCases(): number {
+        return this.getNumPayloadCases() + this.numEmptyCases;
+    }
+
+    /* XXX: not in the original source */
+    isPayloadTag(tag: number): boolean {
+        return this.getNumCases() > 0 && tag < this.getNumPayloadCases();
+    }
 }
 
 export class TargetProtocolDescriptor extends TargetContextDescriptor {
