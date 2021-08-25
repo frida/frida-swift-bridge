@@ -11,12 +11,15 @@
 
 import { getApi, API } from "./lib/api";
 import { Class, Struct, Enum, Protocol,
-         ProtocolComposition } from "./lib/types";
-import { enumerateDemangledSymbols } from "./lib/symbols";
-import { makeSwiftNativeFunction, SwiftNativeType} from "./lib/callingconvention";
-import { Registry } from "./lib/registry";
-import { SwiftModule } from "./lib/macho";
-import { ObjectInstance, StructValue } from "./lib/runtime";
+         ProtocolComposition,
+         EnumValue,
+         ObjectInstance,
+         StructValue,
+         Type} from "./lib/types";
+import { makeSwiftNativeFunction, NativeSwiftType } from "./lib/callingconvention";
+import { Registry, SwiftModule } from "./lib/registry";
+
+type ConvenientNativeSwiftType = Type | Protocol | ProtocolComposition | NativeType;
 
 class Runtime {
     #api: API = null;
@@ -59,16 +62,27 @@ class Runtime {
 
     readonly Object = ObjectInstance;
     readonly Struct = StructValue;
+    readonly Enum = EnumValue;
     readonly ProtocolComposition = ProtocolComposition;
 
-    NativeFunction(address: NativePointer, retType: SwiftNativeType,
-                   argTypes: SwiftNativeType[], context?: NativePointer,
+    NativeFunction(address: NativePointer, retType: ConvenientNativeSwiftType,
+                   argTypes: ConvenientNativeSwiftType[], context?: NativePointer,
                    throws?: boolean) {
-        return makeSwiftNativeFunction(address, retType, argTypes, context, throws);
-    }
+        function getNativeType(type: ConvenientNativeSwiftType): NativeSwiftType {
+            if (type instanceof Type) {
+                return type.$metadata;
+            } else if (type instanceof Protocol) {
+                return new ProtocolComposition(type);
+            }
 
-    enumerateDemangledSymbols(module: Module): ModuleSymbolDetails[] {
-        return enumerateDemangledSymbols(module);
+            return type;
+        }
+
+        const nativeRetType = getNativeType(retType);
+        const nativeArgType = argTypes.map(ty => getNativeType(ty));
+
+        return makeSwiftNativeFunction(address, nativeRetType, nativeArgType,
+                context, throws);
     }
 
     private tryInitialize(): boolean {
