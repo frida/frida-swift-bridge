@@ -226,7 +226,7 @@ TESTCASE (class_instance_can_be_initialized)
     "var i2 = new Swift.Struct(Int, { raw: [2] });"
     "var i3 = new Swift.Struct(Int, { raw: [3] });"
     "var SimpleClass = Swift.classes.SimpleClass;"
-    "var instance = SimpleClass.__allocating_init(i2, i3);"
+    "var instance = SimpleClass.__allocating_init$first_second_(i2, i3);"
     "send(instance.handle.add(Process.pointerSize * 2).readU64() == 2);"
     "send(instance.handle.add(Process.pointerSize * 3).readU64() == 3);"
   );
@@ -241,10 +241,10 @@ TESTCASE (class_instance_methods_can_be_called)
     "var i2 = new Swift.Struct(Int, { raw: [2] });"
     "var i3 = new Swift.Struct(Int, { raw: [3] });"
     "var SimpleClass = Swift.classes.SimpleClass;"
-    "var instance = SimpleClass.__allocating_init(i2, i3);"
+    "var instance = SimpleClass.__allocating_init$first_second_(i2, i3);"
     "send(instance.multiply().handle.readU64() == 6);"
     "var i4 = new Swift.Struct(Int, { raw: [4] });"
-    "send(instance.multiply_with_(i4).handle.readU64() == 24);"
+    "send(instance.multiply$with_(i4).handle.readU64() == 24);"
   );
   EXPECT_SEND_MESSAGE_WITH ("true");
   EXPECT_SEND_MESSAGE_WITH ("true");
@@ -257,7 +257,7 @@ TESTCASE (class_instance_properties_can_be_gotten_and_set)
     "var i2 = new Swift.Struct(Int, { raw: [2] });"
     "var i3 = new Swift.Struct(Int, { raw: [3] });"
     "var SimpleClass = Swift.classes.SimpleClass;"
-    "var instance = SimpleClass.__allocating_init(i2, i3);"
+    "var instance = SimpleClass.__allocating_init$first_second_(i2, i3);"
     "send(instance.x.handle.readU64() == 2);"
     "instance.x = new Swift.Struct(Int, { raw: [9] });"
     "send(instance.x.handle.readU64() == 9)"
@@ -274,7 +274,7 @@ TESTCASE (class_instance_can_be_passed_to_and_returned_from_function)
     "var Int = Swift.structs.Int;"
     "var i1 = new Swift.Struct(Int, { raw: [0x1337] });"
     "var i2 = new Swift.Struct(Int, { raw: [0xaaaa] });"
-    "var simple = SimpleClass.__allocating_init(i1, i2);"
+    "var simple = SimpleClass.__allocating_init$first_second_(i1, i2);"
     "send(simple.$metadata.handle.equals(SimpleClass.$metadataPointer));"
     "send(simple.handle.add(2 * Process.pointerSize).readU64() == 0x1337);"
     "send(simple.handle.add(3 * Process.pointerSize).readU64() == 0xaaaa);"
