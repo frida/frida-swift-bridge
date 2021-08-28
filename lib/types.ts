@@ -293,9 +293,6 @@ interface EnumValueConstructionOptions {
     raw?: RawFields,
 }
 
-interface EnumValueConstructor {
-    new (metadata: TargetEnumMetadata, options: EnumValueConstructionOptions): EnumValue;
-}
 export class EnumValue implements ValueInstance {
     readonly $metadata: TargetEnumMetadata;
     readonly handle: NativePointer;

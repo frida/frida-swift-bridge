@@ -89,6 +89,11 @@ function makeValueFromBuffer(buffer: NativePointer, lengthInBytes: number): UInt
     return result;
 }
 
+export interface SwiftNativeFunction {
+    address: NativePointer;
+    (...args: any[]): any;
+}
+
 /**
  * TODO:
  *  - Re-cook this spaghetti
@@ -97,7 +102,7 @@ export function makeSwiftNativeFunction(address: NativePointer,
                                         retType: NativeSwiftType,
                                         argTypes: NativeSwiftType[],
                                         context?: NativePointer,
-                                        throws?: boolean): Function {
+                                        throws?: boolean): SwiftNativeFunction {
     const loweredArgType = argTypes.map(ty => lowerSemantically(ty));
     const loweredRetType = lowerSemantically(retType);
 
@@ -196,7 +201,7 @@ export function makeSwiftNativeFunction(address: NativePointer,
         }
     }
 
-    return wrapper;
+    return Object.assign(wrapper, { address });
 }
 
 function lowerSemantically(type: NativeSwiftType): NativeType {
