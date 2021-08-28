@@ -90,9 +90,9 @@ export function parseSwiftMethodSignature(signature: string):
     }
 
     let jsSignature = methodName;
-    jsSignature += argNames.length > 0 ? "_" : "";
-    jsSignature += argNames.join("_");
-    jsSignature += argNames.length > 0 ? "_" : "";
+    if (argNames.length > 0) {
+        jsSignature += "$" + argNames.join("_") + "_";
+    }
 
     return {
         methodName,
