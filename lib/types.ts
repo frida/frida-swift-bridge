@@ -62,7 +62,7 @@ export class Class extends Type {
                     continue;
                 }
 
-                Object.defineProperty(this, parsed.methodName, {
+                Object.defineProperty(this, parsed.jsSignature, {
                     configurable: true,
                     get() {
                         const argTypes = parsed.argTypeNames.map(ty =>
@@ -72,7 +72,7 @@ export class Class extends Type {
                                             argTypes,
                                             this.$metadataPointer);
 
-                        Object.defineProperty(this, parsed.methodName, {
+                        Object.defineProperty(this, parsed.jsSignature, {
                             configurable: true,
                             value: fn,
                         });
@@ -263,6 +263,7 @@ export class StructValue implements ValueInstance {
     readonly $metadata: TargetStructMetadata;
     readonly handle: NativePointer;
 
+    /* TODO accept TargetMetadata */
     constructor(type: Struct | TargetStructMetadata, options: StructValueConstructionOptions) {
         if (options.handle === undefined && options.raw === undefined) {
             throw new Error("Either a handle or raw fields must be provided");
