@@ -609,6 +609,10 @@ export class TargetProtocolDescriptor extends TargetContextDescriptor {
         return new ProtocolContextDescriptorFlags(
                 this.flags.getKindSpecificFlags());
     }
+
+    getFullProtocolName(): string {
+        return this.getModuleContext().name + "." + this.name;
+    }
 }
 
 class TargetTypeReference {

@@ -1,6 +1,6 @@
 import { TargetClassDescriptor, TargetClassMetadata, TargetEnumDescriptor, TargetStructDescriptor } from "../abi/metadata";
 import { ContextDescriptorKind } from "../abi/metadatavalues";
-import { fullTypeDataMap, protocolDescriptorMap } from "./macho";
+import { getAllFullTypeData, getAllProtocolDescriptors } from "./macho";
 import { Class, Enum, Protocol, Struct, StructValue, Type } from "./types";
 
 export type TypeMap = Record<string, Type>;
@@ -28,7 +28,7 @@ export class Registry {
     }
 
     private constructor() {
-        for (const fullTypeData of Object.values(fullTypeDataMap)) {
+        for (const fullTypeData of getAllFullTypeData()) {
             const descriptor = fullTypeData.descriptor;
             const conformances = fullTypeData.conformances;
 
@@ -54,7 +54,7 @@ export class Registry {
             }
         }
 
-        for (const protoDesc of Object.values(protocolDescriptorMap)) {
+        for (const protoDesc of getAllProtocolDescriptors()) {
             const proto = new Protocol(protoDesc);
             this.protocols[protoDesc.name] = proto;
             this.getModule(proto.moduleName).addProtocol(proto);

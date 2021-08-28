@@ -39,8 +39,8 @@ interface TypeDataConstructor<T> {
 }
 
 const allModules = new ModuleMap();
-export const protocolDescriptorMap: ProtocolDescriptorMap = {};
-export const fullTypeDataMap: FullTypeDataMap = {};
+const protocolDescriptorMap: ProtocolDescriptorMap = {};
+const fullTypeDataMap: FullTypeDataMap = {};
 
 for (const module of allModules.values()) {
     for (const descriptor of enumerateTypeDescriptors(module)) {
@@ -50,12 +50,16 @@ for (const module of allModules.values()) {
     }
 
     for (const descriptor of enumerateProtocolDescriptors(module)) {
-        protocolDescriptorMap[descriptor.name] = descriptor;
+        protocolDescriptorMap[descriptor.getFullProtocolName()] = descriptor;
     }
 }
 
 for (const module of allModules.values()) {
     bindProtocolConformances(module);
+}
+
+export function getAllFullTypeData(): FullTypeData[] {
+    return Object.values(fullTypeDataMap);
 }
 
 export function untypedMetadataFor(typeName: string): TargetMetadata {
@@ -100,6 +104,14 @@ export function protocolConformancesFor(typeName: string): ProtocolConformanceMa
     }
 
     return fullTypeData.conformances;
+}
+
+export function getAllProtocolDescriptors(): TargetProtocolDescriptor[] {
+    return Object.values(protocolDescriptorMap);
+}
+
+export function findProtocolDescriptor(protoName: string): TargetProtocolDescriptor {
+    return protocolDescriptorMap[protoName];
 }
 
 function enumerateTypeDescriptors(module: Module): TargetTypeContextDescriptor[] {
