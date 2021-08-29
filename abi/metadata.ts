@@ -120,6 +120,13 @@ export abstract class TargetMetadata {
                 throw new Error("Unknown metadata kind");
         }
     }
+
+    toJSON() {
+        return {
+            handle: this.handle,
+            name: this.getFullTypeName(),
+        }
+    }
 }
 
 export class TargetValueMetadata extends TargetMetadata {
