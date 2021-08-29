@@ -12,6 +12,7 @@ import { ClassExistentialContainer,
          TargetOpaqueExistentialContainer } from "../runtime/existentialcontainer";
 import { protocolConformancesFor } from "./macho";
 import { MetadataKind } from "../abi/metadatavalues";
+import { makeBufferFromValue, makeValueFromBuffer, moveValueToBuffer } from "./buffer";
 
 export type NativeSwiftType = TargetMetadata | ProtocolComposition | NativeType;
 
@@ -48,47 +49,6 @@ class TrampolinePool {
     }
 }
 
-type NativeStorageUnit = UInt64 | NativePointer;
-
-function makeBufferFromValue(fields: NativeStorageUnit[]): NativePointer {
-    const size = Process.pointerSize * fields.length;
-    const buffer = Memory.alloc(size);
-
-    for (let i = 0, offset = 0; offset < size; i++, offset += Process.pointerSize) {
-        const field = fields[i];
-        const target = buffer.add(offset);
-
-        if (field instanceof NativePointer) {
-            target.writePointer(field);
-        } else if (field instanceof UInt64) {
-            target.writeU64(field);
-        } else {
-            throw new Error("Bad field type");
-        }
-    }
-
-    return buffer;
-}
-
-function moveValueToBuffer(fields: UInt64[], buffer: NativePointer) {
-    const size =  Process.pointerSize * fields.length;
-
-    for (let i = 0, offset = 0; offset < size; i++, offset += Process.pointerSize) {
-        buffer.add(offset).writeU64(fields[i]);
-    }
-}
-
-function makeValueFromBuffer(buffer: NativePointer, lengthInBytes: number): UInt64[] {
-    const result: UInt64[] = [];
-
-    /* XXX: Assume only buffer sizes that are multiples of 8 for now  */
-    for (let i = 0; i < lengthInBytes; i += 8) {
-        result.push(buffer.add(i).readU64());
-    }
-
-    return result;
-}
-
 export interface SwiftNativeFunction {
     address: NativePointer;
     (...args: any[]): any;
@@ -97,6 +57,7 @@ export interface SwiftNativeFunction {
 /**
  * TODO:
  *  - Re-cook this spaghetti
+ *  - Add dynamic type checks
  */
 export function makeSwiftNativeFunction(address: NativePointer,
                                         retType: NativeSwiftType,
@@ -192,7 +153,7 @@ export function makeSwiftNativeFunction(address: NativePointer,
             } else {
                 const handle = container.projectValue();
                 return ValueInstance.fromCopy(handle,
-                        typeMetadata as TargetValueMetadata);
+                        typeMetadata as TargetValueMetadata /* unnecessary cast */);
             }
         } else {
             const container = ClassExistentialContainer
