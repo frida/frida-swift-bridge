@@ -68,9 +68,9 @@ export class Class extends Type {
                         const argTypes = parsed.argTypeNames.map(ty =>
                                 untypedMetadataFor(ty));
                         const fn = makeSwiftNativeFunction(method.address,
-                                            this.$metadata,
-                                            argTypes,
-                                            this.$metadataPointer);
+                                this.$metadata,
+                                argTypes,
+                                this.$metadataPointer);
 
                         Object.defineProperty(this, parsed.jsSignature, {
                             configurable: true,
@@ -318,7 +318,13 @@ export class EnumValue implements ValueInstance {
         if (options.tag !== undefined) {
             const tag = options.tag;
             const payload = options.payload;
-            this.handle = Memory.alloc(this.$metadata.getTypeLayout().stride);
+            const stride = this.$metadata.getTypeLayout().stride;
+            /**
+             * FIXME: rather than rounding the stride, we should be reading only
+             * the stride's worth of data when handling a value of this type.
+             */
+            const size = stride < Process.pointerSize ? Process.pointerSize : stride;
+            this.handle = Memory.alloc(size);
 
             if (tag === undefined || tag >= this.descriptor.getNumCases()) {
                 throw new Error("Invalid tag for an enum of this type");
