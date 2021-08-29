@@ -60,20 +60,23 @@ interface MethodSignatureParseResult {
  */
 export function parseSwiftMethodSignature(signature: string):
         MethodSignatureParseResult {
-    const methNameAndRetTypeExp = /([a-zA-Z_]\w+)(<.+>)*\(.*\) -> ([\w.]+)$/g;
-    const argsExp = /(\w+): ([\w.]+)(?:, )*/g;
+    const methNameAndRetTypeExp = /([a-zA-Z_]\w+)(<.+>)*\(.*\) -> ([\w.]+|\([\w.]*\))$/g;
+    /**
+     * If there's only one unlabled argument, the demangler emits just the type name.
+     */
+    const argsExp = /(\w+): ([\w.]+)(?:, )*|\(([\w.]+)\)/g;
 
     const methNameAndTypeMatch = methNameAndRetTypeExp.exec(signature);
 
     if (methNameAndTypeMatch === null) {
-        return undefined;
+        throw new Error("Couldn't parse function with signature: " + signature);
     }
 
     const methodName = methNameAndTypeMatch[1];
     const retTypeName = methNameAndTypeMatch[3] || "void";
 
     if (methodName === undefined) {
-        return undefined;
+        throw new Error("Couldn't parse function with signature: " + signature);
     }
 
     const argNames: string[] = [];
@@ -81,12 +84,18 @@ export function parseSwiftMethodSignature(signature: string):
     let match;
 
     while ((match = argsExp.exec(signature)) !== null) {
-        argNames.push(match[1]);
-        argTypeNames.push(match[2]);
+        const singleUnlabledArg = match[3];
+        if (singleUnlabledArg !== undefined) {
+            argNames.push("");
+            argTypeNames.push(singleUnlabledArg);
+        } else {
+            argNames.push(match[1]);
+            argTypeNames.push(match[2]);
+        }
     }
 
     if (argNames.length !== argTypeNames.length) {
-        return undefined;
+        throw new Error("Couldn't parse function with signature: " + signature);
     }
 
     let jsSignature = methodName;
@@ -103,6 +112,14 @@ export function parseSwiftMethodSignature(signature: string):
     }
 }
 
+export function tryParseSwiftMethodSignature(signature: string): MethodSignatureParseResult {
+    try {
+        return parseSwiftMethodSignature(signature);
+    } catch (e) {
+        return undefined;
+    }
+}
+
 interface AccessorSignatureParseResult {
     accessorType: "getter" | "setter",
     memberName: string,
@@ -115,13 +132,13 @@ export function parseSwiftAccessorSignature(signature: string):
     const match = exp.exec(signature);
 
     if (match === null) {
-        return undefined;
+        throw new Error("Couldn't parse accessor signature " + signature);
     }
 
     const accessorType = match[2];
 
     if (accessorType !== "getter" && accessorType !== "setter") {
-        return undefined;
+        throw new Error("Couldn't parse accessor signature " + signature);
     }
 
     const memberName = match[1];
@@ -131,5 +148,13 @@ export function parseSwiftAccessorSignature(signature: string):
         accessorType,
         memberName,
         memberTypeName,
+    }
+}
+
+export function tryParseSwiftAccessorSignature(signature: string) {
+    try {
+        return parseSwiftAccessorSignature(signature);
+    } catch (e) {
+        return undefined;
     }
 }

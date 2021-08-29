@@ -279,3 +279,11 @@ export function findDemangledSymbol(address: NativePointer): string {
 
     return cachedSymbols[module.name][rawAddr];
 }
+
+export function getDemangledSymbol(address: NativePointer): string {
+    const symbol = findDemangledSymbol(address);
+    if (symbol === undefined) {
+        throw new Error("Can't find symbol at " + address.toString());
+    }
+    return symbol;
+}

@@ -11,7 +11,7 @@ import { TargetClassDescriptor, TargetClassMetadata, TargetEnumDescriptor,
          TypeLayout } from "../abi/metadata";
 import { MetadataKind, MethodDescriptorKind,
          ProtocolClassConstraint } from "../abi/metadatavalues";
-import { demangleSwiftSymbol, parseSwiftAccessorSignature, parseSwiftMethodSignature } from "../lib/symbols";
+import { demangleSwiftSymbol, parseSwiftAccessorSignature, parseSwiftMethodSignature, tryParseSwiftMethodSignature } from "../lib/symbols";
 import { makeSwiftNativeFunction, NativeSwiftType } from "./callingconvention";
 import { HeapObject } from "../runtime/heapobject";
 import { RawFields, makeBufferFromValue } from "./buffer";
@@ -57,7 +57,7 @@ export class Class extends Type {
 
         for (const method of this.$methods) {
             if (method.type === "Init") {
-                const parsed = parseSwiftMethodSignature(method.name);
+                const parsed = tryParseSwiftMethodSignature(method.name);
                 if (parsed === undefined) {
                     continue;
                 }
@@ -417,10 +417,6 @@ export class ObjectInstance extends RuntimeInstance {
             switch (method.type) {
                 case "Getter": {
                     const parsed = parseSwiftAccessorSignature(method.name);
-                    if (parsed === undefined) {
-                        break;
-                    }
-
                     const memberType = untypedMetadataFor(parsed.memberTypeName);
                     const getter = makeSwiftNativeFunction(method.address,
                                 memberType, [], this.handle);
@@ -434,10 +430,6 @@ export class ObjectInstance extends RuntimeInstance {
                 }
                 case "Setter": {
                     const parsed = parseSwiftAccessorSignature(method.name);
-                    if(parsed === undefined) {
-                        break;
-                    }
-
                     const memberType = untypedMetadataFor(parsed.memberTypeName);
                     const setter = makeSwiftNativeFunction(method.address,
                                 "void", [memberType], this.handle);
@@ -451,11 +443,7 @@ export class ObjectInstance extends RuntimeInstance {
                 }
                 case "Method": {
                     const parsed = parseSwiftMethodSignature(method.name);
-                    if (parsed === undefined) {
-                        break;
-                    }
-
-                    const retType = parsed.retTypeName === "void" ?
+                    const retType = parsed.retTypeName === "()" ?
                                     "void" :
                                     untypedMetadataFor(parsed.retTypeName);
                     const argTypes = parsed.argTypeNames.map(ty =>
