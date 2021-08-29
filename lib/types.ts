@@ -18,6 +18,7 @@ import { RawFields, makeBufferFromValue } from "./buffer";
 import { findDemangledSymbol, metadataFor, ProtocolConformance, ProtocolConformanceMap, untypedMetadataFor } from "./macho";
 import { FieldDescriptor } from "../reflection/records";
 import { RelativeDirectPointer } from "../basic/relativepointer";
+import { ClassExistentialContainer, TargetOpaqueExistentialContainer } from "../runtime/existentialcontainer";
 
 type SwiftTypeKind = "Class" | "Enum" | "Struct";
 
@@ -223,6 +224,30 @@ export abstract class RuntimeInstance {
             return new ObjectInstance(handle);
         } else {
             return ValueInstance.fromAdopted(handle, metadata as TargetValueMetadata);
+        }
+    }
+
+    static fromExistentialContainer(raw: RawFields, numProtocols: number,
+            isClassOnly: boolean): RuntimeInstance {
+        const buf = makeBufferFromValue(raw);
+
+        if (!isClassOnly) {
+            const container = TargetOpaqueExistentialContainer
+                    .makeFromRaw(buf, numProtocols);
+            const typeMetadata = container.type;
+
+            if (typeMetadata.isClassObject()) {
+                return new ObjectInstance(
+                        container.buffer.privateData.readPointer());
+            } else {
+                const handle = container.projectValue();
+                return ValueInstance.fromCopy(handle,
+                        typeMetadata as TargetValueMetadata);
+            }
+        } else {
+            const container = ClassExistentialContainer
+                    .makeFromRaw(buf, numProtocols);
+            return new ObjectInstance(container.value);
         }
     }
 }

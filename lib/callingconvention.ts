@@ -139,27 +139,8 @@ export function makeSwiftNativeFunction(address: NativePointer,
             }
         }
 
-        const buf = makeBufferFromValue(retval);
-        const composition = retType;
-
-        if (!retType.isClassOnly) {
-            const container = TargetOpaqueExistentialContainer
-                    .makeFromRaw(buf, composition.numProtocols);
-            const typeMetadata = container.type;
-
-            if (typeMetadata.isClassObject()) {
-                return new ObjectInstance(
-                        container.buffer.privateData.readPointer());
-            } else {
-                const handle = container.projectValue();
-                return ValueInstance.fromCopy(handle,
-                        typeMetadata as TargetValueMetadata /* unnecessary cast */);
-            }
-        } else {
-            const container = ClassExistentialContainer
-                    .makeFromRaw(buf, composition.numProtocols);
-            return new ObjectInstance(container.value);
-        }
+        return ValueInstance.fromExistentialContainer(retval,
+                retType.numProtocols, retType.isClassOnly);
     }
 
     return Object.assign(wrapper, { address });
