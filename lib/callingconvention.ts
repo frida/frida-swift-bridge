@@ -228,10 +228,13 @@ class StrongQueue<T> {
             return undefined;
         }
 
-        const item = this.#queue[this.#next];
-        delete this.#queue[this.#next++];
+        const item = this.#queue[this.#next++];
 
         return item;
+    }
+
+    resetCursor() {
+        this.#next = 0;
     }
 
     toJSON() {
@@ -331,6 +334,7 @@ export class SwiftcallNativeFunction {
     wrapper = (...args: NativeArgumentValue[]) => {
         /* TODO: Type-check args */
 
+        this.#argumentBuffers.resetCursor();
         args = args.map(arg => {
             if (Array.isArray(arg) && arg.length > 4) {
                 const argBuf = this.#argumentBuffers.dequeue();
