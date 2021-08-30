@@ -24,6 +24,18 @@ class SimpleClass {
     func multiply(with z: Int) -> Int {
         return self.multiply() * z
     }
+
+    func printValue(for onOrOff: OnOffSwitch) {
+        if case .on = onOrOff {
+            print("Switch is on")
+        } else {
+            print("Switch is off")
+        }
+    }
+
+    func doNothing(with instance: EmptyClass){
+        print("Doing nothing...")
+    }
 }
 
 func takeSimpleClass(klass: SimpleClass) -> Int {

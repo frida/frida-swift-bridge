@@ -1,12 +1,12 @@
 /*
- * Copyright (C) 2021 Abdelrahman Eid <aeid@nowsecure.com>
+ * Copyright (C) 2021 Abdelrahman Eid <hot3eed@nowsecure.com>
  *
  * Licence: wxWindows Library Licence, Version 3.1
  */
 
 /**
  * TODO:
- *  - Test with swiftcall with a struct context
+ *  - Test swiftcall with a struct context
  *  - Test enums with class payloads
  */
 
@@ -52,6 +52,16 @@ TESTLIST_BEGIN (basics)
     TESTENTRY (multipayload_enum_equals_works)
     TESTENTRY (protocol_num_requirements_can_be_gotten)
     TESTENTRY (protocol_conformance_can_be_gotten)
+    TESTENTRY (interceptor_can_parse_struct_value_arguments)
+    TESTENTRY (interceptor_can_parse_enum_value_arguments)
+    TESTENTRY (interceptor_can_parse_class_instance_arguments)
+    TESTENTRY (interceptor_can_parse_stack_arguments)
+    TESTENTRY (interceptor_can_parse_opaque_existential_container_arguments)
+    TESTENTRY (interceptor_can_parse_class_existential_container_arguments)
+    TESTENTRY (interceptor_can_parse_direct_return_value)
+    TESTENTRY (interceptor_can_parse_indirect_return_value)
+    TESTENTRY (interceptor_can_parse_opaque_existential_container_return_value)
+    TESTENTRY (interceptor_can_parse_class_existential_container_return_value)
 TESTLIST_END ()
 
 TESTCASE (modules_can_be_enumerated)
@@ -711,3 +721,338 @@ TESTCASE (protocol_conformance_can_be_gotten)
   EXPECT_SEND_MESSAGE_WITH ("true");
 }
 
+TESTCASE (interceptor_can_parse_struct_value_arguments)
+{
+  COMPILE_AND_LOAD_SCRIPT (
+    "var { Int } = Swift.structs;"
+    "var i1 = new Swift.Struct(Int, { raw: [1] });"
+    "var i2 = new Swift.Struct(Int, { raw: [2] });"
+    "var { SimpleClass } = Swift.classes;"
+    "Swift.Interceptor.attach(SimpleClass.__allocating_init$first_second_.address, {"
+      "onEnter: function(args) {"
+        "send(args[0].handle.readU64() == 1);"
+        "send(args[1].handle.readU64() == 2);"
+      "}"
+    "});"
+    "SimpleClass.__allocating_init$first_second_(i1, i2);"
+  );
+  EXPECT_SEND_MESSAGE_WITH ("true");
+  EXPECT_SEND_MESSAGE_WITH ("true");
+}
+
+TESTCASE (interceptor_can_parse_enum_value_arguments)
+{
+  COMPILE_AND_LOAD_SCRIPT (
+    "var { Int } = Swift.structs;"
+    "var i1 = new Swift.Struct(Int, { raw: [1] });"
+    "var i2 = new Swift.Struct(Int, { raw: [2] });"
+    "var { SimpleClass } = Swift.classes;"
+    "var instance = SimpleClass.__allocating_init$first_second_(i1, i2);"
+    "var { OnOffSwitch } = Swift.enums;"
+    "Swift.Interceptor.attach(instance.printValue$for_.address, {"
+      "onEnter: function(args) {"
+          "send(args[0].equals(OnOffSwitch.on));"
+      "}"
+    "});"
+    "instance.printValue$for_(OnOffSwitch.on);"
+  );
+  EXPECT_SEND_MESSAGE_WITH ("true");
+}
+
+TESTCASE (interceptor_can_parse_class_instance_arguments)
+{
+  COMPILE_AND_LOAD_SCRIPT (
+    "var { Int } = Swift.structs;"
+    "var i1 = new Swift.Struct(Int, { raw: [1] });"
+    "var i2 = new Swift.Struct(Int, { raw: [2] });"
+    "var { SimpleClass, EmptyClass } = Swift.classes;"
+    "var simple = SimpleClass.__allocating_init$first_second_(i1, i2);"
+    "var empty = EmptyClass.__allocating_init();"
+    "Swift.Interceptor.attach(simple.doNothing$with_.address, {"
+      "onEnter: function(args) {"
+        "send(args[0].$metadata.handle.equals(EmptyClass.$metadataPointer));"
+      "}"
+    "});"
+    "simple.doNothing$with_(empty);"
+  );
+  EXPECT_SEND_MESSAGE_WITH ("true");
+}
+
+TESTCASE (interceptor_can_parse_stack_arguments)
+{
+  COMPILE_AND_LOAD_SCRIPT (
+    "var dummy = Process.getModuleByName('dummy.o');"
+    "var symbols = dummy.enumerateSymbols();"
+    "symbols = symbols.filter(s => s.name == '$s5dummy30makeBigStructWithManyArguments4with3and1a1b1c1d1eAA0cD0VAA08LoadableD0V_AMS5itF');"
+    "var target = symbols[0].address;"
+    "var { BigStruct, LoadableStruct, Int } = Swift.structs;"
+    "var makeBigStructWithManyArguments = Swift.NativeFunction(target, BigStruct, [LoadableStruct, LoadableStruct, Int, Int, Int, Int, Int]);"
+    "var i1 = new Swift.Struct(Int, { raw: [1] });"
+    "var i2 = new Swift.Struct(Int, { raw: [2] });"
+    "var i3 = new Swift.Struct(Int, { raw: [3] });"
+    "var i4 = new Swift.Struct(Int, { raw: [4] });"
+    "var i5 = new Swift.Struct(Int, { raw: [5] });"
+    "var loadable = new Swift.Struct(LoadableStruct, { raw: [0xA, 0xB, 0xC, 0xD] });"
+    "Swift.Interceptor.attach(makeBigStructWithManyArguments.address, {"
+        "onEnter: function(args) {"
+            "send(args[0].$metadata.handle.equals(LoadableStruct.$metadataPointer));"
+            "send(args[0].handle.readU64().toNumber() == 0xA);"
+            "send(args[0].handle.add(Process.pointerSize).readU64().toNumber() == 0xB);"
+            "send(args[0].handle.add(Process.pointerSize * 2).readU64().toNumber() == 0xC);"
+            "send(args[0].handle.add(Process.pointerSize * 3).readU64().toNumber() == 0xD);"
+
+            "send(args[1].$metadata.handle.equals(LoadableStruct.$metadataPointer));"
+            "send(args[1].handle.readU64().toNumber() == 0xA);"
+            "send(args[1].handle.add(Process.pointerSize).readU64().toNumber() == 0xB);"
+            "send(args[1].handle.add(Process.pointerSize * 2).readU64().toNumber() == 0xC);"
+            "send(args[1].handle.add(Process.pointerSize * 3).readU64().toNumber() == 0xD);"
+
+            "send(args[2].$metadata.handle.equals(Int.$metadataPointer));"
+            "send(args[2].handle.readU64().toNumber() == 1);"
+
+            "send(args[3].$metadata.handle.equals(Int.$metadataPointer));"
+            "send(args[3].handle.readU64().toNumber() == 2);"
+
+            "send(args[4].$metadata.handle.equals(Int.$metadataPointer));"
+            "send(args[4].handle.readU64().toNumber() == 3);"
+
+            "send(args[5].$metadata.handle.equals(Int.$metadataPointer));"
+            "send(args[5].handle.readU64().toNumber() == 4);"
+
+            "send(args[6].$metadata.handle.equals(Int.$metadataPointer));"
+            "send(args[6].handle.readU64().toNumber() == 5);"
+        "},"
+        "onLeave: function(retval) {"
+            "send(retval.$metadata.handle.equals(BigStruct.$metadataPointer));"
+            "send(retval.handle.readU64().toNumber() == 0x15);"
+            "send(retval.handle.add(Process.pointerSize).readU64().toNumber() == 0x18);"
+            "send(retval.handle.add(Process.pointerSize * 2).readU64().toNumber() == 0x1B);"
+            "send(retval.handle.add(Process.pointerSize * 3).readU64().toNumber() == 0x1E);"
+            "send(retval.handle.add(Process.pointerSize * 4).readU64().toNumber() == 0x05);"
+        "}"
+    "});"
+    "makeBigStructWithManyArguments(loadable, loadable, i1, i2, i3, i4, i5);"
+  );
+  EXPECT_SEND_MESSAGE_WITH ("true");
+  EXPECT_SEND_MESSAGE_WITH ("true");
+  EXPECT_SEND_MESSAGE_WITH ("true");
+  EXPECT_SEND_MESSAGE_WITH ("true");
+  EXPECT_SEND_MESSAGE_WITH ("true");
+  EXPECT_SEND_MESSAGE_WITH ("true");
+  EXPECT_SEND_MESSAGE_WITH ("true");
+  EXPECT_SEND_MESSAGE_WITH ("true");
+  EXPECT_SEND_MESSAGE_WITH ("true");
+  EXPECT_SEND_MESSAGE_WITH ("true");
+  EXPECT_SEND_MESSAGE_WITH ("true");
+  EXPECT_SEND_MESSAGE_WITH ("true");
+  EXPECT_SEND_MESSAGE_WITH ("true");
+  EXPECT_SEND_MESSAGE_WITH ("true");
+  EXPECT_SEND_MESSAGE_WITH ("true");
+  EXPECT_SEND_MESSAGE_WITH ("true");
+  EXPECT_SEND_MESSAGE_WITH ("true");
+  EXPECT_SEND_MESSAGE_WITH ("true");
+  EXPECT_SEND_MESSAGE_WITH ("true");
+  EXPECT_SEND_MESSAGE_WITH ("true");
+  EXPECT_SEND_MESSAGE_WITH ("true");
+  EXPECT_SEND_MESSAGE_WITH ("true");
+  EXPECT_SEND_MESSAGE_WITH ("true");
+  EXPECT_SEND_MESSAGE_WITH ("true");
+  EXPECT_SEND_MESSAGE_WITH ("true");
+  EXPECT_SEND_MESSAGE_WITH ("true");
+}
+
+TESTCASE (interceptor_can_parse_opaque_existential_container_arguments)
+{
+  COMPILE_AND_LOAD_SCRIPT (
+    "var dummy = Process.getModuleByName('dummy.o');"
+    "var symbols = dummy.enumerateSymbols();"
+    "symbols = symbols.filter(s => s.name == '$s5dummy27takeInlineExistentialStructySbAA0D0_pF');"
+    "var target = symbols[0].address;"
+    "var { Existential } = Swift.protocols;"
+    "var takeInLineExistentialStruct = Swift.NativeFunction(target, 'void', [Existential]);"
+    "var { InlineExistentialStruct, OutOfLineExistentialStruct } = Swift.structs;"
+    "var inline = new Swift.Struct(InlineExistentialStruct, { raw: [0xDEAD, 0xBABE] });"
+    "Swift.Interceptor.attach(takeInLineExistentialStruct.address, {"
+        "onEnter: function(args) {"
+            "send(args[0].$metadata.handle.equals(InlineExistentialStruct.$metadataPointer));"
+            "send(args[0].handle.readU64().toNumber() == 0xDEAD);"
+            "send(args[0].handle.add(Process.pointerSize).readU64().toNumber() == 0xBABE);"
+        "}"
+    "});"
+    "takeInLineExistentialStruct(inline);"
+
+    "var symbols = dummy.enumerateSymbols();"
+    "symbols = symbols.filter(s => s.name == '$s5dummy30takeOutOfLineExistentialStructySbAA0F0_pF');"
+    "var target = symbols[0].address;"
+    "var takeOutOfLineExistentialStruct = Swift.NativeFunction(target, 'void', [Existential]);"
+    "var outOfLine = new Swift.Struct(OutOfLineExistentialStruct, { raw: [0xDEAD, 0xBEEF, 0xAAAA, 0xBBBB, 0xCCCC] });"
+    "Swift.Interceptor.attach(takeOutOfLineExistentialStruct.address, {"
+        "onEnter: function(args) {"
+            "send(args[0].$metadata.handle.equals(OutOfLineExistentialStruct.$metadataPointer));"
+            "send(args[0].handle.readU64().toNumber() == 0xDEAD);"
+            "send(args[0].handle.add(Process.pointerSize).readU64().toNumber() == 0xBEEF);"
+        "}"
+    "});"
+    "takeOutOfLineExistentialStruct(outOfLine);"
+  );
+  EXPECT_SEND_MESSAGE_WITH ("true");
+  EXPECT_SEND_MESSAGE_WITH ("true");
+  EXPECT_SEND_MESSAGE_WITH ("true");
+  EXPECT_SEND_MESSAGE_WITH ("true");
+  EXPECT_SEND_MESSAGE_WITH ("true");
+  EXPECT_SEND_MESSAGE_WITH ("true");
+}
+
+TESTCASE (interceptor_can_parse_class_existential_container_arguments)
+{
+  COMPILE_AND_LOAD_SCRIPT (
+    "var dummy = Process.getModuleByName('dummy.o');"
+    "var symbols = dummy.enumerateSymbols();"
+    "symbols = symbols.filter(s => s.name == '$s5dummy32passClassBoundExistentialThroughyAA0cdE0_pAaC_pF');"
+    "var target = symbols[0].address;"
+    "var { ClassBoundExistential } = Swift.protocols;"
+    "var passClassBoundExistentialThrough = Swift.NativeFunction(target, ClassBoundExistential, [ClassBoundExistential]);"
+    "var { ClassOnlyExistentialClass } = Swift.classes;"
+    "var instance = ClassOnlyExistentialClass.__allocating_init();"
+    "Swift.Interceptor.attach(passClassBoundExistentialThrough.address, {"
+        "onEnter: function(args) {"
+            "const arg0 = args[0];"
+            "send(arg0.$metadata.handle.equals(ClassOnlyExistentialClass.$metadataPointer));"
+            "send(arg0.handle.add(Process.pointerSize * 2).readU64().toNumber() == 0xAAAAAAAA);"
+            "send(arg0.handle.add(Process.pointerSize * 3).readU64().toNumber() == 0xBBBBBBBB);"
+        "}"
+    "});"
+    "passClassBoundExistentialThrough(instance);"
+  );
+  EXPECT_SEND_MESSAGE_WITH ("true");
+  EXPECT_SEND_MESSAGE_WITH ("true");
+  EXPECT_SEND_MESSAGE_WITH ("true");
+}
+
+TESTCASE (interceptor_can_parse_direct_return_value)
+{
+  COMPILE_AND_LOAD_SCRIPT (
+    "var dummy = Process.getModuleByName('dummy.o');"
+    "var symbols = dummy.enumerateSymbols();"
+    "symbols = symbols.filter(s => s.name == '$s5dummy17getLoadableStructAA0cD0VyF');"
+    "var target = symbols[0].address;"
+    "var { LoadableStruct } = Swift.structs;"
+    "var getLoadableStruct = Swift.NativeFunction(target, LoadableStruct, []);"
+    "Swift.Interceptor.attach(getLoadableStruct.address, {"
+        "onLeave: function(retval) {"
+            "const intercepted = retval;"
+            "send(intercepted.$metadata.handle.equals(LoadableStruct.$metadataPointer));"
+            "send(intercepted.handle.readU64().toNumber() == 0x1);"
+            "send(intercepted.handle.add(Process.pointerSize).readU64().toNumber() == 0x2);"
+            "send(intercepted.handle.add(Process.pointerSize * 2).readU64().toNumber() == 0x3);"
+            "send(intercepted.handle.add(Process.pointerSize * 3).readU64().toNumber() == 0x4);"
+        "}"
+    "});"
+    "getLoadableStruct();"
+  );
+  EXPECT_SEND_MESSAGE_WITH ("true");
+  EXPECT_SEND_MESSAGE_WITH ("true");
+  EXPECT_SEND_MESSAGE_WITH ("true");
+  EXPECT_SEND_MESSAGE_WITH ("true");
+  EXPECT_SEND_MESSAGE_WITH ("true");
+}
+
+TESTCASE (interceptor_can_parse_indirect_return_value)
+{
+  COMPILE_AND_LOAD_SCRIPT (
+    "var dummy = Process.getModuleByName('dummy.o');"
+    "var symbols = dummy.enumerateSymbols();"
+    "symbols = symbols.filter(s => s.name == '$s5dummy15returnBigStructAA0cD0VyF');"
+    "var target = symbols[0].address;"
+    "var { BigStruct } = Swift.structs;"
+    "var returnBigStruct = Swift.NativeFunction(target, BigStruct, []);"
+    "Swift.Interceptor.attach(returnBigStruct.address, {"
+        "onLeave: function(retval) {"
+            "const intercepted = retval;"
+            "send(intercepted.$metadata.handle.equals(BigStruct.$metadataPointer));"
+            "send(intercepted.handle.readU64().toNumber() == 0x1);"
+            "send(intercepted.handle.add(Process.pointerSize).readU64().toNumber() == 0x2);"
+            "send(intercepted.handle.add(Process.pointerSize * 2).readU64().toNumber() == 0x3);"
+            "send(intercepted.handle.add(Process.pointerSize * 3).readU64().toNumber() == 0x4);"
+            "send(intercepted.handle.add(Process.pointerSize * 4).readU64().toNumber() == 0x5);"
+        "}"
+    "});"
+    "returnBigStruct();"
+  );
+  EXPECT_SEND_MESSAGE_WITH ("true");
+  EXPECT_SEND_MESSAGE_WITH ("true");
+  EXPECT_SEND_MESSAGE_WITH ("true");
+  EXPECT_SEND_MESSAGE_WITH ("true");
+  EXPECT_SEND_MESSAGE_WITH ("true");
+  EXPECT_SEND_MESSAGE_WITH ("true");
+}
+
+TESTCASE (interceptor_can_parse_opaque_existential_container_return_value)
+{
+  COMPILE_AND_LOAD_SCRIPT (
+    "var dummy = Process.getModuleByName('dummy.o');"
+    "var symbols = dummy.enumerateSymbols();"
+    "symbols = symbols.filter(s => s.name == '$s5dummy22passThroughExistentialyAA0D0_pAaC_pF');"
+    "var target = symbols[0].address;"
+    "var { Existential } = Swift.protocols;"
+    "var passThroughExistential = Swift.NativeFunction(target, Existential, [Existential]);"
+    "var { InlineExistentialStruct, OutOfLineExistentialStruct } = Swift.structs;"
+    "var hook = Swift.Interceptor.attach(passThroughExistential.address, {"
+        "onLeave: function(retval) {"
+            "send(retval.$metadata.handle.equals(InlineExistentialStruct.$metadataPointer));"
+            "send(retval.handle.readU64().toNumber() == 0xDEAD);"
+            "send(retval.handle.add(Process.pointerSize).readU64().toNumber() == 0xBABE);"
+        "}"
+    "});"
+    "var inline = new Swift.Struct(InlineExistentialStruct, { raw: [0xDEAD, 0xBABE] });"
+    "passThroughExistential(inline);"
+    "hook.detach();"
+    "var outOfLine = new Swift.Struct(OutOfLineExistentialStruct, { raw: [0xDEAD, 0xBEEF, 0xAAAA, 0xBBBB, 0xCCCC] });"
+    "Swift.Interceptor.attach(passThroughExistential.address, {"
+        "onLeave: function(retval) {"
+            "send(retval.$metadata.handle.equals(OutOfLineExistentialStruct.$metadataPointer));"
+            "send(retval.handle.readU64().toNumber() == 0xDEAD);"
+            "send(retval.handle.add(Process.pointerSize).readU64().toNumber() == 0xBEEF);"
+            "send(retval.handle.add(Process.pointerSize * 2).readU64().toNumber() == 0xAAAA);"
+            "send(retval.handle.add(Process.pointerSize * 3).readU64().toNumber() == 0xBBBB);"
+            "send(retval.handle.add(Process.pointerSize * 4).readU64().toNumber() == 0xCCCC);"
+        "}"
+    "});"
+    "passThroughExistential(outOfLine);"
+  );
+  EXPECT_SEND_MESSAGE_WITH ("true");
+  EXPECT_SEND_MESSAGE_WITH ("true");
+  EXPECT_SEND_MESSAGE_WITH ("true");
+  EXPECT_SEND_MESSAGE_WITH ("true");
+  EXPECT_SEND_MESSAGE_WITH ("true");
+  EXPECT_SEND_MESSAGE_WITH ("true");
+  EXPECT_SEND_MESSAGE_WITH ("true");
+  EXPECT_SEND_MESSAGE_WITH ("true");
+  EXPECT_SEND_MESSAGE_WITH ("true");
+}
+
+TESTCASE (interceptor_can_parse_class_existential_container_return_value)
+{
+  COMPILE_AND_LOAD_SCRIPT (
+    "var dummy = Process.getModuleByName('dummy.o');"
+    "var symbols = dummy.enumerateSymbols();"
+    "symbols = symbols.filter(s => s.name == '$s5dummy41passCompositeClassBoundExistentialThroughyAA0deF0_AA0F0pAaC_AaDpF');"
+    "var target = symbols[0].address;"
+    "var { ClassBoundExistential, Togglable } = Swift.protocols;"
+    "var ClassBoundExistentialAndTogglable = new Swift.ProtocolComposition(ClassBoundExistential, Togglable);"
+    "var passCompositeClassBoundExistentialThrough = Swift.NativeFunction(target, ClassBoundExistentialAndTogglable, [ClassBoundExistentialAndTogglable]);"
+    "var { CompositeClassBoundExistentialClass } = Swift.classes;"
+    "var instance = CompositeClassBoundExistentialClass.__allocating_init();"
+    "Swift.Interceptor.attach(passCompositeClassBoundExistentialThrough.address, {"
+        "onLeave: function(retval) {"
+            "send(retval.$metadata.handle.equals(CompositeClassBoundExistentialClass.$metadataPointer));"
+            "send(retval.handle.add(Process.pointerSize * 2).readU64().toNumber() == 0x0B00B135);"
+            "send(retval.handle.add(Process.pointerSize * 3).readU64().toNumber() == 0xB16B00B5);"
+        "}"
+    "});"
+    "passCompositeClassBoundExistentialThrough(instance);"
+  );
+  EXPECT_SEND_MESSAGE_WITH ("true");
+  EXPECT_SEND_MESSAGE_WITH ("true");
+  EXPECT_SEND_MESSAGE_WITH ("true");
+}
