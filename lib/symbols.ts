@@ -60,7 +60,7 @@ interface MethodSignatureParseResult {
  */
 export function parseSwiftMethodSignature(signature: string):
         MethodSignatureParseResult {
-    const methNameAndRetTypeExp = /([a-zA-Z_]\w+)(<.+>)*\(.*\) -> ([\w.]+|\([\w.]*\))$/g;
+    const methNameAndRetTypeExp = /([a-zA-Z_]\w+)(<.+>)*\(.*\) -> ([\w.]+(?: & [\w.]+)*|\([\w.]*\))$/g;
     /**
      * If there's only one unlabled argument, the demangler emits just the type name.
      */
