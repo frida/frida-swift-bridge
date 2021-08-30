@@ -10,11 +10,13 @@ import { EnumValue, ObjectInstance, ProtocolComposition,
 import { TargetEnumMetadata, TargetMetadata, TargetStructMetadata, TargetValueMetadata } from "../abi/metadata";
 import { ClassExistentialContainer,
          TargetOpaqueExistentialContainer } from "../runtime/existentialcontainer";
-import { protocolConformancesFor } from "./macho";
+import { getProtocolConformancesFor } from "./macho";
 import { MetadataKind } from "../abi/metadatavalues";
 import { makeBufferFromValue, makeValueFromBuffer, moveValueToBuffer } from "./buffer";
 
 export type NativeSwiftType = TargetMetadata | ProtocolComposition | NativeType;
+export const MAX_LOADABLE_SIZE = Process.pointerSize * 4;
+export const INDRIECT_RETURN_REGISTER = "x8";
 
 class TrampolinePool {
     private static pages: NativePointer[];
@@ -112,7 +114,11 @@ export function makeSwiftNativeFunction(address: NativePointer,
             const base = container.getWitnessTables();
             for (const [i, proto] of composition.protocols.entries()) {
                 const typeName = typeMetadata.getFullTypeName();
-                const vwt = protocolConformancesFor(typeName)[proto.name].witnessTable;
+                const conformance = getProtocolConformancesFor(typeName)[proto.name];
+                if (conformance === undefined) {
+                    throw new Error(`Type ${typeName} does not conform to protocol ${proto.name}`);
+                }
+                const vwt = conformance.witnessTable;
 
                 base.add(i * Process.pointerSize).writePointer(vwt);
             }
@@ -139,8 +145,8 @@ export function makeSwiftNativeFunction(address: NativePointer,
             }
         }
 
-        return ValueInstance.fromExistentialContainer(retval,
-                retType.numProtocols, retType.isClassOnly);
+        const buf = makeBufferFromValue(retval);
+        return ValueInstance.fromExistentialContainer(buf, retType);
     }
 
     return Object.assign(wrapper, { address });
@@ -161,9 +167,8 @@ function lowerSemantically(type: NativeSwiftType): NativeType {
         }
     }
 
-    /* FIXME: ugly */
     if (type.getKind() === MetadataKind.Class ||
-        shouldPassIndirectly(type as TargetValueMetadata)) {
+        shouldPassIndirectly(type)) {
         return "pointer";
     }
 
@@ -197,7 +202,7 @@ function lowerPhysically(
         return lowered;
     }
 
-    if (shouldPassIndirectly(value.$metadata as TargetValueMetadata)) {
+    if (shouldPassIndirectly(value.$metadata)) {
         return value.handle;
     }
 
@@ -205,7 +210,7 @@ function lowerPhysically(
                 value.$metadata.getTypeLayout().stride);
 }
 
-function shouldPassIndirectly(typeMetadata: TargetValueMetadata) {
+export function shouldPassIndirectly(typeMetadata: TargetMetadata) {
     const vwt = typeMetadata.getValueWitnesses();
     return !vwt.flags.isBitwiseTakable;
 }
