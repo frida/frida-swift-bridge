@@ -96,7 +96,7 @@ export function metadataFor<T extends TargetMetadata>(typeName: string, c: TypeD
     return metadata as T;
 }
 
-export function protocolConformancesFor(typeName: string): ProtocolConformanceMap {
+export function getProtocolConformancesFor(typeName: string): ProtocolConformanceMap {
     const fullTypeData = fullTypeDataMap[typeName];
 
     if (fullTypeData === undefined) {
@@ -112,6 +112,14 @@ export function getAllProtocolDescriptors(): TargetProtocolDescriptor[] {
 
 export function findProtocolDescriptor(protoName: string): TargetProtocolDescriptor {
     return protocolDescriptorMap[protoName];
+}
+
+export function getProtocolDescriptor(protoName: string) {
+    const desc = protocolDescriptorMap[protoName];
+    if (desc === undefined) {
+        throw new Error(`Can't find protocol descriptor for: "${protoName}"`);
+    }
+    return desc;
 }
 
 function enumerateTypeDescriptors(module: Module): TargetTypeContextDescriptor[] {
