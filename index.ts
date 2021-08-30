@@ -18,8 +18,9 @@ import { Class, Struct, Enum, Protocol,
          Type} from "./lib/types";
 import { makeSwiftNativeFunction, NativeSwiftType } from "./lib/callingconvention";
 import { Registry, SwiftModule } from "./lib/registry";
+import { SwiftInterceptor } from "./lib/interceptor";
 
-type ConvenientNativeSwiftType = Type | Protocol | ProtocolComposition | NativeType;
+type ConvenientSwiftType = Type | Protocol | ProtocolComposition | NativeType;
 
 class Runtime {
     #api: API = null;
@@ -64,11 +65,12 @@ class Runtime {
     readonly Struct = StructValue;
     readonly Enum = EnumValue;
     readonly ProtocolComposition = ProtocolComposition;
+    readonly Interceptor = SwiftInterceptor;
 
-    NativeFunction(address: NativePointer, retType: ConvenientNativeSwiftType,
-                   argTypes: ConvenientNativeSwiftType[], context?: NativePointer,
+    NativeFunction(address: NativePointer, retType: ConvenientSwiftType,
+                   argTypes: ConvenientSwiftType[], context?: NativePointer,
                    throws?: boolean) {
-        function getNativeType(type: ConvenientNativeSwiftType): NativeSwiftType {
+        function getNativeType(type: ConvenientSwiftType): NativeSwiftType {
             if (type instanceof Type) {
                 return type.$metadata;
             } else if (type instanceof Protocol) {
