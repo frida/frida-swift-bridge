@@ -12,10 +12,10 @@ import { TargetClassDescriptor, TargetClassMetadata, TargetEnumDescriptor,
 import { MetadataKind, MethodDescriptorKind,
          ProtocolClassConstraint } from "../abi/metadatavalues";
 import { demangleSwiftSymbol, parseSwiftAccessorSignature, parseSwiftMethodSignature, tryParseSwiftMethodSignature } from "../lib/symbols";
-import { makeSwiftNativeFunction, NativeSwiftType } from "./callingconvention";
+import { makeSwiftNativeFunction } from "./callingconvention";
 import { HeapObject } from "../runtime/heapobject";
 import { RawFields, makeBufferFromValue } from "./buffer";
-import { findDemangledSymbol, metadataFor, ProtocolConformance, ProtocolConformanceMap, untypedMetadataFor } from "./macho";
+import { findDemangledSymbol, getProtocolDescriptor, metadataFor, ProtocolConformance, ProtocolConformanceMap, untypedMetadataFor } from "./macho";
 import { FieldDescriptor } from "../reflection/records";
 import { RelativeDirectPointer } from "../basic/relativepointer";
 import { ClassExistentialContainer, TargetOpaqueExistentialContainer } from "../runtime/existentialcontainer";
@@ -203,6 +203,26 @@ export class ProtocolComposition {
             }
         }
     }
+
+    get sizeofExistentialContainer(): number {
+        const baseSize = this.isClassOnly ?
+                         Process.pointerSize * 1 :
+                         Process.pointerSize * 4;
+        return baseSize + Process.pointerSize * this.numProtocols;
+    }
+
+    static fromSignature(sig: string): ProtocolComposition {
+        const protos: Protocol[] = [];
+        const protoNames = sig.split("&").map(p => p.trim());
+
+        for (const protoName of protoNames) {
+            const desc = getProtocolDescriptor(protoName);
+            const proto = new Protocol(desc);
+            protos.push(proto);
+        }
+
+        return new ProtocolComposition(...protos);
+    }
 }
 
 export abstract class RuntimeInstance {
@@ -227,13 +247,11 @@ export abstract class RuntimeInstance {
         }
     }
 
-    static fromExistentialContainer(raw: RawFields, numProtocols: number,
-            isClassOnly: boolean): RuntimeInstance {
-        const buf = makeBufferFromValue(raw);
-
-        if (!isClassOnly) {
+    static fromExistentialContainer(handle: NativePointer,
+            composition: ProtocolComposition): RuntimeInstance {
+        if (!composition.isClassOnly) {
             const container = TargetOpaqueExistentialContainer
-                    .makeFromRaw(buf, numProtocols);
+                    .makeFromRaw(handle, composition.numProtocols);
             const typeMetadata = container.type;
 
             if (typeMetadata.isClassObject()) {
@@ -246,7 +264,7 @@ export abstract class RuntimeInstance {
             }
         } else {
             const container = ClassExistentialContainer
-                    .makeFromRaw(buf, numProtocols);
+                    .makeFromRaw(handle, composition.numProtocols);
             return new ObjectInstance(container.value);
         }
     }
@@ -271,11 +289,27 @@ export abstract class ValueInstance extends RuntimeInstance {
     }
 
     static fromAdopted(handle: NativePointer, metadata: TargetValueMetadata): ValueInstance {
-        if (metadata.getKind() === MetadataKind.Struct) {
+        const kind = metadata.getKind();
+
+        if (kind === MetadataKind.Struct) {
             return new StructValue(metadata as TargetStructMetadata, { handle });
-        } else {
+        } else if (kind === MetadataKind.Enum) {
             return new EnumValue(metadata as TargetEnumMetadata, { handle });
         }
+
+        throw new Error("Non-value kind: " + kind);
+    }
+
+    static fromRaw(raw: RawFields, metadata: TargetValueMetadata): ValueInstance {
+        const kind = metadata.getKind();
+
+        if (kind === MetadataKind.Struct) {
+            return new StructValue(metadata as TargetStructMetadata, { raw });
+        } else if (kind === MetadataKind.Enum) {
+            return new EnumValue(metadata as TargetEnumMetadata, { raw });
+        }
+
+        throw new Error("Non-value kind: " + kind);
     }
 }
 
