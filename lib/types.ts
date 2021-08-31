@@ -69,8 +69,8 @@ export abstract class Type {
 
     toJSON() {
         return {
-            fields: this.$fields,
-            conformances: Object.keys(this.$conformances),
+            $fields: this.$fields,
+            $conformances: Object.keys(this.$conformances),
         };
     }
 }
@@ -127,7 +127,7 @@ export class Class extends Type {
     toJSON() {
         const base = super.toJSON();
         return Object.assign(base, {
-            methods: this.$methods,
+            $methods: this.$methods,
         });
     }
 }
@@ -547,8 +547,8 @@ export class EnumValue implements ValueInstance {
     toJSON() {
         return {
             handle: this.handle,
-            tag: this.#tag,
-            payload: this.#payload,
+            $tag: this.#tag,
+            $payload: this.#payload,
         };
     }
 }
