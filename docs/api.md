@@ -54,7 +54,7 @@
     * Create a new protocol that's the result of more than one protocol. This emulates the `&` syntax in Swift when defining a function, e.g:
         ```swift
         func wishHappyBirthday(to celebrator: Named & Aged) {
-        	print("Happy birthday, \(celebrator.name), you're \(celebrator.age)!")
+            print("Happy birthday, \(celebrator.name), you're \(celebrator.age)!")
         }
         ```
     * Contains the same properties as the objects in `Swift.protocols`.
