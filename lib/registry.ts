@@ -1,12 +1,11 @@
 import {
     TargetClassDescriptor,
-    TargetClassMetadata,
     TargetEnumDescriptor,
     TargetStructDescriptor,
 } from "../abi/metadata";
 import { ContextDescriptorKind } from "../abi/metadatavalues";
 import { getAllFullTypeData, getAllProtocolDescriptors } from "./macho";
-import { Class, Enum, Protocol, Struct, StructValue, Type } from "./types";
+import { Class, Enum, Protocol, Struct, Type } from "./types";
 
 export type TypeMap = Record<string, Type>;
 export type ClassMap = Record<string, Class>;
@@ -24,7 +23,7 @@ export class Registry {
     readonly protocols: ProtocolMap = {};
     readonly cachedTypes: TypeMap = {};
 
-    static shared() {
+    static shared(): Registry {
         if (Registry.sharedInstance === undefined) {
             Registry.sharedInstance = new Registry();
         }
@@ -38,7 +37,7 @@ export class Registry {
             const conformances = fullTypeData.conformances;
 
             switch (fullTypeData.descriptor.getKind()) {
-                case ContextDescriptorKind.Class:
+                case ContextDescriptorKind.Class: {
                     const klass = new Class(
                         descriptor as TargetClassDescriptor,
                         conformances
@@ -46,7 +45,8 @@ export class Registry {
                     this.classes[klass.$name] = klass;
                     this.getModule(klass.$moduleName).addClass(klass);
                     break;
-                case ContextDescriptorKind.Struct:
+                }
+                case ContextDescriptorKind.Struct: {
                     const struct = new Struct(
                         descriptor as TargetStructDescriptor,
                         conformances
@@ -54,14 +54,17 @@ export class Registry {
                     this.structs[struct.$name] = struct;
                     this.getModule(struct.$moduleName).addStruct(struct);
                     break;
-                case ContextDescriptorKind.Enum:
+                }
+                case ContextDescriptorKind.Enum: {
                     const anEnum = new Enum(
+
                         descriptor as TargetEnumDescriptor,
                         conformances
                     );
                     this.enums[anEnum.$name] = anEnum;
                     this.getModule(anEnum.$moduleName).addEnum(anEnum);
                     break;
+                }
             }
         }
 
@@ -91,23 +94,23 @@ export class SwiftModule {
 
     constructor(readonly name: string) {}
 
-    addClass(klass: Class) {
+    addClass(klass: Class): void {
         this.classes[klass.$name] = klass;
     }
 
-    addStruct(struct: Struct) {
+    addStruct(struct: Struct): void {
         this.structs[struct.$name] = struct;
     }
 
-    addEnum(anEnum: Enum) {
+    addEnum(anEnum: Enum): void {
         this.enums[anEnum.$name] = anEnum;
     }
 
-    addProtocol(protocol: Protocol) {
+    addProtocol(protocol: Protocol): void {
         this.protocols[protocol.name] = protocol;
     }
 
-    toJSON() {
+    toJSON(): Record<string, number> {
         return {
             classes: Object.keys(this.classes).length,
             structs: Object.keys(this.structs).length,

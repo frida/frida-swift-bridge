@@ -248,7 +248,7 @@ function lowerPhysically(
     );
 }
 
-export function shouldPassIndirectly(typeMetadata: TargetMetadata) {
+export function shouldPassIndirectly(typeMetadata: TargetMetadata): boolean {
     const vwt = typeMetadata.getValueWitnesses();
     return !vwt.flags.isBitwiseTakable;
 }

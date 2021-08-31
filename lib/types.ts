@@ -14,9 +14,7 @@ import {
     TargetStructDescriptor,
     TargetStructMetadata,
     TargetTypeContextDescriptor,
-    TargetValueBuffer,
     TargetValueMetadata,
-    TypeLayout,
 } from "../abi/metadata";
 import {
     MetadataKind,
@@ -36,7 +34,6 @@ import {
     findDemangledSymbol,
     getProtocolDescriptor,
     metadataFor,
-    ProtocolConformance,
     ProtocolConformanceMap,
     untypedMetadataFor,
 } from "./macho";
@@ -280,7 +277,7 @@ export abstract class RuntimeInstance {
     abstract readonly $metadata: TargetMetadata;
     abstract readonly handle: NativePointer;
 
-    equals(other: RuntimeInstance) {
+    equals(other: RuntimeInstance): boolean {
         return this.handle.equals(other.handle);
     }
 
@@ -412,7 +409,7 @@ export class StructValue implements ValueInstance {
         this.handle = options.handle || makeBufferFromValue(options.raw);
     }
 
-    equals(other: StructValue) {
+    equals(other: StructValue): boolean {
         return this.handle.equals(other.handle);
     }
 
@@ -532,7 +529,7 @@ export class EnumValue implements ValueInstance {
         return this.#payload;
     }
 
-    equals(e: EnumValue) {
+    equals(e: EnumValue): boolean {
         let result = false;
 
         if (this.$tag !== undefined && e.$tag !== undefined) {
@@ -584,7 +581,7 @@ export class ObjectInstance extends RuntimeInstance {
                     Object.defineProperty(this, parsed.memberName, {
                         configurable: true,
                         enumerable: true,
-                        get: getter as () => any,
+                        get: getter
                     });
                     break;
                 }

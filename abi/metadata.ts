@@ -91,7 +91,7 @@ export abstract class TargetMetadata {
         return this.getValueWitnesses().asEVWT().getEnumTag(object);
     }
 
-    vw_destructiveInjectEnumTag(object: NativePointer, tag: number) {
+    vw_destructiveInjectEnumTag(object: NativePointer, tag: number): void {
         return this.getValueWitnesses()
             .asEVWT()
             .destructiveInjectEnumTag(object, tag);
@@ -445,11 +445,11 @@ export class TargetClassDescriptor extends TargetTypeContextDescriptor {
     static readonly OFFSETOF_TARGET_VTABLE_DESCRIPTOR_HEADER = 0x2c;
     static readonly OFFSETOF_METHOD_DESCRIPTORS = 0x34;
 
-    hasVTable() {
+    hasVTable(): boolean {
         return this.getTypeContextDescriptorFlags().class_hasVTable();
     }
 
-    hasResilientSuperClass() {
+    hasResilientSuperClass(): boolean {
         return this.getTypeContextDescriptorFlags().class_hasResilientSuperClass();
     }
 

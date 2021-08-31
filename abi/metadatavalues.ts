@@ -69,14 +69,14 @@ enum TypeContextDescriptorFlags_Values {
 export class TypeContextDescriptorFlags {
     constructor(private value: TypeContextDescriptorFlags_Values) {}
 
-    class_hasVTable() {
+    class_hasVTable(): boolean {
         return !!(
             this.value &
             (1 << TypeContextDescriptorFlags_Values.Class_HasVTable)
         );
     }
 
-    class_hasResilientSuperClass() {
+    class_hasResilientSuperClass(): boolean {
         return !!(
             this.value &
             (1 <<

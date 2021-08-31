@@ -41,7 +41,10 @@ export function makeValueFromBuffer(
     return result;
 }
 
-export function moveValueToBuffer(fields: UInt64[], buffer: NativePointer) {
+export function moveValueToBuffer(
+    fields: UInt64[],
+    buffer: NativePointer
+): void {
     const size = Process.pointerSize * fields.length;
 
     for (
@@ -53,7 +56,7 @@ export function moveValueToBuffer(fields: UInt64[], buffer: NativePointer) {
     }
 }
 
-export function sizeInQWordsRounded(stride: number) {
+export function sizeInQWordsRounded(stride: number): number {
     stride = stride < 8 ? 8 : stride;
     return stride / 8;
 }

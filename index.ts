@@ -37,7 +37,9 @@ class Runtime {
     constructor() {
         try {
             this.tryInitialize();
-        } catch (e) {}
+        } catch (e) {
+            /* empty */
+        }
     }
 
     get available(): boolean {

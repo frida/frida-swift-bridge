@@ -163,7 +163,9 @@ export function parseSwiftAccessorSignature(
     };
 }
 
-export function tryParseSwiftAccessorSignature(signature: string) {
+export function tryParseSwiftAccessorSignature(
+    signature: string
+): AccessorSignatureParseResult {
     try {
         return parseSwiftAccessorSignature(signature);
     } catch (e) {

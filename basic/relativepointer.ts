@@ -5,7 +5,7 @@
 
 export class RelativeDirectPointer {
     static sizeOf = 4;
-    static From(handle: NativePointer) {
+    static From(handle: NativePointer): RelativeDirectPointer {
         const offset = handle.readS32();
 
         return offset === 0 ? null : new RelativeDirectPointer(handle, offset);
@@ -19,7 +19,7 @@ export class RelativeDirectPointer {
 }
 
 export class RelativeIndirectablePointer {
-    static From(handle: NativePointer) {
+    static From(handle: NativePointer): RelativeIndirectablePointer {
         const offset = handle.readS32();
 
         return offset === 0

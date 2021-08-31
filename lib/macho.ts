@@ -6,7 +6,6 @@ import {
     TargetEnumDescriptor,
     TargetMetadata,
     TargetProtocolConformanceDescriptor,
-    TargetStructMetadata,
 } from "../abi/metadata";
 import { ContextDescriptorKind } from "../abi/metadatavalues";
 import { RelativeDirectPointer } from "../basic/relativepointer";
@@ -106,7 +105,7 @@ export function metadataFor<T extends TargetMetadata>(
     const metadataPtr = fullTypeData.descriptor
         .getAccessFunction()
         .call() as NativePointer;
-    const metadata = TargetMetadata.from(metadataPtr);
+    const metadata = new c(metadataPtr);
     fullTypeDataMap[typeName].metadata = metadata;
     return metadata as T;
 }
@@ -133,7 +132,9 @@ export function findProtocolDescriptor(
     return protocolDescriptorMap[protoName];
 }
 
-export function getProtocolDescriptor(protoName: string) {
+export function getProtocolDescriptor(
+    protoName: string
+): TargetProtocolDescriptor {
     const desc = protocolDescriptorMap[protoName];
     if (desc === undefined) {
         throw new Error(`Can't find protocol descriptor for: "${protoName}"`);
@@ -254,7 +255,7 @@ function getSwift5ProtocolConformanceSection(module: Module): MachOSection {
 function getMachoSection(
     module: Module,
     sectionName: string,
-    segmentName: string = "__TEXT"
+    segmentName = "__TEXT"
 ): MachOSection {
     Module.ensureInitialized("libmacho.dylib");
     const addr = Module.getExportByName("libmacho.dylib", "getsectiondata");
@@ -292,10 +293,9 @@ const cachedSymbols: SymbolCache = {};
 export function enumerateDemangledSymbols(
     module: Module
 ): ModuleSymbolDetails[] {
-    let result: ModuleSymbolDetails[];
     const symbols = module.enumerateSymbols();
 
-    result = symbols.flatMap((s) => {
+    const result = symbols.flatMap((s) => {
         const demangled = demangleSwiftSymbol(s.name);
         if (demangled) {
             s.name = demangled;

@@ -66,6 +66,7 @@ export class TargetOpaqueExistentialContainer {
         return this.#buffer;
     }
 
+    // eslint-disable-next-line @typescript-eslint/adjacent-overload-signatures
     get type(): TargetMetadata {
         return this.#type;
     }
@@ -93,7 +94,7 @@ export class TargetOpaqueExistentialContainer {
         return heapObject.add(byteOffset);
     }
 
-    get sizeof() {
+    get sizeof(): number {
         return (
             TargetOpaqueExistentialContainer.INITIAL_SIZE +
             this.numWitnessTables * Process.pointerSize
@@ -124,7 +125,10 @@ export class ClassExistentialContainer {
         return new ClassExistentialContainer(buf, numWitnessTables);
     }
 
-    static makeFromRaw(handle: NativePointer, numWitnessTables: number) {
+    static makeFromRaw(
+        handle: NativePointer,
+        numWitnessTables: number
+    ): ClassExistentialContainer {
         const container = new ClassExistentialContainer(
             handle,
             numWitnessTables
@@ -153,7 +157,7 @@ export class ClassExistentialContainer {
         );
     }
 
-    get sizeof() {
+    get sizeof(): number {
         return (
             ClassExistentialContainer.INITIAL_SIZE +
             this.numWitnessTables * Process.pointerSize
