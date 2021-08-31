@@ -1,17 +1,25 @@
 {
-  "name": "frida-swift-bridge",
-  "version": "0.0.0",
-  "description": "Swift runtime interop from Frida",
-  "main": "dist/index.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "tsc && frida-compile -o _agent.js loader.js",
-    "watch": "./watch.sh"
-  },
-  "author": "Abdelrahman Eid (@hot3eed)",
-  "license": "wxWindows",
-  "dependencies": {
-    "@types/frida-gum": "^16.5.0",
-    "frida-compile": "^10.2.1"
-  }
+    "name": "frida-swift-bridge",
+    "version": "0.0.0",
+    "description": "Swift runtime interop from Frida",
+    "main": "dist/index.js",
+    "scripts": {
+        "test": "echo \"Error: no test specified\" && exit 1",
+        "build": "tsc && frida-compile -o _agent.js loader.js",
+        "watch": "./watch.sh",
+        "format": "prettier --config .prettierrc . --write"
+    },
+    "author": "Abdelrahman Eid (@hot3eed)",
+    "license": "wxWindows",
+    "dependencies": {
+        "@types/frida-gum": "^16.5.0",
+        "frida-compile": "^10.2.1"
+    },
+    "devDependencies": {
+        "@typescript-eslint/eslint-plugin": "^4.30.0",
+        "@typescript-eslint/parser": "^4.30.0",
+        "eslint": "^7.32.0",
+        "prettier": "^2.3.2",
+        "typescript": "^4.4.2"
+    }
 }
