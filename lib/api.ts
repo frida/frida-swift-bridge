@@ -1,5 +1,5 @@
 export interface API {
-    [func: string]: Function,
+    [func: string]: Function;
 }
 
 let cachedApi: API = null;
@@ -18,25 +18,31 @@ export function getApi(): API {
         {
             module: "libswiftCore.dylib",
             functions: {
-                "swift_demangle": ["pointer", ["pointer", "size_t",
-                    "pointer", "pointer", "int32"]],
+                swift_demangle: [
+                    "pointer",
+                    ["pointer", "size_t", "pointer", "pointer", "int32"],
+                ],
                 /** This one uses Swiftcall actually but we we're lucky the
-                  * registers are the same as SystemV for this particular case.
-                  */
-                "swift_stdlib_getTypeByMangledNameUntrusted": ["pointer",
-                    ["pointer", "size_t"]],
-            }
-        }
+                 * registers are the same as SystemV for this particular case.
+                 */
+                swift_stdlib_getTypeByMangledNameUntrusted: [
+                    "pointer",
+                    ["pointer", "size_t"],
+                ],
+            },
+        },
     ];
 
     cachedApi = makeAPI(pending);
 
-    const pendingSwift = [{
-        module: "libswiftCore.dylib",
-        functions: {
-            "swift_allocBox": [["pointer", "pointer"], ["pointer"]],
-        }
-    }];
+    const pendingSwift = [
+        {
+            module: "libswiftCore.dylib",
+            functions: {
+                swift_allocBox: [["pointer", "pointer"], ["pointer"]],
+            },
+        },
+    ];
 
     const swiftAPI = makeAPI(pendingSwift);
     cachedApi = Object.assign(cachedApi, swiftAPI);
@@ -53,10 +59,12 @@ export function getPrivateAPI(): API {
         {
             module: "libmacho.dylib",
             functions: {
-                "getsectiondata": ["pointer", ["pointer", "pointer",
-                    "pointer", "pointer"]]
-            }
-        }
+                getsectiondata: [
+                    "pointer",
+                    ["pointer", "pointer", "pointer", "pointer"],
+                ],
+            },
+        },
     ];
 
     cachedPrivateAPI = makeAPI(pending);
@@ -66,15 +74,16 @@ export function getPrivateAPI(): API {
 function makeAPI(exports: any): API {
     const result: API = {};
 
-    exports.forEach(api => {
+    exports.forEach((api) => {
         const functions = api.functions || {};
         const module = Process.getModuleByName(api.module);
 
-        Object.keys(functions).forEach(name => {
+        Object.keys(functions).forEach((name) => {
             Module.ensureInitialized(module.name);
 
-            const exp = module.findExportByName(name) ||
-                      DebugSymbol.fromName(name).address;
+            const exp =
+                module.findExportByName(name) ||
+                DebugSymbol.fromName(name).address;
 
             if (exp.isNull()) {
                 throw new Error(`Unable to find API: ${name}`);

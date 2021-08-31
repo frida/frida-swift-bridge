@@ -4,21 +4,48 @@
  *  - Implement Objective-C enumeration, e.g. __C.NSURL?
  */
 
-import { TargetClassDescriptor, TargetClassMetadata, TargetEnumDescriptor,
-         TargetEnumMetadata, TargetMetadata, TargetProtocolDescriptor,
-         TargetStructDescriptor, TargetStructMetadata,
-         TargetTypeContextDescriptor, TargetValueBuffer, TargetValueMetadata,
-         TypeLayout } from "../abi/metadata";
-import { MetadataKind, MethodDescriptorKind,
-         ProtocolClassConstraint } from "../abi/metadatavalues";
-import { demangleSwiftSymbol, parseSwiftAccessorSignature, parseSwiftMethodSignature, tryParseSwiftMethodSignature } from "../lib/symbols";
+import {
+    TargetClassDescriptor,
+    TargetClassMetadata,
+    TargetEnumDescriptor,
+    TargetEnumMetadata,
+    TargetMetadata,
+    TargetProtocolDescriptor,
+    TargetStructDescriptor,
+    TargetStructMetadata,
+    TargetTypeContextDescriptor,
+    TargetValueBuffer,
+    TargetValueMetadata,
+    TypeLayout,
+} from "../abi/metadata";
+import {
+    MetadataKind,
+    MethodDescriptorKind,
+    ProtocolClassConstraint,
+} from "../abi/metadatavalues";
+import {
+    demangleSwiftSymbol,
+    parseSwiftAccessorSignature,
+    parseSwiftMethodSignature,
+    tryParseSwiftMethodSignature,
+} from "../lib/symbols";
 import { makeSwiftNativeFunction } from "./callingconvention";
 import { HeapObject } from "../runtime/heapobject";
 import { RawFields, makeBufferFromValue } from "./buffer";
-import { findDemangledSymbol, getProtocolDescriptor, metadataFor, ProtocolConformance, ProtocolConformanceMap, untypedMetadataFor } from "./macho";
+import {
+    findDemangledSymbol,
+    getProtocolDescriptor,
+    metadataFor,
+    ProtocolConformance,
+    ProtocolConformanceMap,
+    untypedMetadataFor,
+} from "./macho";
 import { FieldDescriptor } from "../reflection/records";
 import { RelativeDirectPointer } from "../basic/relativepointer";
-import { ClassExistentialContainer, TargetOpaqueExistentialContainer } from "../runtime/existentialcontainer";
+import {
+    ClassExistentialContainer,
+    TargetOpaqueExistentialContainer,
+} from "../runtime/existentialcontainer";
 
 type SwiftTypeKind = "Class" | "Enum" | "Struct";
 
@@ -29,9 +56,11 @@ export abstract class Type {
 
     abstract readonly $metadata: TargetMetadata;
 
-    constructor (readonly kind: SwiftTypeKind,
-                 readonly descriptor: TargetTypeContextDescriptor,
-                 readonly $conformances: ProtocolConformanceMap) {
+    constructor(
+        readonly kind: SwiftTypeKind,
+        readonly descriptor: TargetTypeContextDescriptor,
+        readonly $conformances: ProtocolConformanceMap
+    ) {
         this.$name = descriptor.name;
         this.$fields = getFieldsDetails(descriptor);
         this.$moduleName = descriptor.getModuleContext().name;
@@ -45,14 +74,17 @@ export abstract class Type {
         return {
             fields: this.$fields,
             conformances: Object.keys(this.$conformances),
-        }
+        };
     }
 }
 
 export class Class extends Type {
     readonly $methods: MethodDetails[];
 
-    constructor(descriptor: TargetClassDescriptor, conformances: ProtocolConformanceMap) {
+    constructor(
+        descriptor: TargetClassDescriptor,
+        conformances: ProtocolConformanceMap
+    ) {
         super("Class", descriptor, conformances);
         this.$methods = getMethodsDetails(descriptor);
 
@@ -66,12 +98,15 @@ export class Class extends Type {
                 Object.defineProperty(this, parsed.jsSignature, {
                     configurable: true,
                     get() {
-                        const argTypes = parsed.argTypeNames.map(ty =>
-                                untypedMetadataFor(ty));
-                        const fn = makeSwiftNativeFunction(method.address,
-                                this.$metadata,
-                                argTypes,
-                                this.$metadataPointer);
+                        const argTypes = parsed.argTypeNames.map((ty) =>
+                            untypedMetadataFor(ty)
+                        );
+                        const fn = makeSwiftNativeFunction(
+                            method.address,
+                            this.$metadata,
+                            argTypes,
+                            this.$metadataPointer
+                        );
 
                         Object.defineProperty(this, parsed.jsSignature, {
                             configurable: true,
@@ -79,40 +114,49 @@ export class Class extends Type {
                         });
 
                         return fn;
-                    }
+                    },
                 });
             }
         }
     }
 
     get $metadata(): TargetClassMetadata {
-        return metadataFor(this.descriptor.getFullTypeName(), TargetClassMetadata);
+        return metadataFor(
+            this.descriptor.getFullTypeName(),
+            TargetClassMetadata
+        );
     }
 
     toJSON() {
         const base = super.toJSON();
         return Object.assign(base, {
-            methods: this.$methods
+            methods: this.$methods,
         });
     }
 }
 
 export class Struct extends Type {
-    constructor(descriptor: TargetStructDescriptor,
-                conformances: ProtocolConformanceMap) {
+    constructor(
+        descriptor: TargetStructDescriptor,
+        conformances: ProtocolConformanceMap
+    ) {
         super("Struct", descriptor, conformances);
-
     }
 
     get $metadata(): TargetStructMetadata {
-        return metadataFor(this.descriptor.getFullTypeName(), TargetStructMetadata);
+        return metadataFor(
+            this.descriptor.getFullTypeName(),
+            TargetStructMetadata
+        );
     }
 }
 
 /* TODO: handle "default" protocol witnesses? See OnOffSwitch for an example */
 export class Enum extends Type {
-    constructor(descriptor: TargetEnumDescriptor,
-                conformances: ProtocolConformanceMap) {
+    constructor(
+        descriptor: TargetEnumDescriptor,
+        conformances: ProtocolConformanceMap
+    ) {
         super("Enum", descriptor, conformances);
 
         if (this.$fields === undefined) {
@@ -131,17 +175,17 @@ export class Enum extends Type {
                     /* TODO: type-check argument */
                     const enumValue = new EnumValue(this.$metadata, {
                         tag: caseTag,
-                        payload
+                        payload,
                     });
 
                     return enumValue;
-                }
+                };
 
                 Object.defineProperty(this, kase.name, {
                     configurable: false,
                     enumerable: true,
                     value: associatedValueWrapper,
-                    writable: false
+                    writable: false,
                 });
             } else {
                 Object.defineProperty(this, kase.name, {
@@ -149,18 +193,23 @@ export class Enum extends Type {
                     enumerable: true,
                     get: () => {
                         const enumVal = new EnumValue(this.$metadata, {
-                            tag: caseTag
+                            tag: caseTag,
                         });
-                        Object.defineProperty(this, kase.name, { value: enumVal });
+                        Object.defineProperty(this, kase.name, {
+                            value: enumVal,
+                        });
                         return enumVal;
-                    }
+                    },
                 });
             }
         }
     }
 
     get $metadata(): TargetEnumMetadata {
-        return metadataFor(this.descriptor.getFullTypeName(), TargetEnumMetadata);
+        return metadataFor(
+            this.descriptor.getFullTypeName(),
+            TargetEnumMetadata
+        );
     }
 }
 
@@ -173,7 +222,9 @@ export class Protocol {
     constructor(readonly descriptor: TargetProtocolDescriptor) {
         this.name = descriptor.name;
         this.numRequirements = descriptor.numRequirements;
-        this.isClassOnly = descriptor.getProtocolContextDescriptorFlags()
+        this.isClassOnly =
+            descriptor
+                .getProtocolContextDescriptorFlags()
                 .getClassConstraint() == ProtocolClassConstraint.Class;
         this.moduleName = descriptor.getModuleContext().name;
     }
@@ -182,7 +233,7 @@ export class Protocol {
         return {
             numRequirements: this.descriptor.numRequirements,
             isClassOnly: this.isClassOnly,
-        }
+        };
     }
 }
 
@@ -205,15 +256,15 @@ export class ProtocolComposition {
     }
 
     get sizeofExistentialContainer(): number {
-        const baseSize = this.isClassOnly ?
-                         Process.pointerSize * 1 :
-                         Process.pointerSize * 4;
+        const baseSize = this.isClassOnly
+            ? Process.pointerSize * 1
+            : Process.pointerSize * 4;
         return baseSize + Process.pointerSize * this.numProtocols;
     }
 
     static fromSignature(sig: string): ProtocolComposition {
         const protos: Protocol[] = [];
-        const protoNames = sig.split("&").map(p => p.trim());
+        const protoNames = sig.split("&").map((p) => p.trim());
 
         for (const protoName of protoNames) {
             const desc = getProtocolDescriptor(protoName);
@@ -235,36 +286,51 @@ export abstract class RuntimeInstance {
 
     toJSON() {
         return {
-            handle: this.handle
-        }
+            handle: this.handle,
+        };
     }
 
-    static fromAdopted(handle: NativePointer, metadata: TargetMetadata): RuntimeInstance {
+    static fromAdopted(
+        handle: NativePointer,
+        metadata: TargetMetadata
+    ): RuntimeInstance {
         if (metadata.getKind() === MetadataKind.Class) {
             return new ObjectInstance(handle);
         } else {
-            return ValueInstance.fromAdopted(handle, metadata as TargetValueMetadata);
+            return ValueInstance.fromAdopted(
+                handle,
+                metadata as TargetValueMetadata
+            );
         }
     }
 
-    static fromExistentialContainer(handle: NativePointer,
-            composition: ProtocolComposition): RuntimeInstance {
+    static fromExistentialContainer(
+        handle: NativePointer,
+        composition: ProtocolComposition
+    ): RuntimeInstance {
         if (!composition.isClassOnly) {
-            const container = TargetOpaqueExistentialContainer
-                    .makeFromRaw(handle, composition.numProtocols);
+            const container = TargetOpaqueExistentialContainer.makeFromRaw(
+                handle,
+                composition.numProtocols
+            );
             const typeMetadata = container.type;
 
             if (typeMetadata.isClassObject()) {
                 return new ObjectInstance(
-                        container.buffer.privateData.readPointer());
+                    container.buffer.privateData.readPointer()
+                );
             } else {
                 const handle = container.projectValue();
-                return ValueInstance.fromCopy(handle,
-                        typeMetadata as TargetValueMetadata);
+                return ValueInstance.fromCopy(
+                    handle,
+                    typeMetadata as TargetValueMetadata
+                );
             }
         } else {
-            const container = ClassExistentialContainer
-                    .makeFromRaw(handle, composition.numProtocols);
+            const container = ClassExistentialContainer.makeFromRaw(
+                handle,
+                composition.numProtocols
+            );
             return new ObjectInstance(container.value);
         }
     }
@@ -273,26 +339,34 @@ export abstract class RuntimeInstance {
 export abstract class ValueInstance extends RuntimeInstance {
     readonly $metadata: TargetValueMetadata;
 
-    static fromCopy(src: NativePointer, metadata: TargetValueMetadata): ValueInstance {
+    static fromCopy(
+        src: NativePointer,
+        metadata: TargetValueMetadata
+    ): ValueInstance {
         const dest = Memory.alloc(metadata.getTypeLayout().stride);
         metadata.vw_initializeWithCopy(dest, src);
 
         if (metadata.getKind() === MetadataKind.Struct) {
             return new StructValue(metadata as TargetStructMetadata, {
-                handle: dest
+                handle: dest,
             });
         } else {
             return new EnumValue(metadata as TargetEnumMetadata, {
-                handle: dest
+                handle: dest,
             });
         }
     }
 
-    static fromAdopted(handle: NativePointer, metadata: TargetValueMetadata): ValueInstance {
+    static fromAdopted(
+        handle: NativePointer,
+        metadata: TargetValueMetadata
+    ): ValueInstance {
         const kind = metadata.getKind();
 
         if (kind === MetadataKind.Struct) {
-            return new StructValue(metadata as TargetStructMetadata, { handle });
+            return new StructValue(metadata as TargetStructMetadata, {
+                handle,
+            });
         } else if (kind === MetadataKind.Enum) {
             return new EnumValue(metadata as TargetEnumMetadata, { handle });
         }
@@ -300,7 +374,10 @@ export abstract class ValueInstance extends RuntimeInstance {
         throw new Error("Non-value kind: " + kind);
     }
 
-    static fromRaw(raw: RawFields, metadata: TargetValueMetadata): ValueInstance {
+    static fromRaw(
+        raw: RawFields,
+        metadata: TargetValueMetadata
+    ): ValueInstance {
         const kind = metadata.getKind();
 
         if (kind === MetadataKind.Struct) {
@@ -314,8 +391,8 @@ export abstract class ValueInstance extends RuntimeInstance {
 }
 
 interface StructValueConstructionOptions {
-    raw?: RawFields,
-    handle?: NativePointer,
+    raw?: RawFields;
+    handle?: NativePointer;
 }
 
 export class StructValue implements ValueInstance {
@@ -323,14 +400,15 @@ export class StructValue implements ValueInstance {
     readonly handle: NativePointer;
 
     /* TODO accept TargetMetadata */
-    constructor(type: Struct | TargetStructMetadata, options: StructValueConstructionOptions) {
+    constructor(
+        type: Struct | TargetStructMetadata,
+        options: StructValueConstructionOptions
+    ) {
         if (options.handle === undefined && options.raw === undefined) {
             throw new Error("Either a handle or raw fields must be provided");
         }
 
-        this.$metadata = (type instanceof Struct) ?
-                         type.$metadata :
-                         type;
+        this.$metadata = type instanceof Struct ? type.$metadata : type;
         this.handle = options.handle || makeBufferFromValue(options.raw);
     }
 
@@ -345,12 +423,11 @@ export class StructValue implements ValueInstance {
     }
 }
 
-
 interface EnumValueConstructionOptions {
-    handle?: NativePointer,
-    tag?: number,
-    payload?: RuntimeInstance,
-    raw?: RawFields,
+    handle?: NativePointer;
+    tag?: number;
+    payload?: RuntimeInstance;
+    raw?: RawFields;
 }
 
 export class EnumValue implements ValueInstance {
@@ -361,17 +438,22 @@ export class EnumValue implements ValueInstance {
     #tag: number;
     #payload: RuntimeInstance;
 
-    constructor(type: Enum | TargetEnumMetadata, options: EnumValueConstructionOptions) {
-        this.$metadata = (type instanceof Enum) ?
-                         type.$metadata :
-                         type;
+    constructor(
+        type: Enum | TargetEnumMetadata,
+        options: EnumValueConstructionOptions
+    ) {
+        this.$metadata = type instanceof Enum ? type.$metadata : type;
         this.descriptor = this.$metadata.getDescription();
         const fields = getFieldsDetails(this.descriptor);
 
-        if (options.tag === undefined &&
+        if (
+            options.tag === undefined &&
             options.handle === undefined &&
-            options.raw === undefined) {
-            throw new Error("Either a tag, handle or raw fields must be provided");
+            options.raw === undefined
+        ) {
+            throw new Error(
+                "Either a tag, handle or raw fields must be provided"
+            );
         }
 
         if (options.tag !== undefined) {
@@ -382,7 +464,8 @@ export class EnumValue implements ValueInstance {
              * FIXME: rather than rounding the stride, we should be reading only
              * the stride's worth of data when handling a value of this type.
              */
-            const size = stride < Process.pointerSize ? Process.pointerSize : stride;
+            const size =
+                stride < Process.pointerSize ? Process.pointerSize : stride;
             this.handle = Memory.alloc(size);
 
             if (tag === undefined || tag >= this.descriptor.getNumCases()) {
@@ -404,10 +487,14 @@ export class EnumValue implements ValueInstance {
                     this.handle.writePointer(payload.handle);
                     this.#payload = payload;
                 } else {
-                    this.#payload = ValueInstance.fromAdopted(this.handle,
-                            payload.$metadata as TargetValueMetadata);
-                    this.$metadata.vw_initializeWithCopy(this.handle,
-                            payload.handle);
+                    this.#payload = ValueInstance.fromAdopted(
+                        this.handle,
+                        payload.$metadata as TargetValueMetadata
+                    );
+                    this.$metadata.vw_initializeWithCopy(
+                        this.handle,
+                        payload.handle
+                    );
                 }
             }
 
@@ -426,12 +513,14 @@ export class EnumValue implements ValueInstance {
                 const typeName = fields[tag].typeName;
                 /* FIXME: metadata should be TargetMetadata, but it's abstract and TS disallows it */
                 const typeMetadata = metadataFor(typeName, TargetValueMetadata);
-                payload = RuntimeInstance.fromAdopted(this.handle, typeMetadata);
+                payload = RuntimeInstance.fromAdopted(
+                    this.handle,
+                    typeMetadata
+                );
             }
 
             this.#tag = tag;
             this.#payload = payload;
-
         }
     }
 
@@ -463,7 +552,7 @@ export class EnumValue implements ValueInstance {
             handle: this.handle,
             tag: this.#tag,
             payload: this.#payload,
-        }
+        };
     }
 }
 
@@ -482,9 +571,15 @@ export class ObjectInstance extends RuntimeInstance {
             switch (method.type) {
                 case "Getter": {
                     const parsed = parseSwiftAccessorSignature(method.name);
-                    const memberType = untypedMetadataFor(parsed.memberTypeName);
-                    const getter = makeSwiftNativeFunction(method.address,
-                                memberType, [], this.handle);
+                    const memberType = untypedMetadataFor(
+                        parsed.memberTypeName
+                    );
+                    const getter = makeSwiftNativeFunction(
+                        method.address,
+                        memberType,
+                        [],
+                        this.handle
+                    );
 
                     Object.defineProperty(this, parsed.memberName, {
                         configurable: true,
@@ -495,9 +590,15 @@ export class ObjectInstance extends RuntimeInstance {
                 }
                 case "Setter": {
                     const parsed = parseSwiftAccessorSignature(method.name);
-                    const memberType = untypedMetadataFor(parsed.memberTypeName);
-                    const setter = makeSwiftNativeFunction(method.address,
-                                "void", [memberType], this.handle);
+                    const memberType = untypedMetadataFor(
+                        parsed.memberTypeName
+                    );
+                    const setter = makeSwiftNativeFunction(
+                        method.address,
+                        "void",
+                        [memberType],
+                        this.handle
+                    );
 
                     Object.defineProperty(this, parsed.memberName, {
                         configurable: true,
@@ -508,13 +609,19 @@ export class ObjectInstance extends RuntimeInstance {
                 }
                 case "Method": {
                     const parsed = parseSwiftMethodSignature(method.name);
-                    const retType = parsed.retTypeName === "()" ?
-                                    "void" :
-                                    untypedMetadataFor(parsed.retTypeName);
-                    const argTypes = parsed.argTypeNames.map(ty =>
-                                untypedMetadataFor(ty));
-                    const fn = makeSwiftNativeFunction(method.address, retType,
-                            argTypes, this.handle);
+                    const retType =
+                        parsed.retTypeName === "()"
+                            ? "void"
+                            : untypedMetadataFor(parsed.retTypeName);
+                    const argTypes = parsed.argTypeNames.map((ty) =>
+                        untypedMetadataFor(ty)
+                    );
+                    const fn = makeSwiftNativeFunction(
+                        method.address,
+                        retType,
+                        argTypes,
+                        this.handle
+                    );
 
                     Object.defineProperty(this, parsed.jsSignature, {
                         configurable: true,
@@ -534,8 +641,13 @@ interface FieldDetails {
     isVar?: boolean;
 }
 
-type MethodType = "Init" | "Getter" | "Setter" | "ModifyCoroutine" |
-                  "ReadCoroutine" | "Method";
+type MethodType =
+    | "Init"
+    | "Getter"
+    | "Setter"
+    | "ModifyCoroutine"
+    | "ReadCoroutine"
+    | "Method";
 
 interface MethodDetails {
     address: NativePointer;
@@ -544,7 +656,9 @@ interface MethodDetails {
 }
 
 /* XXX: not in original source */
-function getFieldsDetails(descriptor: TargetTypeContextDescriptor): FieldDetails[] {
+function getFieldsDetails(
+    descriptor: TargetTypeContextDescriptor
+): FieldDetails[] {
     const result: FieldDetails[] = [];
 
     if (!descriptor.isReflectable()) {
@@ -560,9 +674,10 @@ function getFieldsDetails(descriptor: TargetTypeContextDescriptor): FieldDetails
     for (const f of fields) {
         result.push({
             name: f.fieldName,
-            typeName: f.mangledTypeName === null ?
-                        undefined :
-                        resolveSymbolicReferences(f.mangledTypeName.get()),
+            typeName:
+                f.mangledTypeName === null
+                    ? undefined
+                    : resolveSymbolicReferences(f.mangledTypeName.get()),
             isVar: f.isVar,
         });
     }
@@ -624,15 +739,16 @@ function resolveSymbolicReferences(symbol: NativePointer): string {
 
             if (endValue === 0x01) {
                 contextDescriptor = new TargetTypeContextDescriptor(
-                    RelativeDirectPointer.From(end).get());
+                    RelativeDirectPointer.From(end).get()
+                );
             } else if (endValue === 0x02) {
                 let p = RelativeDirectPointer.From(end).get().readPointer();
-                p = p.and(0x7FFFFFFFFFF); // TODO: strip PAC
+                p = p.and(0x7ffffffffff); // TODO: strip PAC
 
                 contextDescriptor = new TargetTypeContextDescriptor(p);
             }
             break;
-        } else if (endValue >= 0x18 && endValue <= 0x1F) {
+        } else if (endValue >= 0x18 && endValue <= 0x1f) {
             throw new Error("UNIMPLEMENTED 0x18 - 0x1F");
         }
 

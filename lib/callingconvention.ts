@@ -5,14 +5,31 @@
  * 	- Can we tell whether a function throws via its metadata?
  */
 
-import { EnumValue, ObjectInstance, ProtocolComposition,
-         RuntimeInstance, StructValue, ValueInstance } from "./types";
-import { TargetEnumMetadata, TargetMetadata, TargetStructMetadata, TargetValueMetadata } from "../abi/metadata";
-import { ClassExistentialContainer,
-         TargetOpaqueExistentialContainer } from "../runtime/existentialcontainer";
+import {
+    EnumValue,
+    ObjectInstance,
+    ProtocolComposition,
+    RuntimeInstance,
+    StructValue,
+    ValueInstance,
+} from "./types";
+import {
+    TargetEnumMetadata,
+    TargetMetadata,
+    TargetStructMetadata,
+    TargetValueMetadata,
+} from "../abi/metadata";
+import {
+    ClassExistentialContainer,
+    TargetOpaqueExistentialContainer,
+} from "../runtime/existentialcontainer";
 import { getProtocolConformancesFor } from "./macho";
 import { MetadataKind } from "../abi/metadatavalues";
-import { makeBufferFromValue, makeValueFromBuffer, moveValueToBuffer } from "./buffer";
+import {
+    makeBufferFromValue,
+    makeValueFromBuffer,
+    moveValueToBuffer,
+} from "./buffer";
 
 export type NativeSwiftType = TargetMetadata | ProtocolComposition | NativeType;
 export const MAX_LOADABLE_SIZE = Process.pointerSize * 4;
@@ -61,25 +78,31 @@ export interface SwiftNativeFunction {
  *  - Re-cook this spaghetti
  *  - Add dynamic type checks
  */
-export function makeSwiftNativeFunction(address: NativePointer,
-                                        retType: NativeSwiftType,
-                                        argTypes: NativeSwiftType[],
-                                        context?: NativePointer,
-                                        throws?: boolean): SwiftNativeFunction {
-    const loweredArgType = argTypes.map(ty => lowerSemantically(ty));
+export function makeSwiftNativeFunction(
+    address: NativePointer,
+    retType: NativeSwiftType,
+    argTypes: NativeSwiftType[],
+    context?: NativePointer,
+    throws?: boolean
+): SwiftNativeFunction {
+    const loweredArgType = argTypes.map((ty) => lowerSemantically(ty));
     const loweredRetType = lowerSemantically(retType);
 
-    const swiftcallWrapper = new SwiftcallNativeFunction(address, loweredRetType,
-                loweredArgType, context).wrapper;
+    const swiftcallWrapper = new SwiftcallNativeFunction(
+        address,
+        loweredRetType,
+        loweredArgType,
+        context
+    ).wrapper;
 
-    const wrapper = function(...args: RuntimeInstance[]) {
+    const wrapper = function (...args: RuntimeInstance[]) {
         const actualArgs: any[] = [];
 
         for (const [i, arg] of args.entries()) {
             const argType = argTypes[i];
 
             /* NativeType: e.g. 'uint64', 'pointer', 'bool' */
-            if (typeof(argType) === "string" || Array.isArray(argType)) {
+            if (typeof argType === "string" || Array.isArray(argType)) {
                 actualArgs.push(arg);
                 continue;
             }
@@ -91,32 +114,40 @@ export function makeSwiftNativeFunction(address: NativePointer,
 
             const composition = argType;
             const typeMetadata = arg.$metadata;
-            let container: TargetOpaqueExistentialContainer | ClassExistentialContainer;
+            let container:
+                | TargetOpaqueExistentialContainer
+                | ClassExistentialContainer;
 
             if (!composition.isClassOnly) {
-                container = TargetOpaqueExistentialContainer
-                        .alloc(composition.numProtocols);
+                container = TargetOpaqueExistentialContainer.alloc(
+                    composition.numProtocols
+                );
                 container.type = typeMetadata;
 
                 if (typeMetadata.isClassObject()) {
                     container.buffer.privateData.writePointer(arg.handle);
                 } else {
                     const box = typeMetadata.allocateBoxForExistentialIn(
-                            container.buffer);
+                        container.buffer
+                    );
                     typeMetadata.vw_initializeWithCopy(box, arg.handle);
                 }
             } else {
-                container = ClassExistentialContainer
-                        .alloc(composition.numProtocols);
+                container = ClassExistentialContainer.alloc(
+                    composition.numProtocols
+                );
                 container.value = arg.handle;
             }
 
             const base = container.getWitnessTables();
             for (const [i, proto] of composition.protocols.entries()) {
                 const typeName = typeMetadata.getFullTypeName();
-                const conformance = getProtocolConformancesFor(typeName)[proto.name];
+                const conformance =
+                    getProtocolConformancesFor(typeName)[proto.name];
                 if (conformance === undefined) {
-                    throw new Error(`Type ${typeName} does not conform to protocol ${proto.name}`);
+                    throw new Error(
+                        `Type ${typeName} does not conform to protocol ${proto.name}`
+                    );
                 }
                 const vwt = conformance.witnessTable;
 
@@ -128,16 +159,20 @@ export function makeSwiftNativeFunction(address: NativePointer,
 
         const retval = swiftcallWrapper(...actualArgs);
 
-        if (typeof(retType) === "string" || Array.isArray(retType)) {
+        if (typeof retType === "string" || Array.isArray(retType)) {
             return retval;
         }
 
         if (retType instanceof TargetMetadata) {
             switch (retType.getKind()) {
                 case MetadataKind.Struct:
-                    return new StructValue(retType as TargetStructMetadata, { raw: retval });
+                    return new StructValue(retType as TargetStructMetadata, {
+                        raw: retval,
+                    });
                 case MetadataKind.Enum:
-                    return new EnumValue(retType as TargetEnumMetadata, { raw: retval });
+                    return new EnumValue(retType as TargetEnumMetadata, {
+                        raw: retval,
+                    });
                 case MetadataKind.Class:
                     return new ObjectInstance(retval as NativePointer);
                 default:
@@ -147,13 +182,13 @@ export function makeSwiftNativeFunction(address: NativePointer,
 
         const buf = makeBufferFromValue(retval);
         return ValueInstance.fromExistentialContainer(buf, retType);
-    }
+    };
 
     return Object.assign(wrapper, { address });
 }
 
 function lowerSemantically(type: NativeSwiftType): NativeType {
-    if (typeof(type) === "string" || Array.isArray(type)) {
+    if (typeof type === "string" || Array.isArray(type)) {
         return type;
     }
 
@@ -167,8 +202,7 @@ function lowerSemantically(type: NativeSwiftType): NativeType {
         }
     }
 
-    if (type.getKind() === MetadataKind.Class ||
-        shouldPassIndirectly(type)) {
+    if (type.getKind() === MetadataKind.Class || shouldPassIndirectly(type)) {
         return "pointer";
     }
 
@@ -185,9 +219,11 @@ function lowerSemantically(type: NativeSwiftType): NativeType {
 type PointerSized = UInt64 | NativePointer;
 
 function lowerPhysically(
-            value: RuntimeInstance | TargetOpaqueExistentialContainer |
-                   ClassExistentialContainer):
-            PointerSized | PointerSized[] {
+    value:
+        | RuntimeInstance
+        | TargetOpaqueExistentialContainer
+        | ClassExistentialContainer
+): PointerSized | PointerSized[] {
     if (value instanceof ObjectInstance) {
         return value.handle;
     } else if (value instanceof TargetOpaqueExistentialContainer) {
@@ -206,8 +242,10 @@ function lowerPhysically(
         return value.handle;
     }
 
-    return makeValueFromBuffer(value.handle,
-                value.$metadata.getTypeLayout().stride);
+    return makeValueFromBuffer(
+        value.handle,
+        value.$metadata.getTypeLayout().stride
+    );
 }
 
 export function shouldPassIndirectly(typeMetadata: TargetMetadata) {
@@ -255,20 +293,28 @@ export class SwiftcallNativeFunction {
     #extraBuffer: NativePointer;
     #nativeFunction: NativeFunction;
 
-    constructor(target: NativePointer, resultType: NativeType,
-                argTypes: NativeType[], context?: NativePointer,
-                errorResult?: NativePointer) {
+    constructor(
+        target: NativePointer,
+        resultType: NativeType,
+        argTypes: NativeType[],
+        context?: NativePointer,
+        errorResult?: NativePointer
+    ) {
         this.#argumentBuffers = new StrongQueue<NativePointer>();
 
-        argTypes = argTypes.map(argType => {
-            if (Array.isArray(argType) && argType.length > 4) {
-                const buf = Memory.alloc(Process.pointerSize * argType.length);
-                this.#argumentBuffers.enqueue(buf);
+        argTypes = argTypes
+            .map((argType) => {
+                if (Array.isArray(argType) && argType.length > 4) {
+                    const buf = Memory.alloc(
+                        Process.pointerSize * argType.length
+                    );
+                    this.#argumentBuffers.enqueue(buf);
 
-                return "pointer";
-            }
-            return argType;
-        }).flat();
+                    return "pointer";
+                }
+                return argType;
+            })
+            .flat();
 
         this.#resultType = resultType;
         let indirectResult: NativePointer;
@@ -287,9 +333,9 @@ export class SwiftcallNativeFunction {
             this.#returnBuffer = Memory.alloc(this.#returnBufferSize);
         }
 
-        this.#extraBuffer= Memory.alloc(Process.pointerSize * 2);
+        this.#extraBuffer = Memory.alloc(Process.pointerSize * 2);
 
-        const maxPatchSize = 0x4C;
+        const maxPatchSize = 0x4c;
         const trampoline = TrampolinePool.allocateTrampoline(maxPatchSize);
 
         Memory.patchCode(trampoline, maxPatchSize, (code) => {
@@ -312,13 +358,14 @@ export class SwiftcallNativeFunction {
                 writer.putLdrRegAddress("x8", indirectResult);
             }
 
-            writer.putLdrRegAddress("x14", target)
+            writer.putLdrRegAddress("x14", target);
             writer.putBlrRegNoAuth("x14");
 
             if (indirectResult === undefined && this.#returnBufferSize > 0) {
                 writer.putLdrRegAddress("x15", this.#returnBuffer);
 
-                let i = 0, offset = 0;
+                let i = 0,
+                    offset = 0;
 
                 for (; offset < this.#returnBufferSize; i++, offset += 8) {
                     const reg = `x${i}` as Arm64Register;
@@ -331,24 +378,30 @@ export class SwiftcallNativeFunction {
             writer.putRet();
 
             writer.flush();
-        });;
+        });
 
-        this.#nativeFunction = new NativeFunction(trampoline, "pointer", argTypes)
+        this.#nativeFunction = new NativeFunction(
+            trampoline,
+            "pointer",
+            argTypes
+        );
     }
 
     wrapper = (...args: NativeArgumentValue[]) => {
         /* TODO: Type-check args */
 
         this.#argumentBuffers.resetCursor();
-        args = args.map(arg => {
-            if (Array.isArray(arg) && arg.length > 4) {
-                const argBuf = this.#argumentBuffers.dequeue();
-                moveValueToBuffer(arg, argBuf);
+        args = args
+            .map((arg) => {
+                if (Array.isArray(arg) && arg.length > 4) {
+                    const argBuf = this.#argumentBuffers.dequeue();
+                    moveValueToBuffer(arg, argBuf);
 
-                return argBuf;
-            }
-            return arg;
-        }).flat();
+                    return argBuf;
+                }
+                return arg;
+            })
+            .flat();
 
         const func = this.#nativeFunction;
         func(...args);
@@ -370,7 +423,7 @@ export class SwiftcallNativeFunction {
         }
 
         return result;
-    }
+    };
 
     call(...args: NativeArgumentValue[]): NativeReturnValue[] {
         return this.wrapper(args);
@@ -383,7 +436,9 @@ declare global {
     }
 }
 
-NativePointer.prototype.readValue = function(type: NativeType): NativeReturnValue {
+NativePointer.prototype.readValue = function (
+    type: NativeType
+): NativeReturnValue {
     switch (type) {
         case "pointer":
             return this.readPointer();
@@ -416,4 +471,4 @@ NativePointer.prototype.readValue = function(type: NativeType): NativeReturnValu
         default:
             throw new Error(`Unimplemented type: ${type}`);
     }
-}
+};

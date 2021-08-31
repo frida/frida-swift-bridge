@@ -1,4 +1,9 @@
-import { TargetClassDescriptor, TargetClassMetadata, TargetEnumDescriptor, TargetStructDescriptor } from "../abi/metadata";
+import {
+    TargetClassDescriptor,
+    TargetClassMetadata,
+    TargetEnumDescriptor,
+    TargetStructDescriptor,
+} from "../abi/metadata";
 import { ContextDescriptorKind } from "../abi/metadatavalues";
 import { getAllFullTypeData, getAllProtocolDescriptors } from "./macho";
 import { Class, Enum, Protocol, Struct, StructValue, Type } from "./types";
@@ -16,7 +21,7 @@ export class Registry {
     readonly classes: ClassMap = {};
     readonly structs: StructMap = {};
     readonly enums: EnumMap = {};
-    readonly protocols: ProtocolMap  = {};
+    readonly protocols: ProtocolMap = {};
     readonly cachedTypes: TypeMap = {};
 
     static shared() {
@@ -34,20 +39,26 @@ export class Registry {
 
             switch (fullTypeData.descriptor.getKind()) {
                 case ContextDescriptorKind.Class:
-                    const klass = new Class(descriptor as TargetClassDescriptor,
-                                            conformances);
+                    const klass = new Class(
+                        descriptor as TargetClassDescriptor,
+                        conformances
+                    );
                     this.classes[klass.$name] = klass;
                     this.getModule(klass.$moduleName).addClass(klass);
                     break;
                 case ContextDescriptorKind.Struct:
-                    const struct = new Struct(descriptor as TargetStructDescriptor,
-                                              conformances);
+                    const struct = new Struct(
+                        descriptor as TargetStructDescriptor,
+                        conformances
+                    );
                     this.structs[struct.$name] = struct;
                     this.getModule(struct.$moduleName).addStruct(struct);
                     break;
                 case ContextDescriptorKind.Enum:
-                    const anEnum = new Enum(descriptor as TargetEnumDescriptor,
-                                            conformances);
+                    const anEnum = new Enum(
+                        descriptor as TargetEnumDescriptor,
+                        conformances
+                    );
                     this.enums[anEnum.$name] = anEnum;
                     this.getModule(anEnum.$moduleName).addEnum(anEnum);
                     break;
@@ -78,8 +89,7 @@ export class SwiftModule {
     readonly enums: EnumMap = {};
     readonly protocols: ProtocolMap = {};
 
-    constructor(readonly name: string) {
-    }
+    constructor(readonly name: string) {}
 
     addClass(klass: Class) {
         this.classes[klass.$name] = klass;

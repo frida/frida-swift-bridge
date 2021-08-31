@@ -6,8 +6,8 @@
 import { getApi } from "../lib/api";
 
 export interface SimpleSymbolDetails {
-    address: string,
-    name?: string,
+    address: string;
+    name?: string;
 }
 
 export function demangleSwiftSymbol(name: string): string {
@@ -18,8 +18,13 @@ export function demangleSwiftSymbol(name: string): string {
     const api = getApi();
     try {
         const namePtr = Memory.allocUtf8String(name);
-        const demangledNamePtr = api.swift_demangle(namePtr, name.length,
-            ptr(0), ptr(0), 0) as NativePointer;
+        const demangledNamePtr = api.swift_demangle(
+            namePtr,
+            name.length,
+            ptr(0),
+            ptr(0),
+            0
+        ) as NativePointer;
 
         return demangledNamePtr.readUtf8String();
     } catch (e) {
@@ -28,14 +33,16 @@ export function demangleSwiftSymbol(name: string): string {
 }
 
 function isSwiftSmybol(name: string): boolean {
-    if (name.length == 0){
+    if (name.length == 0) {
         return false;
     }
 
     const prefixes = [
-        "_T0",          // Swif4 4
-        "$S", "_$S",    // Swift 4.xx
-        "$s", "_$s",    // Swift 5+
+        "_T0", // Swif4 4
+        "$S",
+        "_$S", // Swift 4.xx
+        "$s",
+        "_$s", // Swift 5+
     ];
 
     for (const p of prefixes) {
@@ -48,19 +55,21 @@ function isSwiftSmybol(name: string): boolean {
 }
 
 interface MethodSignatureParseResult {
-    methodName: string,
-    argNames: string[],
-    argTypeNames: string[],
-    retTypeName: string,
-    jsSignature: string,
+    methodName: string;
+    argNames: string[];
+    argTypeNames: string[];
+    retTypeName: string;
+    jsSignature: string;
 }
 
 /**
  * @returns undefined for methods it (willingly, for now) fails to parse, e.g. (extension in Foundation):__C.NSTimer.TimerPublisher.__allocating_init(interval: Swift.Double, tolerance: Swift.Optional<Swift.Double>, runLoop: __C.NSRunLoop, mode: __C.NSRunLoopMode, options: Swift.Optional<(extension in Foundation):__C.NSRunLoop.SchedulerOptions>) -> (extension in Foundation):__C.NSTimer.TimerPublisher
  */
-export function parseSwiftMethodSignature(signature: string):
-        MethodSignatureParseResult {
-    const methNameAndRetTypeExp = /([a-zA-Z_]\w+)(<.+>)*\(.*\) -> ([\w.]+(?: & [\w.]+)*|\([\w.]*\))$/g;
+export function parseSwiftMethodSignature(
+    signature: string
+): MethodSignatureParseResult {
+    const methNameAndRetTypeExp =
+        /([a-zA-Z_]\w+)(<.+>)*\(.*\) -> ([\w.]+(?: & [\w.]+)*|\([\w.]*\))$/g;
     /**
      * If there's only one unlabled argument, the demangler emits just the type name.
      */
@@ -109,10 +118,12 @@ export function parseSwiftMethodSignature(signature: string):
         argTypeNames,
         retTypeName,
         jsSignature,
-    }
+    };
 }
 
-export function tryParseSwiftMethodSignature(signature: string): MethodSignatureParseResult {
+export function tryParseSwiftMethodSignature(
+    signature: string
+): MethodSignatureParseResult {
     try {
         return parseSwiftMethodSignature(signature);
     } catch (e) {
@@ -121,13 +132,14 @@ export function tryParseSwiftMethodSignature(signature: string): MethodSignature
 }
 
 interface AccessorSignatureParseResult {
-    accessorType: "getter" | "setter",
-    memberName: string,
-    memberTypeName: string,
+    accessorType: "getter" | "setter";
+    memberName: string;
+    memberTypeName: string;
 }
 
-export function parseSwiftAccessorSignature(signature: string):
-        AccessorSignatureParseResult {
+export function parseSwiftAccessorSignature(
+    signature: string
+): AccessorSignatureParseResult {
     const exp = /(\w+).(getter|setter) : ([\w.]+)$/g;
     const match = exp.exec(signature);
 
@@ -148,7 +160,7 @@ export function parseSwiftAccessorSignature(signature: string):
         accessorType,
         memberName,
         memberTypeName,
-    }
+    };
 }
 
 export function tryParseSwiftAccessorSignature(signature: string) {

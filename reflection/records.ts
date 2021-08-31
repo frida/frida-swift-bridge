@@ -2,12 +2,11 @@ import { RelativeDirectPointer } from "../basic/relativepointer";
 
 export class FieldDescriptor {
     static readonly SIZE = 16;
-    static readonly OFFSETOF_NUMFIELDS = 0x0C;
+    static readonly OFFSETOF_NUMFIELDS = 0x0c;
 
     #numFields: number;
 
-    constructor(private handle: NativePointer) {
-    }
+    constructor(private handle: NativePointer) {}
 
     getFieldRecordBuffer(): NativePointer {
         return this.handle.add(FieldDescriptor.SIZE);
@@ -18,8 +17,9 @@ export class FieldDescriptor {
             return this.#numFields;
         }
 
-        this.#numFields = this.handle.add(
-            FieldDescriptor.OFFSETOF_NUMFIELDS).readU32();
+        this.#numFields = this.handle
+            .add(FieldDescriptor.OFFSETOF_NUMFIELDS)
+            .readU32();
         return this.#numFields;
     }
 
@@ -48,8 +48,7 @@ class FieldRecord {
     #mangledTypeName: RelativeDirectPointer;
     #fieldName: string;
 
-    constructor(private handle: NativePointer) {
-    }
+    constructor(private handle: NativePointer) {}
 
     get flags(): number {
         if (this.#flags !== undefined) {
@@ -66,7 +65,8 @@ class FieldRecord {
         }
 
         this.#mangledTypeName = RelativeDirectPointer.From(
-            this.handle.add(FieldRecord.OFFSETOF_MANGLED_TYPE_NAME));
+            this.handle.add(FieldRecord.OFFSETOF_MANGLED_TYPE_NAME)
+        );
         return this.#mangledTypeName;
     }
 
@@ -76,7 +76,10 @@ class FieldRecord {
         }
 
         this.#fieldName = RelativeDirectPointer.From(
-            this.handle.add(FieldRecord.OFFSETOF_FIELD_NAME)).get().readUtf8String();
+            this.handle.add(FieldRecord.OFFSETOF_FIELD_NAME)
+        )
+            .get()
+            .readUtf8String();
         return this.#fieldName;
     }
 

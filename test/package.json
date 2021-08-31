@@ -1,17 +1,17 @@
 {
-  "name": "frida-swift-bridge-bundle",
-  "version": "1.0.0",
-  "description": "Bundled up version of frida-swift-bridge for testing",
-  "private": true,
-  "main": "bundle.js",
-  "scripts": {
-    "prepare": "npm run build",
-    "build": "frida-compile bundle -o build/frida-swift-bridge.js",
-    "watch": "frida-compile bundle -o build/frida-swift-bridge.js -w"
-  },
-  "license": "LGPL-2.0 WITH WxWindows-exception-3.1",
-  "dependencies": {
-    "chokidar-cli": "^2.0.0",
-    "frida-compile": "^10.0.0"
-  }
+    "name": "frida-swift-bridge-bundle",
+    "version": "1.0.0",
+    "description": "Bundled up version of frida-swift-bridge for testing",
+    "private": true,
+    "main": "bundle.js",
+    "scripts": {
+        "prepare": "npm run build",
+        "build": "frida-compile bundle -o build/frida-swift-bridge.js",
+        "watch": "frida-compile bundle -o build/frida-swift-bridge.js -w"
+    },
+    "license": "LGPL-2.0 WITH WxWindows-exception-3.1",
+    "dependencies": {
+        "chokidar-cli": "^2.0.0",
+        "frida-compile": "^10.0.0"
+    }
 }

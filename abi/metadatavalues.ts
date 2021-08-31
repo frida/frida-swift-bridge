@@ -3,18 +3,17 @@ export const NumWords_ValueBuffer = 3;
 const MetadataKindIsNonHeap = 0x200;
 
 enum TargetValueWitnessFlags_Values {
-    AlignmentMask =       0x000000FF,
-    IsNonPOD =            0x00010000,
-    IsNonInline =         0x00020000,
-    HasSpareBits =        0x00080000,
+    AlignmentMask = 0x000000ff,
+    IsNonPOD = 0x00010000,
+    IsNonInline = 0x00020000,
+    HasSpareBits = 0x00080000,
     IsNonBitwiseTakable = 0x00100000,
-    HasEnumWitnesses =    0x00200000,
-    Incomplete =          0x00400000,
+    HasEnumWitnesses = 0x00200000,
+    Incomplete = 0x00400000,
 }
 
 export class TargetValueWitnessFlags {
-    constructor(public data: number) {
-    }
+    constructor(public data: number) {}
 
     get isInlineStorage(): boolean {
         return !(this.data & TargetValueWitnessFlags_Values.IsNonInline);
@@ -25,7 +24,9 @@ export class TargetValueWitnessFlags {
     }
 
     get isBitwiseTakable(): boolean {
-        return !(this.data & TargetValueWitnessFlags_Values.IsNonBitwiseTakable);
+        return !(
+            this.data & TargetValueWitnessFlags_Values.IsNonBitwiseTakable
+        );
     }
 
     getAlignmentMask(): number {
@@ -37,7 +38,7 @@ export enum MetadataKind {
     Class = 0,
     Struct = 0 | MetadataKindIsNonHeap,
     Enum = 1 | MetadataKindIsNonHeap,
-    LastEnumerated = 0x7FF
+    LastEnumerated = 0x7ff,
 }
 
 export function getEnumeratedMetadataKind(kind: MetadataKind): MetadataKind {
@@ -57,26 +58,30 @@ export enum ContextDescriptorKind {
     Class = TypeFirst,
     Struct = TypeFirst + 1,
     Enum = TypeFirst + 2,
-};
+}
 
 enum TypeContextDescriptorFlags_Values {
     Class_ResilientSuperclassReferenceKind = 9,
     Class_HasResilientSuperclass = 13,
     Class_HasVTable = 15,
-};
+}
 
 export class TypeContextDescriptorFlags {
-    constructor(private value: TypeContextDescriptorFlags_Values) {
-    }
+    constructor(private value: TypeContextDescriptorFlags_Values) {}
 
     class_hasVTable() {
-        return !!(this.value &
-                 (1 << TypeContextDescriptorFlags_Values.Class_HasVTable));
+        return !!(
+            this.value &
+            (1 << TypeContextDescriptorFlags_Values.Class_HasVTable)
+        );
     }
 
     class_hasResilientSuperClass() {
-        return !!(this.value &
-                 (1 << TypeContextDescriptorFlags_Values.Class_HasResilientSuperclass));
+        return !!(
+            this.value &
+            (1 <<
+                TypeContextDescriptorFlags_Values.Class_HasResilientSuperclass)
+        );
     }
 }
 
@@ -87,12 +92,12 @@ export enum MethodDescriptorKind {
     Setter,
     ModifyCoroutine,
     ReadCoroutine,
-};
+}
 
 export class MethodDescriptorFlags {
-    private static readonly KindMask = 0x0F;
+    private static readonly KindMask = 0x0f;
 
-    constructor(readonly value: number) { }
+    constructor(readonly value: number) {}
 
     getKind(): MethodDescriptorKind {
         return this.value & MethodDescriptorFlags.KindMask;
@@ -112,11 +117,13 @@ enum ConformanceFlags_Value {
 }
 
 export class ConformanceFlags {
-    constructor(private value: number) { }
+    constructor(private value: number) {}
 
     getTypeReferenceKind(): TypeReferenceKind {
-        return (this.value & ConformanceFlags_Value.TypeMetadataKindMask) >>
-                ConformanceFlags_Value.TypeMetadataKindShift;
+        return (
+            (this.value & ConformanceFlags_Value.TypeMetadataKindMask) >>
+            ConformanceFlags_Value.TypeMetadataKindShift
+        );
     }
 }
 
@@ -131,11 +138,12 @@ enum ProtocolContextDescriptorFlags_Values {
 }
 
 export class ProtocolContextDescriptorFlags {
-    constructor(private bits: number) {
-    }
+    constructor(private bits: number) {}
 
     getClassConstraint(): ProtocolClassConstraint {
-        return !!(this.bits &
-                 (1 << ProtocolContextDescriptorFlags_Values.HasClassConstratint));
+        return !!(
+            this.bits &
+            (1 << ProtocolContextDescriptorFlags_Values.HasClassConstratint)
+        );
     }
 }

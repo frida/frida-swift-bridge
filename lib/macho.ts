@@ -1,41 +1,47 @@
 import {
-    TargetTypeContextDescriptor, TargetProtocolDescriptor, TargetClassDescriptor,
-    TargetStructDescriptor, TargetEnumDescriptor, TargetMetadata, TargetProtocolConformanceDescriptor, TargetStructMetadata
+    TargetTypeContextDescriptor,
+    TargetProtocolDescriptor,
+    TargetClassDescriptor,
+    TargetStructDescriptor,
+    TargetEnumDescriptor,
+    TargetMetadata,
+    TargetProtocolConformanceDescriptor,
+    TargetStructMetadata,
 } from "../abi/metadata";
 import { ContextDescriptorKind } from "../abi/metadatavalues";
 import { RelativeDirectPointer } from "../basic/relativepointer";
 import { demangleSwiftSymbol } from "./symbols";
 
 interface MachOSection {
-    vmAddress: NativePointer,
-    size: number,
+    vmAddress: NativePointer;
+    size: number;
 }
 
 interface ProtocolDescriptorMap {
-    [protoName: string]: TargetProtocolDescriptor
+    [protoName: string]: TargetProtocolDescriptor;
 }
 
 export interface ProtocolConformance {
-    protocol: TargetProtocolDescriptor,
-    witnessTable: NativePointer,
+    protocol: TargetProtocolDescriptor;
+    witnessTable: NativePointer;
 }
 
 export interface ProtocolConformanceMap {
-    [protoName: string]: ProtocolConformance
+    [protoName: string]: ProtocolConformance;
 }
 
 interface FullTypeData {
-    descriptor: TargetTypeContextDescriptor,
-    metadata?: TargetMetadata,
-    conformances: ProtocolConformanceMap,
+    descriptor: TargetTypeContextDescriptor;
+    metadata?: TargetMetadata;
+    conformances: ProtocolConformanceMap;
 }
 
 interface FullTypeDataMap {
-    [fullTypeName: string]: FullTypeData
+    [fullTypeName: string]: FullTypeData;
 }
 
 interface TypeDataConstructor<T> {
-    new(handle: NativePointer): T;
+    new (handle: NativePointer): T;
 }
 
 const allModules = new ModuleMap();
@@ -44,9 +50,11 @@ const fullTypeDataMap: FullTypeDataMap = {};
 
 for (const module of allModules.values()) {
     for (const descriptor of enumerateTypeDescriptors(module)) {
-
         /* TODO: figure out why multiple descriptors could have the same name */
-        fullTypeDataMap[descriptor.getFullTypeName()] = { descriptor, conformances: {} };
+        fullTypeDataMap[descriptor.getFullTypeName()] = {
+            descriptor,
+            conformances: {},
+        };
     }
 
     for (const descriptor of enumerateProtocolDescriptors(module)) {
@@ -73,13 +81,18 @@ export function untypedMetadataFor(typeName: string): TargetMetadata {
         return fullTypeDataMap[typeName].metadata;
     }
 
-    const metadataPtr = fullTypeData.descriptor.getAccessFunction().call() as NativePointer;
+    const metadataPtr = fullTypeData.descriptor
+        .getAccessFunction()
+        .call() as NativePointer;
     const metadata = TargetMetadata.from(metadataPtr);
     fullTypeDataMap[typeName].metadata = metadata;
     return metadata;
 }
 
-export function metadataFor<T extends TargetMetadata>(typeName: string, c: TypeDataConstructor<T>): T {
+export function metadataFor<T extends TargetMetadata>(
+    typeName: string,
+    c: TypeDataConstructor<T>
+): T {
     const fullTypeData = fullTypeDataMap[typeName];
 
     if (fullTypeData === undefined) {
@@ -90,13 +103,17 @@ export function metadataFor<T extends TargetMetadata>(typeName: string, c: TypeD
         return fullTypeDataMap[typeName].metadata as T;
     }
 
-    const metadataPtr = fullTypeData.descriptor.getAccessFunction().call() as NativePointer;
+    const metadataPtr = fullTypeData.descriptor
+        .getAccessFunction()
+        .call() as NativePointer;
     const metadata = TargetMetadata.from(metadataPtr);
     fullTypeDataMap[typeName].metadata = metadata;
     return metadata as T;
 }
 
-export function getProtocolConformancesFor(typeName: string): ProtocolConformanceMap {
+export function getProtocolConformancesFor(
+    typeName: string
+): ProtocolConformanceMap {
     const fullTypeData = fullTypeDataMap[typeName];
 
     if (fullTypeData === undefined) {
@@ -110,7 +127,9 @@ export function getAllProtocolDescriptors(): TargetProtocolDescriptor[] {
     return Object.values(protocolDescriptorMap);
 }
 
-export function findProtocolDescriptor(protoName: string): TargetProtocolDescriptor {
+export function findProtocolDescriptor(
+    protoName: string
+): TargetProtocolDescriptor {
     return protocolDescriptorMap[protoName];
 }
 
@@ -122,7 +141,9 @@ export function getProtocolDescriptor(protoName: string) {
     return desc;
 }
 
-function enumerateTypeDescriptors(module: Module): TargetTypeContextDescriptor[] {
+function enumerateTypeDescriptors(
+    module: Module
+): TargetTypeContextDescriptor[] {
     const result: TargetTypeContextDescriptor[] = [];
     const section = getSwif5TypesSection(module);
     const nTypes = section.size / RelativeDirectPointer.sizeOf;
@@ -159,7 +180,9 @@ function enumerateTypeDescriptors(module: Module): TargetTypeContextDescriptor[]
     return result;
 }
 
-function enumerateProtocolDescriptors(module: Module): TargetProtocolDescriptor[] {
+function enumerateProtocolDescriptors(
+    module: Module
+): TargetProtocolDescriptor[] {
     const result: TargetProtocolDescriptor[] = [];
     const section = getSwift5ProtocolsSection(module);
     const numProtos = section.size / RelativeDirectPointer.sizeOf;
@@ -180,22 +203,29 @@ function bindProtocolConformances(module: Module) {
     const numRecords = section.size / RelativeDirectPointer.sizeOf;
 
     for (let i = 0; i < numRecords; i++) {
-        const recordPtr = section.vmAddress.add(i * RelativeDirectPointer.sizeOf);
+        const recordPtr = section.vmAddress.add(
+            i * RelativeDirectPointer.sizeOf
+        );
         const descPtr = RelativeDirectPointer.From(recordPtr).get();
         const conformanceDesc = new TargetProtocolConformanceDescriptor(
-            descPtr);
+            descPtr
+        );
         const typeDescPtr = conformanceDesc.getTypeDescriptor();
         const typeDesc = new TargetTypeContextDescriptor(typeDescPtr);
         const protocolDesc = new TargetProtocolDescriptor(
-            conformanceDesc.protocol);
+            conformanceDesc.protocol
+        );
 
         /** TODO:
          *  - Handle ObjC case explicitly
          *  - Implement protocol inheritance
          *  - Implement generics
          */
-        if (typeDescPtr === null || typeDesc.isGeneric() ||
-            typeDesc.getKind() === ContextDescriptorKind.Protocol) {
+        if (
+            typeDescPtr === null ||
+            typeDesc.isGeneric() ||
+            typeDesc.getKind() === ContextDescriptorKind.Protocol
+        ) {
             continue;
         }
 
@@ -221,21 +251,31 @@ function getSwift5ProtocolConformanceSection(module: Module): MachOSection {
     return getMachoSection(module, "__swift5_proto");
 }
 
-function getMachoSection(module: Module,
+function getMachoSection(
+    module: Module,
     sectionName: string,
-    segmentName: string = "__TEXT"): MachOSection {
+    segmentName: string = "__TEXT"
+): MachOSection {
     Module.ensureInitialized("libmacho.dylib");
     const addr = Module.getExportByName("libmacho.dylib", "getsectiondata");
-    const getsectiondata = new NativeFunction(addr, "pointer", ["pointer",
-        "pointer", "pointer", "pointer"]);
+    const getsectiondata = new NativeFunction(addr, "pointer", [
+        "pointer",
+        "pointer",
+        "pointer",
+        "pointer",
+    ]);
 
     const machHeader = module.base;
     const segName = Memory.allocUtf8String(segmentName);
     const sectName = Memory.allocUtf8String(sectionName);
     const sizeOut = Memory.alloc(Process.pointerSize);
 
-    const vmAddress = getsectiondata(machHeader, segName, sectName,
-        sizeOut) as NativePointer;
+    const vmAddress = getsectiondata(
+        machHeader,
+        segName,
+        sectName,
+        sizeOut
+    ) as NativePointer;
     const size = sizeOut.readU32() as number;
 
     return { vmAddress, size };
@@ -244,16 +284,18 @@ function getMachoSection(module: Module,
 interface SymbolCache {
     [moduleName: string]: {
         [address: number]: string;
-    }
+    };
 }
 
 const cachedSymbols: SymbolCache = {};
 
-export function enumerateDemangledSymbols(module: Module): ModuleSymbolDetails[] {
+export function enumerateDemangledSymbols(
+    module: Module
+): ModuleSymbolDetails[] {
     let result: ModuleSymbolDetails[];
     const symbols = module.enumerateSymbols();
 
-    result = symbols.flatMap(s => {
+    result = symbols.flatMap((s) => {
         const demangled = demangleSwiftSymbol(s.name);
         if (demangled) {
             s.name = demangled;
@@ -267,7 +309,7 @@ export function enumerateDemangledSymbols(module: Module): ModuleSymbolDetails[]
 }
 
 export function findDemangledSymbol(address: NativePointer): string {
-    const module = allModules.find(address)
+    const module = allModules.find(address);
     if (module === null) {
         return undefined;
     }

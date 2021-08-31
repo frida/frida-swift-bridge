@@ -9,11 +9,11 @@ export class HeapObject {
     readonly metadata: HeapMetadata;
     readonly refCounts: number;
 
-    constructor(readonly handle: NativePointer) {
-    }
+    constructor(readonly handle: NativePointer) {}
 
-    getMetadata<T extends TargetMetadata>(c: new (handle: NativePointer) => T ):
-                T {
+    getMetadata<T extends TargetMetadata>(
+        c: new (handle: NativePointer) => T
+    ): T {
         return new c(this.handle.readPointer());
     }
 }

@@ -9,7 +9,11 @@ export function makeBufferFromValue(fields: RawFields): NativePointer {
     const size = Process.pointerSize * fields.length;
     const buffer = Memory.alloc(size);
 
-    for (let i = 0, offset = 0; offset < size; i++, offset += Process.pointerSize) {
+    for (
+        let i = 0, offset = 0;
+        offset < size;
+        i++, offset += Process.pointerSize
+    ) {
         const field = fields[i];
         const target = buffer.add(offset);
 
@@ -23,7 +27,10 @@ export function makeBufferFromValue(fields: RawFields): NativePointer {
     return buffer;
 }
 
-export function makeValueFromBuffer(buffer: NativePointer, lengthInBytes: number): UInt64[] {
+export function makeValueFromBuffer(
+    buffer: NativePointer,
+    lengthInBytes: number
+): UInt64[] {
     const result: UInt64[] = [];
 
     /* XXX: Assume only buffer sizes that are multiples of 8 for now  */
@@ -35,9 +42,13 @@ export function makeValueFromBuffer(buffer: NativePointer, lengthInBytes: number
 }
 
 export function moveValueToBuffer(fields: UInt64[], buffer: NativePointer) {
-    const size =  Process.pointerSize * fields.length;
+    const size = Process.pointerSize * fields.length;
 
-    for (let i = 0, offset = 0; offset < size; i++, offset += Process.pointerSize) {
+    for (
+        let i = 0, offset = 0;
+        offset < size;
+        i++, offset += Process.pointerSize
+    ) {
         buffer.add(offset).writeU64(fields[i]);
     }
 }

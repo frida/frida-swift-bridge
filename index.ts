@@ -10,13 +10,21 @@
  */
 
 import { getApi, API } from "./lib/api";
-import { Class, Struct, Enum, Protocol,
-         ProtocolComposition,
-         EnumValue,
-         ObjectInstance,
-         StructValue,
-         Type} from "./lib/types";
-import { makeSwiftNativeFunction, NativeSwiftType } from "./lib/callingconvention";
+import {
+    Class,
+    Struct,
+    Enum,
+    Protocol,
+    ProtocolComposition,
+    EnumValue,
+    ObjectInstance,
+    StructValue,
+    Type,
+} from "./lib/types";
+import {
+    makeSwiftNativeFunction,
+    NativeSwiftType,
+} from "./lib/callingconvention";
 import { Registry, SwiftModule } from "./lib/registry";
 import { SwiftInterceptor } from "./lib/interceptor";
 
@@ -29,8 +37,7 @@ class Runtime {
     constructor() {
         try {
             this.tryInitialize();
-        } catch (e) {
-        }
+        } catch (e) {}
     }
 
     get available(): boolean {
@@ -67,9 +74,13 @@ class Runtime {
     readonly ProtocolComposition = ProtocolComposition;
     readonly Interceptor = SwiftInterceptor;
 
-    NativeFunction(address: NativePointer, retType: ConvenientSwiftType,
-                   argTypes: ConvenientSwiftType[], context?: NativePointer,
-                   throws?: boolean) {
+    NativeFunction(
+        address: NativePointer,
+        retType: ConvenientSwiftType,
+        argTypes: ConvenientSwiftType[],
+        context?: NativePointer,
+        throws?: boolean
+    ) {
         function getNativeType(type: ConvenientSwiftType): NativeSwiftType {
             if (type instanceof Type) {
                 return type.$metadata;
@@ -81,10 +92,15 @@ class Runtime {
         }
 
         const nativeRetType = getNativeType(retType);
-        const nativeArgType = argTypes.map(ty => getNativeType(ty));
+        const nativeArgType = argTypes.map((ty) => getNativeType(ty));
 
-        return makeSwiftNativeFunction(address, nativeRetType, nativeArgType,
-                context, throws);
+        return makeSwiftNativeFunction(
+            address,
+            nativeRetType,
+            nativeArgType,
+            context,
+            throws
+        );
     }
 
     private tryInitialize(): boolean {
