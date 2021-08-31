@@ -43,7 +43,11 @@ class Runtime {
     }
 
     get available(): boolean {
-        return this.tryInitialize();
+        try {
+            return this.tryInitialize();
+        } catch (e) {
+            return false;
+        }
     }
 
     get api(): API {
