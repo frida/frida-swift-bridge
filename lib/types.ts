@@ -581,7 +581,7 @@ export class ObjectInstance extends RuntimeInstance {
                     Object.defineProperty(this, parsed.memberName, {
                         configurable: true,
                         enumerable: true,
-                        get: getter
+                        get: getter,
                     });
                     break;
                 }

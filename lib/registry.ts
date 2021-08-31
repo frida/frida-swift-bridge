@@ -57,7 +57,6 @@ export class Registry {
                 }
                 case ContextDescriptorKind.Enum: {
                     const anEnum = new Enum(
-
                         descriptor as TargetEnumDescriptor,
                         conformances
                     );
