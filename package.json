@@ -11,7 +11,7 @@
         "lint": "eslint . --ext .ts"
     },
     "author": "Abdelrahman Eid (@hot3eed)",
-    "license": "wxWindows",
+    "license": "Apache-2.0",
     "dependencies": {
         "@types/frida-gum": "^16.5.0",
         "frida-compile": "^10.2.1"
