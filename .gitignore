@@ -1,10 +1,5 @@
-node_modules/
-test/build/
-index.js
-_agent.js
-abi/**.js
-lib/**.js
-basic/**.js
-runtime/**.js
-reflection/**.js
-**/**.d.ts
+/_agent.js
+/dist/
+/node_modules/
+/test/build/
+/test/node_modules/

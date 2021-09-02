@@ -2,7 +2,8 @@
     "name": "frida-swift-bridge",
     "version": "0.0.0",
     "description": "Swift runtime interop from Frida",
-    "main": "dist/index.js",
+    "main": "./dist/index.js",
+    "types": "./dist/index.d.ts",
     "scripts": {
         "test": "echo \"Error: no test specified\" && exit 1",
         "build": "tsc && frida-compile -o _agent.js loader.js",

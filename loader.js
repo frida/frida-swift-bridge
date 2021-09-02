@@ -1,4 +1,4 @@
-const Swift = require("./index.js").Swift;
+const { Swift } = require("./dist");
 Object.defineProperty(global, "Swift", {
     value: Swift,
     configurable: true,
