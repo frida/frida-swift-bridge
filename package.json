@@ -8,6 +8,7 @@
         "/dist/"
     ],
     "scripts": {
+        "prepare": "npm run build",
         "build": "tsc",
         "watch": "./watch.sh",
         "format": "prettier --config .prettierrc . --write",
