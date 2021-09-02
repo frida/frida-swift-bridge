@@ -61,9 +61,18 @@ export enum ContextDescriptorKind {
 }
 
 enum TypeContextDescriptorFlags_Values {
+    MetadataInitialization = 0,
+    MetadataInitialization_width = 2,
     Class_ResilientSuperclassReferenceKind = 9,
     Class_HasResilientSuperclass = 13,
+    Class_HasOverrideTable = 14,
     Class_HasVTable = 15,
+}
+
+enum MetadataInitializationKind {
+    NoMetadataInitialization = 0,
+    SingletonMetadataInitialization = 1,
+    ForeignMetadataInitialization = 2,
 }
 
 export class TypeContextDescriptorFlags {
@@ -83,6 +92,39 @@ export class TypeContextDescriptorFlags {
                 TypeContextDescriptorFlags_Values.Class_HasResilientSuperclass)
         );
     }
+
+    class_hasOverrideTable(): boolean {
+        return !!(
+            this.value &
+            (1 << TypeContextDescriptorFlags_Values.Class_HasOverrideTable)
+        );
+    }
+
+    getMetadataInitialization(): MetadataInitializationKind {
+        return getField(
+            this.value,
+            TypeContextDescriptorFlags_Values.MetadataInitialization,
+            TypeContextDescriptorFlags_Values.MetadataInitialization_width
+        );
+    }
+
+    hasSingletonMetadataInitialization(): boolean {
+        return (
+            this.getMetadataInitialization() ===
+            MetadataInitializationKind.SingletonMetadataInitialization
+        );
+    }
+
+    hasForeignMetadataInitialization(): boolean {
+        return (
+            this.getMetadataInitialization() ===
+            MetadataInitializationKind.ForeignMetadataInitialization
+        );
+    }
+}
+
+function getField(bits: number, firstBit: number, width: number) {
+    return (bits >>> firstBit) & ~(~0 << width);
 }
 
 export enum MethodDescriptorKind {

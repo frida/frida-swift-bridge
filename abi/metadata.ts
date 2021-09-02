@@ -453,6 +453,18 @@ export class TargetClassDescriptor extends TargetTypeContextDescriptor {
         return this.getTypeContextDescriptorFlags().class_hasResilientSuperClass();
     }
 
+    hasOverrideTable(): boolean {
+        return this.getTypeContextDescriptorFlags().class_hasOverrideTable();
+    }
+
+    hasSingletonMetadataInitialization(): boolean {
+        return this.getTypeContextDescriptorFlags().hasSingletonMetadataInitialization();
+    }
+
+    hasForeignMetadataInitialization(): boolean {
+        return this.getTypeContextDescriptorFlags().hasForeignMetadataInitialization();
+    }
+
     getVTableDescriptor(): VTableDescriptorHeader {
         if (!this.hasVTable()) {
             return null;
@@ -469,13 +481,15 @@ export class TargetClassDescriptor extends TargetTypeContextDescriptor {
         const result: TargetMethodDescriptor[] = [];
 
         /** TODO:
-         * - Handle generic classes properly, we're skipping them for now.
-         * - Handle classes with a resilient superclass
+         * - Handle the edge cases below
          */
         if (
             !this.hasVTable() ||
             this.isGeneric() ||
-            this.hasResilientSuperClass()
+            this.hasResilientSuperClass() ||
+            this.hasOverrideTable() ||
+            this.hasSingletonMetadataInitialization() ||
+            this.hasForeignMetadataInitialization()
         ) {
             return result;
         }
