@@ -16,7 +16,7 @@ macos_swiftc := xcrun --sdk macosx swiftc
 c_sources := basics.c runner.c
 objc_headers := fixture.m
 swift_sources := dummy.swift
-js_sources := ../index.js
+js_sources := ../dist/index.js
 
 all: run-macos
 

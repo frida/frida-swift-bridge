@@ -1,1 +1,1 @@
-global.LocalSwift = require("../").Swift;
+global.LocalSwift = require("../dist").Swift;
