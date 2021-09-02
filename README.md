@@ -8,7 +8,6 @@ $ npm run install
 $ npm run build
 $ frida <process name> -l _agent.js
 ```
-_Note_: As of the time of writing this, there's a conflict between one of the type names in `frida-gum` and those provided by TypeScript for the name `File`. It's easiest to remove that type from `frida-gum` for now, since we don't currently depend on it.
 
 ## Showcase
 The best way to really see the available APIs in action is to have a look at the [testsuite](https://github.com/hot3eed/frida-swift-bridge/blob/master/test/basics.c). And who doesn't like a good screenshot?
