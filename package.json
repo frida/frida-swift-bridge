@@ -8,7 +8,6 @@
         "/dist/"
     ],
     "scripts": {
-        "test": "echo \"Error: no test specified\" && exit 1",
         "build": "tsc && frida-compile -o _agent.js loader.js",
         "watch": "./watch.sh",
         "format": "prettier --config .prettierrc . --write",
