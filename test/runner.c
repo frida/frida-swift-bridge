@@ -37,12 +37,14 @@ main (int argc, char * argv[])
 
   RUN_SUITE (basics);
 
+  {
     GTimer * timer = g_timer_new ();
 
     result = g_test_run ();
 
     t = g_timer_elapsed (timer, NULL);
     g_timer_destroy (timer);
+  }
 
   g_print ("\nRan %d test%s in %.2f seconds\n",
       num_tests_run,
