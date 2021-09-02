@@ -16,14 +16,12 @@
     },
     "author": "Abdelrahman Eid (@hot3eed)",
     "license": "Apache-2.0",
-    "dependencies": {
-        "@types/frida-gum": "^16.5.0",
-        "frida-compile": "^10.2.1"
-    },
     "devDependencies": {
+        "@types/frida-gum": "^16.5.0",
         "@typescript-eslint/eslint-plugin": "^4.30.0",
         "@typescript-eslint/parser": "^4.30.0",
         "eslint": "^7.32.0",
+        "frida-compile": "^10.2.1",
         "prettier": "^2.3.2",
         "typescript": "^4.4.2"
     }
