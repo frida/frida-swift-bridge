@@ -129,4 +129,4 @@ class Runtime {
     }
 }
 
-export const Swift = new Runtime();
+export = new Runtime();
