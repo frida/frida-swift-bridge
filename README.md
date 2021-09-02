@@ -18,5 +18,5 @@ See the [docs](docs/api.md) for more flexing.
 Expect this to be alpha-ish quality software. This hasn't been battle-tested yet, and chances are there's some quite weird shit waiting to be surfaced. PRs and issues are very welcome.
 
 ## License
-[Apache 2.0](LICENSE.md)
+[Apache 2.0](LICENSE.txt)
 
