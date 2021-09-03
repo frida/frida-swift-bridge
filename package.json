@@ -1,6 +1,6 @@
 {
     "name": "frida-swift-bridge",
-    "version": "2.0.0",
+    "version": "2.0.1",
     "description": "Swift runtime interop from Frida",
     "main": "./dist/index.js",
     "types": "./dist/index.d.ts",
