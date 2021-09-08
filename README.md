@@ -3,10 +3,11 @@
 Swift interop from Frida. (Currently supports arm64(e) Darwin only)
 
 ## Getting started
+The bridge comes bundled with Frida as of v15.1.0. That means it's as simple as [installing Frida](https://frida.re/docs/installation/), then:
 ```
-$ npm run install
-$ npm run build
-$ frida <process name> -l _agent.js
+$ frida <process name> 
+[Local::<process name>]-> Swift.available
+true
 ```
 
 ## Showcase
