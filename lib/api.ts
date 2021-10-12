@@ -1,9 +1,20 @@
 export interface API {
+    // eslint-disable-next-line @typescript-eslint/ban-types
     [func: string]: Function;
 }
 
+const CSTypeRef = ["pointer", "pointer"];
+
 let cachedApi: API = null;
 let cachedPrivateAPI: API = null;
+
+Module.ensureInitialized("CoreFoundation");
+
+try {
+    Module.load("/System/Library/PrivateFrameworks/CoreSymbolication.framework/CoreSymbolication");
+} catch (e) {
+    Module.load("/System/Library/PrivateFrameworks/CoreSymbolication.framework/Versions/A/CoreSymbolication");
+}
 
 export function getApi(): API {
     if (Process.arch !== "arm64") {
@@ -64,6 +75,27 @@ export function getPrivateAPI(): API {
                     ["pointer", "pointer", "pointer", "pointer"],
                 ],
             },
+        },
+        {
+            module: "CoreSymbolication",
+            functions: {
+                CSSymbolicatorCreateWithPid: [
+                    CSTypeRef,
+                    ["int"]
+                ],
+                CSSymbolicatorGetSymbolWithAddressAtTime: [
+                    CSTypeRef,
+                    [CSTypeRef, "pointer", "uint64"]
+                ],
+                CSIsNull: [
+                    "bool",
+                    [CSTypeRef]
+                ],
+                CSSymbolGetMangledName: [
+                    "pointer",
+                    [CSTypeRef]
+                ]
+            }
         },
     ];
 
