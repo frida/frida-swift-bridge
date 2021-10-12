@@ -1,6 +1,11 @@
 # frida-swift-bridge
 
-Swift interop from Frida. (Currently supports arm64(e) Darwin only)
+Swift interop from Frida.
+
+## Requirements
+
+- arm64(e) Darwin platforms
+- Apps built using Swift 5.0+
 
 ## Getting started
 The bridge comes bundled with Frida as of v15.1.0. That means it's as simple as [installing Frida](https://frida.re/docs/installation/), then:
