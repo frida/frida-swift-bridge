@@ -8,14 +8,6 @@ const CSTypeRef = ["pointer", "pointer"];
 let cachedApi: API = null;
 let cachedPrivateAPI: API = null;
 
-Module.ensureInitialized("CoreFoundation");
-
-try {
-    Module.load("/System/Library/PrivateFrameworks/CoreSymbolication.framework/CoreSymbolication");
-} catch (e) {
-    Module.load("/System/Library/PrivateFrameworks/CoreSymbolication.framework/Versions/A/CoreSymbolication");
-}
-
 export function getApi(): API {
     if (Process.arch !== "arm64") {
         throw new Error("Only arm64 is currently supported");
@@ -23,6 +15,16 @@ export function getApi(): API {
 
     if (cachedApi !== null) {
         return cachedApi;
+    }
+
+    if (Process.platform === "darwin") {
+        Module.ensureInitialized("CoreFoundation");
+
+        try {
+            Module.load("/System/Library/PrivateFrameworks/CoreSymbolication.framework/CoreSymbolication");
+        } catch (e) {
+            Module.load("/System/Library/PrivateFrameworks/CoreSymbolication.framework/Versions/A/CoreSymbolication");
+        }
     }
 
     const pending = [
