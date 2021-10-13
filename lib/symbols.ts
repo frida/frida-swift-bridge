@@ -3,19 +3,49 @@
  *  - Move to registry.ts
  */
 
-import { getApi } from "../lib/api";
+import { getApi, getPrivateAPI } from "../lib/api";
 
 export interface SimpleSymbolDetails {
     address: string;
     name?: string;
 }
 
-export function demangleSwiftSymbol(name: string): string {
+const demangleCache = new Map<string, string>();
+const kCSNow = 0x8000000000000000;
+const api = getPrivateAPI();
+const csSymbolicator = api.CSSymbolicatorCreateWithPid(Process.id);
+
+if (api.CSIsNull(csSymbolicator)) {
+    throw new Error("Failed to create symbolicator");
+}
+
+export function demangledSymbolFromAddress(address: NativePointer): string {
+    const symbol = api.CSSymbolicatorGetSymbolWithAddressAtTime(
+        csSymbolicator,
+        address,
+        kCSNow
+    );
+
+    if (api.CSIsNull(symbol)) {
+        return undefined;
+    }
+
+    const namePtr = api.CSSymbolGetMangledName(symbol) as NativePointer;
+    return tryDemangleSymbol(namePtr.readCString());
+}
+
+export function tryDemangleSymbol(name: string): string {
     if (!isSwiftSmybol(name)) {
-        return name;
+        return undefined;
+    }
+
+    const cached = demangleCache.get(name);
+    if (cached !== undefined) {
+        return cached;
     }
 
     const api = getApi();
+
     try {
         const namePtr = Memory.allocUtf8String(name);
         const demangledNamePtr = api.swift_demangle(
@@ -26,7 +56,10 @@ export function demangleSwiftSymbol(name: string): string {
             0
         ) as NativePointer;
 
-        return demangledNamePtr.readUtf8String();
+        const demangled = demangledNamePtr.readUtf8String();
+        demangleCache.set(name, demangled);
+
+        return demangled;
     } catch (e) {
         return undefined;
     }

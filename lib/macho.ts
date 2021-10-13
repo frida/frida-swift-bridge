@@ -9,7 +9,7 @@ import {
 } from "../abi/metadata";
 import { ContextDescriptorKind } from "../abi/metadatavalues";
 import { RelativeDirectPointer } from "../basic/relativepointer";
-import { demangleSwiftSymbol } from "./symbols";
+import { demangledSymbolFromAddress } from "./symbols";
 
 interface MachOSection {
     vmAddress: NativePointer;
@@ -46,6 +46,7 @@ interface TypeDataConstructor<T> {
 const allModules = new ModuleMap();
 const protocolDescriptorMap: ProtocolDescriptorMap = {};
 const fullTypeDataMap: FullTypeDataMap = {};
+const demangledSymbols = new Map<string, string>();
 
 for (const module of allModules.values()) {
     for (const descriptor of enumerateTypeDescriptors(module)) {
@@ -282,52 +283,25 @@ function getMachoSection(
     return { vmAddress, size };
 }
 
-interface SymbolCache {
-    [moduleName: string]: {
-        [address: number]: string;
-    };
-}
-
-const cachedSymbols: SymbolCache = {};
-
-export function enumerateDemangledSymbols(
-    module: Module
-): ModuleSymbolDetails[] {
-    const symbols = module.enumerateSymbols();
-
-    const result = symbols.flatMap((s) => {
-        const demangled = demangleSwiftSymbol(s.name);
-        if (demangled) {
-            s.name = demangled;
-            return [s];
-        } else {
-            return [];
-        }
-    });
-
-    return result;
-}
-
 export function findDemangledSymbol(address: NativePointer): string {
     const module = allModules.find(address);
     if (module === null) {
         return undefined;
     }
 
-    const rawAddr = address.toUInt32();
-    const cachedModule = cachedSymbols[module.name];
-    if (cachedModule !== undefined) {
-        return cachedModule[rawAddr];
+    const rawAddr = address.toString();
+    const cached = demangledSymbols.get(rawAddr);
+    if (cached !== undefined) {
+        return cached;
     }
 
-    const symbols = enumerateDemangledSymbols(module);
-    cachedSymbols[module.name] = {};
-
-    for (const s of symbols) {
-        cachedSymbols[module.name][s.address.toUInt32()] = s.name;
+    const demangled = demangledSymbolFromAddress(address);
+    if (demangled === undefined) {
+        return undefined;
     }
 
-    return cachedSymbols[module.name][rawAddr];
+    demangledSymbols.set(rawAddr, demangled);
+    return demangled;
 }
 
 export function getDemangledSymbol(address: NativePointer): string {

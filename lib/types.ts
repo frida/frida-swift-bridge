@@ -22,9 +22,9 @@ import {
     ProtocolClassConstraint,
 } from "../abi/metadatavalues";
 import {
-    demangleSwiftSymbol,
     parseSwiftAccessorSignature,
     parseSwiftMethodSignature,
+    tryDemangleSymbol,
     tryParseSwiftMethodSignature,
 } from "../lib/symbols";
 import { makeSwiftNativeFunction } from "./callingconvention";
@@ -652,7 +652,6 @@ interface MethodDetails {
     type: MethodType;
 }
 
-/* XXX: not in original source */
 function getFieldsDetails(
     descriptor: TargetTypeContextDescriptor
 ): FieldDetails[] {
@@ -757,5 +756,5 @@ function resolveSymbolicReferences(symbol: NativePointer): string {
         return contextDescriptor.name;
     }
 
-    return demangleSwiftSymbol("_$s" + symbol.readCString());
+    return tryDemangleSymbol("_$s" + symbol.readCString());
 }
