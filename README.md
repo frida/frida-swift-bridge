@@ -10,9 +10,18 @@ Swift interop from Frida.
 ## Getting started
 The bridge comes bundled with Frida as of v15.1.0. That means it's as simple as [installing Frida](https://frida.re/docs/installation/), then:
 ```
-$ frida <process name> 
+$ frida <process name>
 [Local::<process name>]-> Swift.available
 true
+```
+Or, preferably, since the bridge isn't at production capacity yet, it might be better to use the latest
+bridge from git, as there might be fixes or patches that haven't made it to the latest Frida version yet.
+```
+$ git clone git@github.com:frida/frida-swift-bridge.git
+$ cd frida-swift-bridge
+$ npm run install
+$ npm run watch
+$ frida <process name> -l _agent.js # In another terminal
 ```
 
 ## Showcase
