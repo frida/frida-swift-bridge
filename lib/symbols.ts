@@ -31,7 +31,13 @@ export function demangledSymbolFromAddress(address: NativePointer): string {
     }
 
     const namePtr = api.CSSymbolGetMangledName(symbol) as NativePointer;
-    return tryDemangleSymbol(namePtr.readCString());
+    const mangled = namePtr.readCString();
+
+    if (mangled === null) {
+        return undefined;
+    }
+
+    return tryDemangleSymbol(mangled);
 }
 
 export function tryDemangleSymbol(name: string): string {
