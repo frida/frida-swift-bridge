@@ -10,18 +10,16 @@ export interface SimpleSymbolDetails {
     name?: string;
 }
 
-const demangleCache = new Map<string, string>();
 const kCSNow = 0x8000000000000000;
-const api = getPrivateAPI();
-const csSymbolicator = api.CSSymbolicatorCreateWithPid(Process.id);
 
-if (api.CSIsNull(csSymbolicator)) {
-    throw new Error("Failed to create symbolicator");
-}
+const demangleCache = new Map<string, string>();
+let cachedSymbolicator: NativePointer | null = null;
 
 export function demangledSymbolFromAddress(address: NativePointer): string {
+    const api = getPrivateAPI();
+
     const symbol = api.CSSymbolicatorGetSymbolWithAddressAtTime(
-        csSymbolicator,
+        getSymbolicator(),
         address,
         kCSNow
     );
@@ -210,4 +208,20 @@ export function tryParseSwiftAccessorSignature(
     } catch (e) {
         return undefined;
     }
+}
+
+function getSymbolicator(): NativePointer {
+    if (cachedSymbolicator !== null) {
+        return cachedSymbolicator;
+    }
+
+    const api = getPrivateAPI();
+    const symbolicator = api.CSSymbolicatorCreateWithPid(Process.id);
+    if (api.CSIsNull(symbolicator)) {
+        throw new Error("Failed to create symbolicator");
+    }
+
+    cachedSymbolicator = symbolicator;
+
+    return symbolicator;
 }
