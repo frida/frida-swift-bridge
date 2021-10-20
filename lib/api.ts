@@ -9,22 +9,12 @@ let cachedApi: API = null;
 let cachedPrivateAPI: API = null;
 
 export function getApi(): API {
-    if (Process.arch !== "arm64") {
-        throw new Error("Only arm64 is currently supported");
+    if (Process.arch !== "arm64" || Process.platform  !== "darwin") {
+        throw new Error("Only arm64(e) Darwin is currently supported");
     }
 
     if (cachedApi !== null) {
         return cachedApi;
-    }
-
-    if (Process.platform === "darwin") {
-        Module.ensureInitialized("CoreFoundation");
-
-        try {
-            Module.load("/System/Library/PrivateFrameworks/CoreSymbolication.framework/CoreSymbolication");
-        } catch (e) {
-            Module.load("/System/Library/PrivateFrameworks/CoreSymbolication.framework/Versions/A/CoreSymbolication");
-        }
     }
 
     const pending = [
@@ -66,6 +56,14 @@ export function getApi(): API {
 export function getPrivateAPI(): API {
     if (cachedPrivateAPI !== null) {
         return cachedPrivateAPI;
+    }
+
+    Module.ensureInitialized("CoreFoundation");
+
+    try {
+        Module.load("/System/Library/PrivateFrameworks/CoreSymbolication.framework/CoreSymbolication");
+    } catch (e) {
+        Module.load("/System/Library/PrivateFrameworks/CoreSymbolication.framework/Versions/A/CoreSymbolication");
     }
 
     const pending = [
