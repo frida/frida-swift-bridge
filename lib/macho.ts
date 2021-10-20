@@ -49,23 +49,27 @@ const protocolDescriptorMap: ProtocolDescriptorMap = {};
 const fullTypeDataMap: FullTypeDataMap = {};
 const demangledSymbols = new Map<string, string>();
 
-for (const module of allModules.values()) {
-    for (const descriptor of enumerateTypeDescriptors(module)) {
-        /* TODO: figure out why multiple descriptors could have the same name */
-        fullTypeDataMap[descriptor.getFullTypeName()] = {
-            descriptor,
-            conformances: {},
-        };
+/* XXX: Ugly hack(TM) until we lazily-parse MachOs */
+if (Process.arch === "arm64" && Process.platform === "darwin") {
+    for (const module of allModules.values()) {
+        for (const descriptor of enumerateTypeDescriptors(module)) {
+            /* TODO: figure out why multiple descriptors could have the same name */
+            fullTypeDataMap[descriptor.getFullTypeName()] = {
+                descriptor,
+                conformances: {},
+            };
+        }
+
+        for (const descriptor of enumerateProtocolDescriptors(module)) {
+            protocolDescriptorMap[descriptor.getFullProtocolName()] = descriptor;
+        }
     }
 
-    for (const descriptor of enumerateProtocolDescriptors(module)) {
-        protocolDescriptorMap[descriptor.getFullProtocolName()] = descriptor;
+    for (const module of allModules.values()) {
+        bindProtocolConformances(module);
     }
 }
 
-for (const module of allModules.values()) {
-    bindProtocolConformances(module);
-}
 
 export function getAllFullTypeData(): FullTypeData[] {
     return Object.values(fullTypeDataMap);
