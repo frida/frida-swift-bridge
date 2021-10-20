@@ -10,10 +10,11 @@ export interface SimpleSymbolDetails {
     name?: string;
 }
 
+type CSSymbolicator = [NativePointer, NativePointer];
 const kCSNow = 0x8000000000000000;
 
 const demangleCache = new Map<string, string>();
-let cachedSymbolicator: NativePointer | null = null;
+let cachedSymbolicator: CSSymbolicator | null = null;
 
 export function demangledSymbolFromAddress(address: NativePointer): string {
     const api = getPrivateAPI();
@@ -210,7 +211,7 @@ export function tryParseSwiftAccessorSignature(
     }
 }
 
-function getSymbolicator(): NativePointer {
+function getSymbolicator(): CSSymbolicator {
     if (cachedSymbolicator !== null) {
         return cachedSymbolicator;
     }
@@ -223,5 +224,13 @@ function getSymbolicator(): NativePointer {
 
     cachedSymbolicator = symbolicator;
 
+    // FIXME: Remove this `Script as any` hack once we've moved to the latest @types/frida-gum.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (Script as any).bindWeak(cachedSymbolicator, releaseSymbolicator);
+
     return symbolicator;
+}
+
+function releaseSymbolicator() {
+    getPrivateAPI().CSRelease(cachedSymbolicator);
 }

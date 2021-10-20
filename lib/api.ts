@@ -96,6 +96,10 @@ export function getPrivateAPI(): API {
                 CSSymbolGetMangledName: [
                     "pointer",
                     [CSTypeRef]
+                ],
+                CSRelease: [
+                    "void",
+                    [CSTypeRef]
                 ]
             }
         },
