@@ -8,6 +8,7 @@ import {
     TargetProtocolConformanceDescriptor,
 } from "../abi/metadata";
 import { ContextDescriptorKind } from "../abi/metadatavalues";
+import { getPrivateAPI } from "./api";
 import { RelativeDirectPointer } from "../basic/relativepointer";
 import { demangledSymbolFromAddress } from "./symbols";
 
@@ -258,21 +259,12 @@ function getMachoSection(
     sectionName: string,
     segmentName = "__TEXT"
 ): MachOSection {
-    Module.ensureInitialized("libmacho.dylib");
-    const addr = Module.getExportByName("libmacho.dylib", "getsectiondata");
-    const getsectiondata = new NativeFunction(addr, "pointer", [
-        "pointer",
-        "pointer",
-        "pointer",
-        "pointer",
-    ]);
-
     const machHeader = module.base;
     const segName = Memory.allocUtf8String(segmentName);
     const sectName = Memory.allocUtf8String(sectionName);
     const sizeOut = Memory.alloc(Process.pointerSize);
 
-    const vmAddress = getsectiondata(
+    const vmAddress = getPrivateAPI().getsectiondata(
         machHeader,
         segName,
         sectName,
