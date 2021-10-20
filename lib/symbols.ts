@@ -41,7 +41,7 @@ export function demangledSymbolFromAddress(address: NativePointer): string {
 }
 
 export function tryDemangleSymbol(name: string): string {
-    if (!isSwiftSmybol(name)) {
+    if (!isSwiftSymbol(name)) {
         return undefined;
     }
 
@@ -71,7 +71,7 @@ export function tryDemangleSymbol(name: string): string {
     }
 }
 
-function isSwiftSmybol(name: string): boolean {
+function isSwiftSymbol(name: string): boolean {
     if (name.length == 0) {
         return false;
     }
