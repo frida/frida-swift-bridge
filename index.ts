@@ -9,7 +9,7 @@
  *  - inout params
  */
 
-import { getApi, API } from "./lib/api";
+import { getApi, API, getPrivateAPI } from "./lib/api";
 import {
     Class,
     Struct,
@@ -27,12 +27,13 @@ import {
 } from "./lib/callingconvention";
 import { Registry, SwiftModule } from "./lib/registry";
 import { SwiftInterceptor } from "./lib/interceptor";
+import { getSymbolicator } from "./lib/symbols";
 
 type ConvenientSwiftType = Type | Protocol | ProtocolComposition | NativeType;
 
 class Runtime {
     #api: API = null;
-    #apiError: Error = null;
+    #initializatioError: Error = null;
 
     constructor() {
         try {
@@ -114,14 +115,17 @@ class Runtime {
             return true;
         }
 
-        if (this.#apiError !== null) {
-            throw this.#apiError;
+        if (this.#initializatioError !== null) {
+            throw this.#initializatioError;
         }
 
         try {
             this.#api = getApi();
+            /* Call these for their side effects, i.e. throwing on failure */
+            getPrivateAPI()
+            getSymbolicator();
         } catch (e) {
-            this.#apiError = e;
+            this.#initializatioError = e;
             throw e;
         }
 

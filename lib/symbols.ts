@@ -211,15 +211,20 @@ export function tryParseSwiftAccessorSignature(
     }
 }
 
-function getSymbolicator(): CSSymbolicator {
+export function getSymbolicator(): CSSymbolicator {
     if (cachedSymbolicator !== null) {
         return cachedSymbolicator;
     }
 
     const api = getPrivateAPI();
-    const symbolicator = api.CSSymbolicatorCreateWithPid(Process.id);
+    let symbolicator = api.CSSymbolicatorCreateWithPid(Process.id);
+
     if (api.CSIsNull(symbolicator)) {
-        throw new Error("Failed to create symbolicator");
+        symbolicator = api.CSSymbolicatorCreateWithTask(api.mach_task_self());
+
+        if (api.CSIsNull(symbolicator)) {
+            throw new Error("Failed to create symbolicator");
+        }
     }
 
     cachedSymbolicator = symbolicator;

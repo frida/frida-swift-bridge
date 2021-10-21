@@ -83,6 +83,10 @@ export function getPrivateAPI(): API {
                     CSTypeRef,
                     ["int"]
                 ],
+                CSSymbolicatorCreateWithTask: [
+                    CSTypeRef,
+                    ["uint"]
+                ],
                 CSSymbolicatorGetSymbolWithAddressAtTime: [
                     CSTypeRef,
                     [CSTypeRef, "pointer", "uint64"]
@@ -101,6 +105,15 @@ export function getPrivateAPI(): API {
                 ]
             }
         },
+        {
+            module: "libsystem_kernel.dylib",
+            functions: {
+                mach_task_self: [
+                    "uint",
+                    []
+                ],
+            }
+        }
     ];
 
     cachedPrivateAPI = makeAPI(pending);
