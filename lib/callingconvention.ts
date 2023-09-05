@@ -31,7 +31,7 @@ import {
     moveValueToBuffer,
 } from "./buffer";
 
-export type NativeSwiftType = TargetMetadata | ProtocolComposition | NativeType;
+export type NativeSwiftType = TargetMetadata | ProtocolComposition | NativeFunctionReturnType | NativeFunctionArgumentType;
 export const MAX_LOADABLE_SIZE = Process.pointerSize * 4;
 export const INDRIECT_RETURN_REGISTER = "x8";
 
@@ -86,7 +86,7 @@ export function makeSwiftNativeFunction(
     throws?: boolean
 ): SwiftNativeFunction {
     const loweredArgType = argTypes.map((ty) => lowerSemantically(ty));
-    const loweredRetType = lowerSemantically(retType);
+    const loweredRetType = lowerSemantically(retType) as NativeFunctionReturnType;
 
     const swiftcallWrapper = new SwiftcallNativeFunction(
         address,
@@ -167,11 +167,11 @@ export function makeSwiftNativeFunction(
             switch (retType.getKind()) {
                 case MetadataKind.Struct:
                     return new StructValue(retType as TargetStructMetadata, {
-                        raw: retval,
+                        raw: retval as PointerSized[],
                     });
                 case MetadataKind.Enum:
                     return new EnumValue(retType as TargetEnumMetadata, {
-                        raw: retval,
+                        raw: retval as PointerSized[],
                     });
                 case MetadataKind.Class:
                     return new ObjectInstance(retval as NativePointer);
@@ -180,14 +180,14 @@ export function makeSwiftNativeFunction(
             }
         }
 
-        const buf = makeBufferFromValue(retval);
+        const buf = makeBufferFromValue(retval as PointerSized[]);
         return ValueInstance.fromExistentialContainer(buf, retType);
     };
 
     return Object.assign(wrapper, { address });
 }
 
-function lowerSemantically(type: NativeSwiftType): NativeType {
+function lowerSemantically(type: NativeSwiftType): NativeFunctionReturnType | NativeFunctionArgumentType {
     if (typeof type === "string" || Array.isArray(type)) {
         return type;
     }
@@ -287,16 +287,16 @@ class StrongQueue<T> {
 
 export class SwiftcallNativeFunction {
     #argumentBuffers: StrongQueue<NativePointer>;
-    #resultType: NativeType;
+    #resultType: NativeFunctionReturnType;
     #returnBufferSize?: number;
     #returnBuffer?: NativePointer;
     #extraBuffer: NativePointer;
-    #nativeFunction: NativeFunction;
+    #nativeFunction: NativeFunction<any, any>;
 
     constructor(
         target: NativePointer,
-        resultType: NativeType,
-        argTypes: NativeType[],
+        resultType: NativeFunctionReturnType,
+        argTypes: NativeFunctionArgumentType[],
         context?: NativePointer,
         errorResult?: NativePointer
     ) {
@@ -387,7 +387,7 @@ export class SwiftcallNativeFunction {
         );
     }
 
-    wrapper = (...args: NativeArgumentValue[]) => {
+    wrapper = (...args: NativeFunctionArgumentValue[]) => {
         /* TODO: Type-check args */
 
         this.#argumentBuffers.resetCursor();
@@ -395,7 +395,7 @@ export class SwiftcallNativeFunction {
             .map((arg) => {
                 if (Array.isArray(arg) && arg.length > 4) {
                     const argBuf = this.#argumentBuffers.dequeue();
-                    moveValueToBuffer(arg, argBuf);
+                    moveValueToBuffer(arg as Int64[], argBuf);
 
                     return argBuf;
                 }
@@ -410,7 +410,7 @@ export class SwiftcallNativeFunction {
             return undefined;
         }
 
-        const result: NativeReturnValue[] = [];
+        const result: NativeFunctionReturnValue[] = [];
 
         if (!Array.isArray(this.#resultType)) {
             return this.#returnBuffer.readValue(this.#resultType);
@@ -425,20 +425,20 @@ export class SwiftcallNativeFunction {
         return result;
     };
 
-    call(...args: NativeArgumentValue[]): NativeReturnValue[] {
+    call(...args: NativeFunctionArgumentValue[]): NativeFunctionReturnValue {
         return this.wrapper(args);
     }
 }
 
 declare global {
     interface NativePointer {
-        readValue(type: NativeType);
+        readValue(type: NativeFunctionReturnType | string): NativeFunctionReturnValue;
     }
 }
 
 NativePointer.prototype.readValue = function (
-    type: NativeType
-): NativeReturnValue {
+    type: NativeFunctionReturnType | "string"
+): NativeFunctionReturnValue {
     switch (type) {
         case "pointer":
             return this.readPointer();

@@ -4,8 +4,7 @@
         "target": "es2020",
         "module": "commonjs",
         "declaration": true,
-        "outDir": "./dist",
-        "typeRoots": ["node_modules/@types"]
+        "outDir": "./dist"
     },
     "include": ["./*.ts", "lib/*.ts", "abi/*.ts"],
     "exclude": ["node_modules", "dist"]

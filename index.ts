@@ -29,7 +29,7 @@ import { Registry, SwiftModule } from "./lib/registry";
 import { SwiftInterceptor } from "./lib/interceptor";
 import { getSymbolicator } from "./lib/symbols";
 
-type ConvenientSwiftType = Type | Protocol | ProtocolComposition | NativeType;
+type ConvenientSwiftType = Type | Protocol | ProtocolComposition | NativeFunctionReturnType | NativeFunctionArgumentType;
 
 class Runtime {
     #api: API = null;

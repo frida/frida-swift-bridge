@@ -429,7 +429,7 @@ export class TargetTypeContextDescriptor extends TargetContextDescriptor {
         return this.fields !== null;
     }
 
-    getAccessFunction(): NativeFunction {
+    getAccessFunction(): NativeFunction<NativePointer, []> {
         return new NativeFunction(this.accessFunctionPointer, "pointer", []);
     }
 

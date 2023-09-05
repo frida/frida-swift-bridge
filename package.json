@@ -17,7 +17,8 @@
     "author": "Abdelrahman Eid (@hot3eed)",
     "license": "Apache-2.0",
     "devDependencies": {
-        "@types/frida-gum": "^16.5.0",
+        "@types/frida-gum": "^18.4.2",
+        "@types/node": "^20.5.9",
         "@typescript-eslint/eslint-plugin": "^4.30.0",
         "@typescript-eslint/parser": "^4.30.0",
         "eslint": "^7.32.0",
