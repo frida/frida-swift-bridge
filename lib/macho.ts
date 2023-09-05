@@ -178,7 +178,7 @@ function enumerateTypeDescriptors(
                 descriptor = new TargetEnumDescriptor(ctxDescPtr);
                 break;
             default:
-                throw new Error(`Unhandled context descriptor kind: ${kind}`);
+                continue;
         }
 
         result.push(descriptor);
@@ -237,6 +237,9 @@ function bindProtocolConformances(module: Module) {
         }
 
         const type = fullTypeDataMap[typeDesc.getFullTypeName()];
+        if (type === undefined) {
+            continue;
+        }
         const conformance = {
             protocol: protocolDesc,
             witnessTable: conformanceDesc.witnessTablePattern,
