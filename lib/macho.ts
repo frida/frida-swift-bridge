@@ -152,7 +152,7 @@ function enumerateTypeDescriptors(
     module: Module
 ): TargetTypeContextDescriptor[] {
     const result: TargetTypeContextDescriptor[] = [];
-    const section = getSwif5TypesSection(module);
+    const section = getSwift5TypesSection(module);
     const nTypes = section.size / RelativeDirectPointer.sizeOf;
 
     for (let i = 0; i < nTypes; i++) {
@@ -249,7 +249,7 @@ function bindProtocolConformances(module: Module) {
     }
 }
 
-function getSwif5TypesSection(module: Module): MachOSection {
+function getSwift5TypesSection(module: Module): MachOSection {
     return getMachoSection(module, "__swift5_types");
 }
 
