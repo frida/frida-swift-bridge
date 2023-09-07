@@ -9,7 +9,7 @@
  *  - inout params
  */
 
-import { getApi, API, getPrivateAPI } from "./lib/api";
+import { getApi, Api, getPrivateAPI } from "./lib/api";
 import {
     Class,
     Struct,
@@ -32,7 +32,7 @@ import { getSymbolicator } from "./lib/symbols";
 type ConvenientSwiftType = Type | Protocol | ProtocolComposition | NativeFunctionReturnType | NativeFunctionArgumentType;
 
 class Runtime {
-    #api: API = null;
+    #api: Api = null;
     #initializatioError: Error = null;
 
     constructor() {
@@ -51,7 +51,7 @@ class Runtime {
         }
     }
 
-    get api(): API {
+    get api(): Api {
         return this.#api;
     }
 

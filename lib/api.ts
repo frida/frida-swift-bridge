@@ -1,14 +1,14 @@
-export interface API {
+export interface Api {
     // eslint-disable-next-line @typescript-eslint/ban-types
     [func: string]: Function;
 }
 
-const CSTypeRef = ["pointer", "pointer"];
+const CSTypeRef: NativeFunctionReturnType = ["pointer", "pointer"];
 
-let cachedApi: API = null;
-let cachedPrivateAPI: API = null;
+let cachedApi: Api = null;
+let cachedPrivateAPI: Api = null;
 
-export function getApi(): API {
+export function getApi(): Api {
     if (Process.arch !== "arm64" || Process.platform  !== "darwin") {
         throw new Error("Only arm64(e) Darwin is currently supported");
     }
@@ -17,7 +17,7 @@ export function getApi(): API {
         return cachedApi;
     }
 
-    const pending = [
+    cachedApi = makeAPI([
         {
             module: "libswiftCore.dylib",
             functions: {
@@ -25,35 +25,24 @@ export function getApi(): API {
                     "pointer",
                     ["pointer", "size_t", "pointer", "pointer", "int32"],
                 ],
-                /** This one uses Swiftcall actually but we we're lucky the
-                 * registers are the same as SystemV for this particular case.
-                 */
-                swift_stdlib_getTypeByMangledNameUntrusted: [
-                    "pointer",
-                    ["pointer", "size_t"],
-                ],
             },
         },
-    ];
+    ]);
 
-    cachedApi = makeAPI(pending);
-
-    const pendingSwift = [
+    const swiftAPI = makeAPI([
         {
             module: "libswiftCore.dylib",
             functions: {
                 swift_allocBox: [["pointer", "pointer"], ["pointer"]],
             },
         },
-    ];
-
-    const swiftAPI = makeAPI(pendingSwift);
+    ]);
     cachedApi = Object.assign(cachedApi, swiftAPI);
 
     return cachedApi;
 }
 
-export function getPrivateAPI(): API {
+export function getPrivateAPI(): Api {
     if (cachedPrivateAPI !== null) {
         return cachedPrivateAPI;
     }
@@ -66,7 +55,7 @@ export function getPrivateAPI(): API {
         Module.load("/System/Library/PrivateFrameworks/CoreSymbolication.framework/Versions/A/CoreSymbolication");
     }
 
-    const pending = [
+    cachedPrivateAPI = makeAPI([
         {
             module: "libmacho.dylib",
             functions: {
@@ -114,37 +103,30 @@ export function getPrivateAPI(): API {
                 ],
             }
         }
-    ];
+    ]);
 
-    cachedPrivateAPI = makeAPI(pending);
     return cachedPrivateAPI;
 }
 
-function makeAPI(exports: any): API {
-    const result: API = {};
+type ApiSpec = ApiSpecEntry[];
 
-    exports.forEach((api) => {
-        const functions = api.functions || {};
-        const module = Process.getModuleByName(api.module);
+interface ApiSpecEntry {
+    module: string;
+    functions: Record<string, [NativeFunctionReturnType, NativeFunctionArgumentType[]]>;
+}
 
-        Object.keys(functions).forEach((name) => {
-            Module.ensureInitialized(module.name);
+function makeAPI(spec: ApiSpec): Api {
+    const result: Api = {};
 
-            const exp =
-                module.findExportByName(name) ||
-                DebugSymbol.fromName(name).address;
+    for (const entry of spec) {
+        const module = Process.getModuleByName(entry.module);
+        Module.ensureInitialized(module.name);
 
-            if (exp.isNull()) {
-                throw new Error(`Unable to find API: ${name}`);
-            }
-
-            const returnType = functions[name][0];
-            const argumentTypes = functions[name][1];
-            const native = new NativeFunction(exp, returnType, argumentTypes);
-
-            result[name] = native;
-        });
-    });
+        for (const [name, [returnType, argumentTypes]] of Object.entries(entry.functions)) {
+            const impl = module.getExportByName(name);
+            result[name] = new NativeFunction(impl, returnType, argumentTypes);
+        }
+    }
 
     return result;
 }
