@@ -229,9 +229,7 @@ export function getSymbolicator(): CSSymbolicator {
 
     cachedSymbolicator = symbolicator;
 
-    // FIXME: Remove this `Script as any` hack once we've moved to the latest @types/frida-gum.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (Script as any).bindWeak(cachedSymbolicator, releaseSymbolicator);
+    Script.bindWeak(cachedSymbolicator, releaseSymbolicator);
 
     return symbolicator;
 }
