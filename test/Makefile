@@ -1,9 +1,9 @@
 RUNNER_ARGS ?=
 
-frida_version := 15.1.3
+frida_version := 16.1.4
 
 cflags := -Wall -pipe -Os -g
-ldflags := -Wl, -framework Foundation -lfrida-gumjs -lresolv -Wl,-dead_strip
+ldflags := -Wl, -framework Foundation -lfrida-gumjs -lresolv -lc++ -Wl,-dead_strip
 
 macos_cc := $(shell xcrun --sdk macosx -f clang)
 macos_swift := $(shell xcrun --sdk macosx -f swift)

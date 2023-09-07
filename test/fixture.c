@@ -164,8 +164,7 @@ test_message_item_free (TestMessageItem * item)
 }
 
 static void
-test_fixture_store_message (GumScript * script,
-                            const gchar * message,
+test_fixture_store_message (const gchar * message,
                             GBytes * data,
                             gpointer user_data)
 {
@@ -286,7 +285,7 @@ test_fixture_compile_and_load_script (TestFixture * fixture,
       NULL);
 
   fixture->script = gum_script_backend_create_sync (fixture->backend,
-      "testcase", source, NULL, &err);
+      "testcase", source, NULL, NULL, &err);
   if (err != NULL)
     g_printerr ("%s\n", err->message);
   g_assert (fixture->script != NULL);
