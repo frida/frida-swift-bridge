@@ -70,7 +70,6 @@ if (Process.arch === "arm64" && Process.platform === "darwin") {
     }
 }
 
-
 export function getAllFullTypeData(): FullTypeData[] {
     return Object.values(fullTypeDataMap);
 }
