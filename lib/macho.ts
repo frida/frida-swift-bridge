@@ -10,7 +10,7 @@ import {
 import { ContextDescriptorKind } from "../abi/metadatavalues";
 import { getPrivateAPI } from "./api";
 import { RelativeDirectPointer } from "../basic/relativepointer";
-import { demangledSymbolFromAddress } from "./symbols";
+import { demangledSymbolFromAddress, findProtocolNameInConformanceDescriptor } from "./symbols";
 
 interface MachOSection {
     vmAddress: NativePointer;
@@ -22,7 +22,11 @@ interface ProtocolDescriptorMap {
 }
 
 export interface ProtocolConformance {
-    protocol: TargetProtocolDescriptor;
+    /**
+     * A protocol that's defined externally might be undefined when it's imported as a weak symbol, e.g. for
+     * backward compatability. This field will be null in that case to reflect that fact.
+     */
+    protocol: TargetProtocolDescriptor | null;
     witnessTable: NativePointer;
 }
 
@@ -218,9 +222,6 @@ function bindProtocolConformances(module: Module) {
         );
         const typeDescPtr = conformanceDesc.getTypeDescriptor();
         const typeDesc = new TargetTypeContextDescriptor(typeDescPtr);
-        const protocolDesc = new TargetProtocolDescriptor(
-            conformanceDesc.protocol
-        );
 
         /** TODO:
          *  - Handle ObjC case explicitly
@@ -239,12 +240,28 @@ function bindProtocolConformances(module: Module) {
         if (type === undefined) {
             continue;
         }
-        const conformance = {
-            protocol: protocolDesc,
-            witnessTable: conformanceDesc.witnessTablePattern,
-        };
 
-        type.conformances[protocolDesc.name] = conformance;
+        if (conformanceDesc.protocol.isNull()) {
+            const mangledSymbol = demangledSymbolFromAddress(descPtr);
+            const protocolName = findProtocolNameInConformanceDescriptor(mangledSymbol);
+
+            if (protocolName == null) {
+                console.warn(`Failed to parse protocol name from conformance descriptor '${mangledSymbol}'. Please file a bug.`);
+                continue;
+            }
+
+            type.conformances[protocolName] = {
+                protocol: null,
+                witnessTable: null,
+            };
+        } else {
+            const protocolDesc = new TargetProtocolDescriptor(conformanceDesc.protocol);
+
+            type.conformances[protocolDesc.name] = {
+                protocol: protocolDesc,
+                witnessTable: conformanceDesc.witnessTablePattern,
+            };
+        }
     }
 }
 
