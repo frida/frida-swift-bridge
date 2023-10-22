@@ -23,8 +23,8 @@ interface ProtocolDescriptorMap {
 
 export interface ProtocolConformance {
     /**
-     * A protocol that's defined externally might be undefined when it's imported as a weak symbol, e.g. for
-     * backward compatability. This field will be null in that case to reflect that fact.
+     * An externally-defined protocol that's imported as a weak symbol (e.g. for backward compatibility) might be
+     * undefined on some systems. This field will be null in that case to reflect that fact.
      */
     protocol: TargetProtocolDescriptor | null;
     witnessTable: NativePointer;
