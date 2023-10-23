@@ -247,7 +247,7 @@ function bindProtocolConformances(module: Module) {
             const mangledSymbol = demangledSymbolFromAddress(descPtr);
             const protocolName = findProtocolNameInConformanceDescriptor(mangledSymbol);
 
-            if (protocolName == null) {
+            if (protocolName === null) {
                 console.warn(`Failed to parse protocol name from conformance descriptor '${mangledSymbol}'. Please file a bug.`);
                 continue;
             }

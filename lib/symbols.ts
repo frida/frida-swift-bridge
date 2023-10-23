@@ -238,7 +238,7 @@ export function findProtocolNameInConformanceDescriptor(conformance: string): st
     const regex = /protocol conformance descriptor for \S+ : \S+\.(\S+) in \S+/g;
     const matches = regex.exec(conformance);
 
-    if (matches == null || matches.length != 2) {
+    if (matches === null || matches.length != 2) {
         return null;
     }
 
