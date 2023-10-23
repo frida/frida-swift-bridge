@@ -243,7 +243,7 @@ function bindProtocolConformances(module: Module) {
 
         if (conformanceDesc.protocol.isNull()) {
             /* Since we can't read the protocol's name via its conformance descriptor, we try to extract it via the
-            conformance descritpor's symbol. */
+            conformance descriptor's symbol. */
             const mangledSymbol = demangledSymbolFromAddress(descPtr);
             const protocolName = findProtocolNameInConformanceDescriptor(mangledSymbol);
 
