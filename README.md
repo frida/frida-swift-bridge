@@ -19,7 +19,7 @@ bridge from git, as there might be fixes or patches that haven't made it to the 
 ```
 $ git clone git@github.com:frida/frida-swift-bridge.git
 $ cd frida-swift-bridge
-$ npm run install
+$ npm install
 $ npm run watch
 $ frida <process name> -l _agent.js # In another terminal
 ```
