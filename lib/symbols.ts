@@ -234,6 +234,17 @@ export function getSymbolicator(): CSSymbolicator {
     return symbolicator;
 }
 
+export function findProtocolNameInConformanceDescriptor(conformance: string): string | null {
+    const regex = /protocol conformance descriptor for \S+ : \S+\.(\S+) in \S+/g;
+    const matches = regex.exec(conformance);
+
+    if (matches === null) {
+        return null;
+    }
+
+    return matches[1];
+}
+
 function releaseSymbolicator() {
     getPrivateAPI().CSRelease(cachedSymbolicator);
 }
