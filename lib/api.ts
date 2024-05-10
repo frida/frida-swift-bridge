@@ -49,7 +49,7 @@ export function getPrivateAPI(): Api {
 
     Module.ensureInitialized("CoreFoundation");
 
-    if (Process.findModuleByName("CoreSymbolication") == null) {
+    if (Process.findModuleByName("CoreSymbolication") === null) {
         try {
             Module.load("/System/Library/PrivateFrameworks/CoreSymbolication.framework/CoreSymbolication");
         } catch (e) {
