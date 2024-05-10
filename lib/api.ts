@@ -49,10 +49,12 @@ export function getPrivateAPI(): Api {
 
     Module.ensureInitialized("CoreFoundation");
 
-    try {
-        Module.load("/System/Library/PrivateFrameworks/CoreSymbolication.framework/CoreSymbolication");
-    } catch (e) {
-        Module.load("/System/Library/PrivateFrameworks/CoreSymbolication.framework/Versions/A/CoreSymbolication");
+    if (Process.findModuleByName("CoreSymbolication") === null) {
+        try {
+            Module.load("/System/Library/PrivateFrameworks/CoreSymbolication.framework/CoreSymbolication");
+        } catch (e) {
+            Module.load("/System/Library/PrivateFrameworks/CoreSymbolication.framework/Versions/A/CoreSymbolication");
+        }
     }
 
     cachedPrivateAPI = makeAPI([
