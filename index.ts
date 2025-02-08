@@ -9,7 +9,7 @@
  *  - inout params
  */
 
-import { getApi, Api, getPrivateAPI } from "./lib/api";
+import { getApi, Api, getPrivateAPI } from "./lib/api.js";
 import {
     Class,
     Struct,
@@ -20,14 +20,14 @@ import {
     ObjectInstance,
     StructValue,
     Type,
-} from "./lib/types";
+} from "./lib/types.js";
 import {
     makeSwiftNativeFunction,
     NativeSwiftType,
-} from "./lib/callingconvention";
-import { Registry, SwiftModule } from "./lib/registry";
-import { SwiftInterceptor } from "./lib/interceptor";
-import { getSymbolicator } from "./lib/symbols";
+} from "./lib/callingconvention.js";
+import { Registry, SwiftModule } from "./lib/registry.js";
+import { SwiftInterceptor } from "./lib/interceptor.js";
+import { getSymbolicator } from "./lib/symbols.js";
 
 type ConvenientSwiftType = Type | Protocol | ProtocolComposition | NativeFunctionReturnType | NativeFunctionArgumentType;
 
@@ -125,7 +125,7 @@ class Runtime {
             getPrivateAPI()
             getSymbolicator();
         } catch (e) {
-            this.#initializatioError = e;
+            this.#initializatioError = e as Error;
             throw e;
         }
 
@@ -133,4 +133,4 @@ class Runtime {
     }
 }
 
-export = new Runtime();
+export default new Runtime();

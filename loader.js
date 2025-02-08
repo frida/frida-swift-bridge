@@ -1,4 +1,5 @@
-const Swift = require("./dist");
+import Swift from './index.js';
+
 Object.defineProperty(global, "Swift", {
     value: Swift,
     configurable: true,

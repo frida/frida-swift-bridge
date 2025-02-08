@@ -1,4 +1,4 @@
-import { RelativeDirectPointer } from "../basic/relativepointer";
+import { RelativeDirectPointer } from "../basic/relativepointer.js";
 
 export class FieldDescriptor {
     static readonly SIZE = 16;

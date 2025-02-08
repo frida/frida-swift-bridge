@@ -3,20 +3,20 @@ import {
     TargetEnumMetadata,
     TargetStructMetadata,
     TargetValueMetadata,
-} from "../abi/metadata";
-import { MetadataKind } from "../abi/metadatavalues";
-import { makeBufferFromValue, RawFields, sizeInQWordsRounded } from "./buffer";
+} from "../abi/metadata.js";
+import { MetadataKind } from "../abi/metadatavalues.js";
+import { makeBufferFromValue, RawFields, sizeInQWordsRounded } from "./buffer.js";
 import {
     INDRIECT_RETURN_REGISTER,
     MAX_LOADABLE_SIZE,
     shouldPassIndirectly,
-} from "./callingconvention";
+} from "./callingconvention.js";
 import {
     findProtocolDescriptor,
     getDemangledSymbol,
     untypedMetadataFor,
-} from "./macho";
-import { parseSwiftMethodSignature } from "./symbols";
+} from "./macho.js";
+import { parseSwiftMethodSignature } from "./symbols.js";
 import {
     EnumValue,
     ObjectInstance,
@@ -24,7 +24,7 @@ import {
     RuntimeInstance,
     StructValue,
     ValueInstance,
-} from "./types";
+} from "./types.js";
 
 type InvocationOnLeaveCallback = (
     this: InvocationContext,
@@ -55,7 +55,7 @@ export namespace SwiftInterceptor {
             this: InvocationContext,
             args: InvocationArguments
         ) {
-            indirectRetAddr = this.context[INDRIECT_RETURN_REGISTER];
+            indirectRetAddr = (this.context as Arm64CpuContext)[INDRIECT_RETURN_REGISTER];
 
             if (callbacks.onEnter !== undefined) {
                 const swiftyArgs: RuntimeInstance[] = [];
@@ -124,6 +124,8 @@ export namespace SwiftInterceptor {
                 this: InvocationContext,
                 retval: InvocationReturnValue
             ) {
+                type register = `x${number}` & keyof Arm64CpuContext
+
                 const retTypeName = parsed.retTypeName;
                 let swiftyRetval: RuntimeInstance;
 
@@ -137,7 +139,7 @@ export namespace SwiftInterceptor {
                         const sizeQWords = sizeInQWordsRounded(size);
                         const raw: RawFields = [];
                         for (let i = 0; i != sizeQWords; i++) {
-                            raw.push(this.context[`x${i}`]);
+                            raw.push((this.context as Arm64CpuContext)[`x${i}` as register]);
                         }
                         buf = makeBufferFromValue(raw);
                     } else {
@@ -165,7 +167,7 @@ export namespace SwiftInterceptor {
                             const raw: RawFields = [];
 
                             for (let i = 0; i < sizeQWords; i++) {
-                                raw.push(this.context[`x${i}`]);
+                                raw.push((this.context as Arm64CpuContext)[`x${i}` as register]);
                             }
 
                             swiftyRetval = ValueInstance.fromRaw(

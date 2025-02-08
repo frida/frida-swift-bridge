@@ -12,24 +12,24 @@ import {
     RuntimeInstance,
     StructValue,
     ValueInstance,
-} from "./types";
+} from "./types.js";
 import {
     TargetEnumMetadata,
     TargetMetadata,
     TargetStructMetadata,
     TargetValueMetadata,
-} from "../abi/metadata";
+} from "../abi/metadata.js";
 import {
     ClassExistentialContainer,
     TargetOpaqueExistentialContainer,
-} from "../runtime/existentialcontainer";
-import { getProtocolConformancesFor } from "./macho";
-import { MetadataKind } from "../abi/metadatavalues";
+} from "../runtime/existentialcontainer.js";
+import { getProtocolConformancesFor } from "./macho.js";
+import { MetadataKind } from "../abi/metadatavalues.js";
 import {
     makeBufferFromValue,
     makeValueFromBuffer,
     moveValueToBuffer,
-} from "./buffer";
+} from "./buffer.js";
 
 export type NativeSwiftType = TargetMetadata | ProtocolComposition | NativeFunctionReturnType | NativeFunctionArgumentType;
 export const MAX_LOADABLE_SIZE = Process.pointerSize * 4;
@@ -410,7 +410,7 @@ export class SwiftcallNativeFunction {
             return undefined;
         }
 
-        const result: NativeFunctionReturnValue[] = [];
+        const result: Array<ReadValueType> = [];
 
         if (!Array.isArray(this.#resultType)) {
             return this.#returnBuffer.readValue(this.#resultType);
@@ -425,20 +425,62 @@ export class SwiftcallNativeFunction {
         return result;
     };
 
-    call(...args: NativeFunctionArgumentValue[]): NativeFunctionReturnValue {
+    call(...args: NativeFunctionArgumentValue[]): ReadValueType | Array<ReadValueType> | undefined{
         return this.wrapper(args);
     }
 }
 
+type ReadValueType = NativePointer | string | number | Int64 | null;
+
 declare global {
     interface NativePointer {
-        readValue(type: NativeFunctionReturnType | string): NativeFunctionReturnValue;
+        readValue(type: "pointer"): NativePointer;
+        readValue(type: "string"): string | null;
+        readValue(type: "int" | "uint" | "int8" | "uint8" | "int16" | "uint16" | "int32" | "uint32"): number;
+        readValue(type: "long" | "ulong"): number | Int64;
+        readValue(
+            type: Exclude<
+                NativeFunctionReturnType,
+                | "pointer"
+                | "string"
+                | "int"
+                | "uint"
+                | "int8"
+                | "uint8"
+                | "int16"
+                | "uint16"
+                | "int32"
+                | "uint32"
+                | "long"
+                | "ulong"
+            >
+        ): never;
+        readValue(type: NativeFunctionReturnType | "string"): NativePointer | string | number | Int64 | null;
     }
 }
 
-NativePointer.prototype.readValue = function (
-    type: NativeFunctionReturnType | "string"
-): NativeFunctionReturnValue {
+function readValue(type: "pointer"): NativePointer;
+function readValue(type: "string"): string | null;
+function readValue(type: "int" | "uint" | "int8" | "uint8" | "int16" | "uint16" | "int32" | "uint32"): number;
+function readValue(type: "long" | "ulong"): number | Int64;
+function readValue(
+    type: Exclude<
+        NativeFunctionReturnType,
+        | "pointer"
+        | "string"
+        | "int"
+        | "uint"
+        | "int8"
+        | "uint8"
+        | "int16"
+        | "uint16"
+        | "int32"
+        | "uint32"
+        | "long"
+        | "ulong"
+    >
+): never;
+function readValue(this: NativePointer, type: NativeFunctionReturnType | "string"): NativePointer | string | number | Int64 | null {
     switch (type) {
         case "pointer":
             return this.readPointer();
@@ -471,4 +513,6 @@ NativePointer.prototype.readValue = function (
         default:
             throw new Error(`Unimplemented type: ${type}`);
     }
-};
+}
+
+NativePointer.prototype.readValue = readValue;

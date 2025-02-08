@@ -15,13 +15,13 @@ import {
     ConformanceFlags,
     getEnumeratedMetadataKind,
     ProtocolContextDescriptorFlags,
-} from "./metadatavalues";
+} from "./metadatavalues.js";
 import {
     RelativeDirectPointer,
     RelativeIndirectablePointer,
-} from "../basic/relativepointer";
-import { BoxPair } from "../runtime/heapobject";
-import { getApi } from "../lib/api";
+} from "../basic/relativepointer.js";
+import { BoxPair } from "../runtime/heapobject.js";
+import { getApi } from "../lib/api.js";
 
 export type OpaqueValue = NativePointer;
 

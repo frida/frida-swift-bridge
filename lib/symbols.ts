@@ -3,7 +3,7 @@
  *  - Move to registry.ts
  */
 
-import { getApi, getPrivateAPI } from "../lib/api";
+import { getApi, getPrivateAPI } from "../lib/api.js";
 
 export interface SimpleSymbolDetails {
     address: string;

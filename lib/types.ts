@@ -15,34 +15,34 @@ import {
     TargetStructMetadata,
     TargetTypeContextDescriptor,
     TargetValueMetadata,
-} from "../abi/metadata";
+} from "../abi/metadata.js";
 import {
     MetadataKind,
     MethodDescriptorKind,
     ProtocolClassConstraint,
-} from "../abi/metadatavalues";
+} from "../abi/metadatavalues.js";
 import {
     parseSwiftAccessorSignature,
     parseSwiftMethodSignature,
     tryDemangleSymbol,
     tryParseSwiftMethodSignature,
-} from "../lib/symbols";
-import { makeSwiftNativeFunction } from "./callingconvention";
-import { HeapObject } from "../runtime/heapobject";
-import { RawFields, makeBufferFromValue } from "./buffer";
+} from "../lib/symbols.js";
+import { makeSwiftNativeFunction } from "./callingconvention.js";
+import { HeapObject } from "../runtime/heapobject.js";
+import { RawFields, makeBufferFromValue } from "./buffer.js";
 import {
     findDemangledSymbol,
     getProtocolDescriptor,
     metadataFor,
     ProtocolConformanceMap,
     untypedMetadataFor,
-} from "./macho";
-import { FieldDescriptor } from "../reflection/records";
-import { RelativeDirectPointer } from "../basic/relativepointer";
+} from "./macho.js";
+import { FieldDescriptor } from "../reflection/records.js";
+import { RelativeDirectPointer } from "../basic/relativepointer.js";
 import {
     ClassExistentialContainer,
     TargetOpaqueExistentialContainer,
-} from "../runtime/existentialcontainer";
+} from "../runtime/existentialcontainer.js";
 
 type SwiftTypeKind = "Class" | "Enum" | "Struct";
 
@@ -600,7 +600,7 @@ export class ObjectInstance extends RuntimeInstance {
                     Object.defineProperty(this, parsed.memberName, {
                         configurable: true,
                         enumerable: true,
-                        set: setter as (any) => void,
+                        set: setter as (value: any) => void,
                     });
                     break;
                 }
@@ -727,7 +727,7 @@ function resolveSymbolicReferences(symbol: NativePointer): string {
     const base = symbol;
     let end = base;
     let endValue = end.readU8();
-    let contextDescriptor: TargetTypeContextDescriptor = null;
+    let contextDescriptor: TargetTypeContextDescriptor | null = null;
 
     while (endValue !== 0) {
         if (endValue >= 0x01 && endValue <= 0x17) {

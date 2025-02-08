@@ -1,10 +1,12 @@
 {
     "compilerOptions": {
-        "lib": ["es2020"],
-        "target": "es2020",
-        "module": "commonjs",
+        "lib": ["ES2022"],
+        "target": "ES2022",
+        "module": "Node16",
+        "moduleResolution": "Node16",
         "declaration": true,
-        "outDir": "./dist"
+        "outDir": "./dist",
+        "strictNullChecks": false
     },
     "include": ["./*.ts", "lib/*.ts", "abi/*.ts"],
     "exclude": ["node_modules", "dist"]
