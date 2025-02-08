@@ -6,11 +6,11 @@ import {
     TargetEnumDescriptor,
     TargetMetadata,
     TargetProtocolConformanceDescriptor,
-} from "../abi/metadata";
-import { ContextDescriptorKind } from "../abi/metadatavalues";
-import { getPrivateAPI } from "./api";
-import { RelativeDirectPointer } from "../basic/relativepointer";
-import { demangledSymbolFromAddress, findProtocolNameInConformanceDescriptor } from "./symbols";
+} from "../abi/metadata.js";
+import { ContextDescriptorKind } from "../abi/metadatavalues.js";
+import { getPrivateAPI } from "./api.js";
+import { RelativeDirectPointer } from "../basic/relativepointer.js";
+import { demangledSymbolFromAddress, findProtocolNameInConformanceDescriptor } from "./symbols.js";
 
 interface MachOSection {
     vmAddress: NativePointer;

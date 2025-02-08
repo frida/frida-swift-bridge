@@ -1,1 +1,2 @@
-global.LocalSwift = require("../dist");
+import LocalSwift from 'frida-swift-bridge';
+globalThis.LocalSwift = LocalSwift;

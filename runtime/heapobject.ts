@@ -1,4 +1,4 @@
-import { OpaqueValue, TargetMetadata } from "../abi/metadata";
+import { OpaqueValue, TargetMetadata } from "../abi/metadata.js";
 
 type HeapMetadata = TargetMetadata;
 

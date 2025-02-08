@@ -2,10 +2,10 @@ import {
     TargetClassDescriptor,
     TargetEnumDescriptor,
     TargetStructDescriptor,
-} from "../abi/metadata";
-import { ContextDescriptorKind } from "../abi/metadatavalues";
-import { getAllFullTypeData, getAllProtocolDescriptors } from "./macho";
-import { Class, Enum, Protocol, Struct, Type } from "./types";
+} from "../abi/metadata.js";
+import { ContextDescriptorKind } from "../abi/metadatavalues.js";
+import { getAllFullTypeData, getAllProtocolDescriptors } from "./macho.js";
+import { Class, Enum, Protocol, Struct, Type } from "./types.js";
 
 export type TypeMap = Record<string, Type>;
 export type ClassMap = Record<string, Class>;

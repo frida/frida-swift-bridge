@@ -3,6 +3,7 @@
     "version": "2.0.8",
     "description": "Swift runtime interop from Frida",
     "main": "./dist/index.js",
+    "type": "module",
     "types": "./dist/index.d.ts",
     "files": [
         "/dist/"
@@ -17,13 +18,13 @@
     "author": "Abdelrahman Eid (@hot3eed)",
     "license": "Apache-2.0",
     "devDependencies": {
-        "@types/frida-gum": "^18.4.2",
-        "@types/node": "^20.5.9",
+        "@types/frida-gum": "^18.7.2",
+        "frida-compile": "^16.4.1",
+        "@types/node": "^18.11.9",
         "@typescript-eslint/eslint-plugin": "^4.30.0",
         "@typescript-eslint/parser": "^4.30.0",
         "eslint": "^7.32.0",
-        "frida-compile": "^10.2.1",
         "prettier": "^2.3.2",
-        "typescript": "^4.4.2"
+        "typescript": "^5.7.3"
     }
 }
