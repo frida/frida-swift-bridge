@@ -47,7 +47,7 @@ export function getPrivateAPI(): Api {
         return cachedPrivateAPI;
     }
 
-    Module.ensureInitialized("CoreFoundation");
+    Process.getModuleByName("CoreFoundation").ensureInitialized();
 
     if (Process.findModuleByName("CoreSymbolication") === null) {
         try {
@@ -122,7 +122,7 @@ function makeAPI(spec: ApiSpec): Api {
 
     for (const entry of spec) {
         const module = Process.getModuleByName(entry.module);
-        Module.ensureInitialized(module.name);
+        module.ensureInitialized();
 
         for (const [name, [returnType, argumentTypes]] of Object.entries(entry.functions)) {
             const impl = module.getExportByName(name);
