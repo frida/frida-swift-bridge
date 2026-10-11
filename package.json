@@ -1,9 +1,13 @@
 {
   "name": "frida-swift-bridge",
   "version": "1.0.0",
-  "description": "A TypeScript library for Frida's GumJS runtime.",
-  "license": "ISC",
-  "author": "",
+  "description": "Swift runtime interop from Frida",
+  "keywords": [
+    "frida-gum",
+    "frida-gum-bridge"
+  ],
+  "license": "MIT",
+  "author": "Håvard Sørbø",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
