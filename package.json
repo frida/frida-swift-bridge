@@ -33,14 +33,12 @@
     "test:ios": "injest --target ios",
     "prepublishOnly": "npm run build"
   },
-  "dependencies": {
-    "frida": "^17.22.2",
-    "typescript": "^6.0.3"
-  },
   "devDependencies": {
     "@frida/injest": "^0.1.5",
     "@types/frida-gum": "^19.12.0",
-    "@types/node": "^26.1.0"
+    "@types/node": "^26.1.0",
+    "frida": "^17.22.2",
+    "typescript": "^6.0.3"
   },
   "allowScripts": {
     "frida@17.22.2": true
