@@ -1,6 +1,6 @@
 import { test, expect } from "@frida/injest/agent";
 
-import type { Protocol, ProtocolComposition } from "frida-swift-bridge2";
+import type { Protocol, ProtocolComposition } from "frida-swift-bridge";
 import Swift, {
   SwiftCoreApi,
   SwiftType,
@@ -31,7 +31,7 @@ import Swift, {
   NativeFunctionType,
   MarshalledFunctionOptions,
   SwiftError,
-} from "frida-swift-bridge2";
+} from "frida-swift-bridge";
 import {
   Metadata,
   ContextDescriptor,
@@ -48,7 +48,7 @@ import {
   makeSwiftNativeFunction,
   metadataOf,
   descriptorOf,
-} from "frida-swift-bridge2/abi";
+} from "frida-swift-bridge/abi";
 
 type _rootTypesAreImportable = [
   SwiftCoreApi, SwiftType, NominalType, StructType, EnumType, ClassType, TupleType,

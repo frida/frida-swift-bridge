@@ -12,7 +12,7 @@ The examples are written against plausible application types (`MyApp.Robot`,
 fixture in `tests/fixtures/`.
 
 ```js
-import Swift from "frida-swift-bridge2";
+import Swift from "frida-swift-bridge";
 
 if (Swift.available) {
     const NSDate = Swift.type("Foundation.Date");
@@ -23,8 +23,8 @@ if (Swift.available) {
 `Swift.available` is a side-effect-free presence check: reading it does not load
 or initialize `libswiftCore`. Call it before touching any other member.
 
-The package has two entry points. The root (`frida-swift-bridge2`) is the stable
-facade documented here. A second subpath, `frida-swift-bridge2/abi`, exposes the
+The package has two entry points. The root (`frida-swift-bridge`) is the stable
+facade documented here. A second subpath, `frida-swift-bridge/abi`, exposes the
 low-level Swift-ABI and reversing machinery; it is version-sensitive and not
 covered by this reference — see [Going lower: the `/abi` entry point](#going-lower-the-abi-entry-point).
 
@@ -1033,7 +1033,7 @@ source
 Loadable parameters (integers, booleans, pointers, `Double`), `String`, and
 buffer-style `(UnsafeRawBufferPointer) -> …` closures are supported. To throw
 out of a closure body, return a `SwiftThrow` (exported from
-`frida-swift-bridge2/abi`).
+`frida-swift-bridge/abi`).
 
 A method generic over its closure's result, `withUnsafeBytes<R>(_ body:
 (UnsafeRawBufferPointer) throws -> R) rethrows -> R` say, needs `R` as a type
@@ -1255,7 +1255,7 @@ A `throws` free function wrapped with `{ throws: true }` raises a
 property is the thrown error's pointer:
 
 ```js
-import Swift, { SwiftError } from "frida-swift-bridge2";
+import Swift, { SwiftError } from "frida-swift-bridge";
 
 const mightThrow = Swift.NativeFunction(addr, Int, [Int], { throws: true });
 mightThrow(0);    // 99
@@ -1450,7 +1450,7 @@ the raw calling convention, bind witness methods, or work with async task
 records — import the second entry point:
 
 ```js
-import { Metadata, ValueInstance, makeSwiftNativeFunction } from "frida-swift-bridge2/abi";
+import { Metadata, ValueInstance, makeSwiftNativeFunction } from "frida-swift-bridge/abi";
 ```
 
 `/abi` is an explicit allowlist of low-level types and helpers. It is

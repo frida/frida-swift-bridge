@@ -39,7 +39,7 @@ function requireFrida(minimum: number[]): void {
       return;
     }
     if (have < minimum[i]) {
-      throw new Error(`frida-swift-bridge2 requires Frida ${minimum.join(".")} or newer, running ${Frida.version}`);
+      throw new Error(`frida-swift-bridge requires Frida ${minimum.join(".")} or newer, running ${Frida.version}`);
     }
   }
 }
