@@ -1,6 +1,6 @@
 {
   "name": "frida-swift-bridge",
-  "version": "1.0.0",
+  "version": "4.0.0-preview.0",
   "description": "Swift runtime interop from Frida",
   "keywords": [
     "frida-gum",
