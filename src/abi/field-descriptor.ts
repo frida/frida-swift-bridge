@@ -19,6 +19,21 @@ export interface MangledName {
   length: number;
 }
 
+const SYMBOLIC_DIRECT_CONTEXT_DESCRIPTOR = 0x01;
+const SYMBOLIC_INDIRECT_CONTEXT_DESCRIPTOR = 0x02;
+
+export function leadingContextDescriptor(name: MangledName): ContextDescriptor | null {
+  const reference = name.address.add(1);
+  switch (name.address.readU8()) {
+    case SYMBOLIC_DIRECT_CONTEXT_DESCRIPTOR:
+      return new ContextDescriptor(RelativeDirectPointer.resolve(reference)!);
+    case SYMBOLIC_INDIRECT_CONTEXT_DESCRIPTOR:
+      return new ContextDescriptor(RelativeDirectPointer.resolve(reference)!.readPointer().strip());
+    default:
+      return null;
+  }
+}
+
 export function symbolicMangledNameLength(base: NativePointer): number {
   return scanSymbolicMangledName(base).length;
 }

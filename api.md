@@ -297,7 +297,8 @@ Every reflection object extends `SwiftType`:
   `"function"`, `"existential"`, `"objc-class"`, `"foreign-class"` or
   `"foreign-reference"`.
 - `info.moduleName`: the logical Swift module name.
-- `info.superClass`: the parent's reflection, or `null`.
+- `info.superClass`: the parent's reflection, or `null`. On a generic class
+  named without its arguments, the parent is named without its arguments too.
 - `info.toJSON()`: cheap identity `{ kind, name, module }`.
 
 A class, struct or enum is a `NominalType` (`ClassType`, `StructType`,
@@ -343,6 +344,9 @@ Kind-specific members:
 - `StructType.fields`: stored members as `{ name, type, isVar }`, `type` being
   the field type's reflection.
 - `EnumType.cases`: the cases as `{ name, type, isVar }`.
+
+On a generic type named without its arguments, `fields` and `cases` list the
+members with every `type` `null`, since those depend on the arguments.
 - `ClassType.isActor` / `ClassType.isDefaultActor`: actor classification.
 
 ```js

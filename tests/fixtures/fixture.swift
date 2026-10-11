@@ -949,6 +949,12 @@ extension Perchable where Self: Nocturnal {
 open class Coop<Hen> {
     public init() {}
 }
+public final class Hatchery<Egg>: Coop<Egg> {
+    public var clutch: [Egg] = []
+}
+public final class Roost<Bird>: NSObject {
+    public var perched: [Bird] = []
+}
 public final class HenCoop: Coop<Int>, Perchable {
     public func chirp() -> String { "cluck" }
 }

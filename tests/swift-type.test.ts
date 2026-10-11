@@ -320,6 +320,26 @@ describe("type-level member lookups by kind", () => {
     expect(label.address.equals(Keyed.$typeMethod("label").address)).toBe(true);
     expect(() => metadataOf(Keyed)).toThrow();
   });
+
+  test("a generic struct named without arguments lists its fields, untyped", () => {
+    const Keyed = Swift.struct("fixture.Keyed")!;
+    expect(Keyed.$type.fields).toEqual([{ name: "value", type: null, isVar: true }]);
+    expect(() => metadataOf(Keyed)).toThrow();
+  });
+
+  test("a generic enum named without arguments lists its cases, untyped", () => {
+    const Optional = Swift.enum("Swift.Optional")!;
+    expect(Optional.$type.cases).toEqual([{ name: "some", type: null, isVar: false }, { name: "none", type: null, isVar: false }]);
+    expect(() => metadataOf(Optional)).toThrow();
+  });
+
+  test("a generic class named without arguments names its superclass, itself unbound", () => {
+    const Hatchery = Swift.class("fixture.Hatchery")!;
+    expect(Hatchery.$type.superClass).toBe(Swift.class("fixture.Coop")!.$type);
+    expect(Swift.class("fixture.KeyedHolder")!.$type.superClass).toBeNull();
+    expect(Swift.class("fixture.Roost")!.$type.superClass).toBe(Swift.class("fixture.Starling")!.$type.superClass);
+    expect(() => metadataOf(Hatchery)).toThrow();
+  });
 });
 
 describe("type identity", () => {

@@ -2,6 +2,7 @@ import { ContextDescriptor, ContextDescriptorKind } from "./context-descriptor.j
 import { ClassMetadata } from "./class-metadata.js";
 import { getClassMetadataBounds } from "./class-metadata-bounds.js";
 import { genericContextEnd } from "./generic-instantiation.js";
+import { MangledName, symbolicMangledNameLength } from "./field-descriptor.js";
 import { RelativeDirectPointer } from "../basic/relative-pointer.js";
 
 export enum MethodDescriptorKind {
@@ -34,6 +35,7 @@ export enum TypeReferenceKind {
   IndirectObjCClass = 3,
 }
 
+const OFFSETOF_SUPERCLASS_TYPE = 0x14;
 // Trailing-object order: ResilientSuperclass, then Foreign xor SingletonMetadataInitialization, then VTableDescriptorHeader.
 const OFFSETOF_TRAILING_OBJECTS_START = 0x2c;
 const OFFSETOF_METADATA_NEGATIVE_SIZE_IN_WORDS = 0x18;
@@ -104,6 +106,11 @@ export function resilientSuperclassReferenceKind(descriptor: ContextDescriptor):
     (kindFlags(descriptor) >>> CLASS_RESILIENT_SUPERCLASS_REFERENCE_KIND_SHIFT) &
     CLASS_RESILIENT_SUPERCLASS_REFERENCE_KIND_MASK
   );
+}
+
+export function superclassTypeName(descriptor: ContextDescriptor): MangledName | null {
+  const name = RelativeDirectPointer.resolve(descriptor.handle.add(OFFSETOF_SUPERCLASS_TYPE));
+  return name === null ? null : { address: name, length: symbolicMangledNameLength(name) };
 }
 
 export function numImmediateMembers(descriptor: ContextDescriptor): number {

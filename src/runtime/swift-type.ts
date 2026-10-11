@@ -1,9 +1,9 @@
 import { Metadata, MetadataKind, getMetadata } from "../abi/metadata.js";
 import { ContextDescriptor, ContextDescriptorKind } from "../abi/context-descriptor.js";
 import { ClassMetadata, objcClassOf } from "../abi/class-metadata.js";
-import { isActor, isDefaultActor } from "../abi/class-descriptor.js";
+import { isActor, isDefaultActor, superclassTypeName } from "../abi/class-descriptor.js";
 import { SwiftObject } from "./object-facade.js";
-import { enumerateFields, fieldTypeIn } from "../abi/field-descriptor.js";
+import { enumerateFields, fieldTypeIn, leadingContextDescriptor } from "../abi/field-descriptor.js";
 import { makeSwiftNativeFunction, indirect } from "./calling-convention.js";
 import { parseSwiftSignature, symbolicate, resolveParsedType, resolveTypeExpr, resolveType, ParamConvention } from "./symbolication.js";
 import { specializedMetadataOf } from "./choose.js";
@@ -272,11 +272,7 @@ export class StructType extends NominalType {
   }
 
   get fields(): TypeMember[] {
-    const metadata = metadataOf(this);
-    return [...enumerateFields(metadata.description)].map((f) => {
-      const type = fieldTypeIn(metadata, f);
-      return { name: f.name, type: type === null ? null : typeOf(type), isVar: f.isVar };
-    });
+    return storedMembersOf(this);
   }
 }
 
@@ -286,12 +282,19 @@ export class EnumType extends NominalType {
   }
 
   get cases(): TypeMember[] {
-    const metadata = metadataOf(this);
-    return [...enumerateFields(metadata.description)].map((f) => {
-      const type = f.mangledTypeName !== null ? fieldTypeIn(metadata, f) : null;
-      return { name: f.name, type: type === null ? null : typeOf(type), isVar: f.isVar };
-    });
+    return storedMembersOf(this);
   }
+}
+
+function storedMembersOf(type: StructType | EnumType): TypeMember[] {
+  if (isUnboundGeneric(type)) {
+    return [...enumerateFields(descriptorOf(type))].map((f) => ({ name: f.name, type: null, isVar: f.isVar }));
+  }
+  const metadata = metadataOf(type);
+  return [...enumerateFields(metadata.description)].map((f) => {
+    const fieldType = fieldTypeIn(metadata, f);
+    return { name: f.name, type: fieldType === null ? null : typeOf(fieldType), isVar: f.isVar };
+  });
 }
 
 export class ClassType extends NominalType {
@@ -300,6 +303,9 @@ export class ClassType extends NominalType {
   }
 
   get superClass(): SwiftType | null {
+    if (isUnboundGeneric(this)) {
+      return unboundSuperclassOf(descriptorOf(this));
+    }
     const superclass = new ClassMetadata(metadataOf(this).handle).superclass;
     return superclass !== null && superclass.isTypeMetadata
       ? typeOf(new Metadata(superclass.handle))
@@ -317,6 +323,12 @@ export class ClassType extends NominalType {
   protected initializerSymbolName(): string {
     return "__allocating_init";
   }
+}
+
+function unboundSuperclassOf(descriptor: ContextDescriptor): SwiftType | null {
+  const name = superclassTypeName(descriptor);
+  const superDescriptor = name === null ? null : leadingContextDescriptor(name);
+  return superDescriptor === null ? null : typeFromDescriptor(superDescriptor);
 }
 
 export class ObjCClassWrapperType extends NominalType {
